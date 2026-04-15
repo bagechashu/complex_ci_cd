@@ -2,6 +2,9 @@
  * main.css - 全局样式
  */
 
+/* ============ 字体导入 ============ */
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
 /* ============ CSS Reset ============ */
 * {
   margin: 0;
@@ -12,69 +15,60 @@
 html,
 body {
   height: 100%;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
+  /* CRT 风格字体栈：优先使用等宽字体 */
+  font-family: 'JetBrains Mono', 'IBM Plex Mono', 'Courier New', 'Menlo', monospace;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  letter-spacing: 0.3px;
 }
 
 #app {
   width: 100%;
   height: 100%;
-  display: flex;
-  flex-direction: column;
+  position: relative;
 }
 
-/* ============ Layout ============ */
-.layout {
-  display: flex;
-  height: 100vh;
-}
-
-.layout-header {
-  height: 60px;
-  background: linear-gradient(
-    135deg,
-    #667eea 0%,
-    #764ba2 100%
+/* ============ CRT 扫描线遮罩效果 ============ */
+#app::after {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    0deg,
+    rgba(0, 0, 0, 0.04),
+    rgba(0, 0, 0, 0.04) 1px,
+    transparent 1px,
+    transparent 2px
   );
-  color: white;
-  display: flex;
-  align-items: center;
-  padding: 0 24px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  /* 多层阴影强化四角暗化 - 模拟 CRT 曲面屏幕 */
+  box-shadow: 
+    inset 0 0 60px rgba(0, 0, 0, 0.12),
+    inset 0 0 120px rgba(0, 0, 0, 0.08),
+    inset 0 0 200px rgba(0, 0, 0, 0.05);
+  z-index: 9999;
 }
 
-.layout-header h1 {
-  font-size: 20px;
-  font-weight: 600;
-  margin: 0;
+/* ============ Scrollbar ============ */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
 }
 
-.layout-content {
-  flex: 1;
-  overflow: auto;
-  padding: 24px;
-  background-color: #f5f7fa;
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
 }
 
-.layout-nav {
-  display: flex;
-  gap: 20px;
-  margin-left: auto;
+::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 4px;
 }
 
-.layout-nav a {
-  color: rgba(255, 255, 255, 0.8);
-  text-decoration: none;
-  font-size: 14px;
-  transition: color 0.3s;
-}
-
-.layout-nav a:hover,
-.layout-nav a.active {
-  color: white;
+::-webkit-scrollbar-thumb:hover {
+  background: #555;
 }
 
 /* ============ Common Classes ============ */
@@ -98,6 +92,25 @@ body {
   padding-bottom: 12px;
   border-bottom: 1px solid #e8e8e8;
 }
+
+/* ============ Responsive ============ */
+@media (max-width: 1024px) {
+  .container {
+    max-width: 768px;
+  }
+}
+
+@media (max-width: 768px) {
+  .container {
+    max-width: 100%;
+    padding: 0 16px;
+  }
+  
+  .card {
+    padding: 16px;
+  }
+}
+
 
 .form-group {
   margin-bottom: 20px;

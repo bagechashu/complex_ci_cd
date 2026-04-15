@@ -1,49 +1,45 @@
 <template>
-  <div class="layout">
-    <!-- Header -->
-    <div class="layout-header">
-      <h1>📦 发布控制系统</h1>
-      <div class="layout-nav">
-        <router-link
-          to="/release"
-          :class="{ active: $route.name === 'ReleaseFlow' }"
-        >
-          发布向导
-        </router-link>
-        <router-link
-          to="/history"
-          :class="{ active: $route.name === 'ReleaseHistory' }"
-        >
-          发布历史
-        </router-link>
-      </div>
-    </div>
+  <n-config-provider :theme-overrides="themeOverrides">
+    <div class="app-wrapper">
+      <!-- Sidebar -->
+      <Sidebar />
 
-    <!-- Content Area -->
-    <div class="layout-content">
-      <div class="container">
-        <!-- Messages Notification -->
-        <div v-if="uiStore.messages.length > 0" class="message-container">
-          <div
-            v-for="msg in uiStore.messages"
-            :key="msg.id"
-            :class="['message', `message-${msg.type}`]"
-          >
-            {{ msg.content }}
-          </div>
+      <!-- Main Content -->
+      <div class="layout">
+        <!-- Header -->
+        <div class="layout-header">
+          <h1>📦 发布控制系统</h1>
         </div>
 
-        <!-- Main Router View -->
-        <router-view />
+        <!-- Content Area -->
+        <div class="layout-content">
+          <div class="container">
+            <!-- Messages Notification -->
+            <div v-if="uiStore.messages.length > 0" class="message-container">
+              <div
+                v-for="msg in uiStore.messages"
+                :key="msg.id"
+                :class="['message', `message-${msg.type}`]"
+              >
+                {{ msg.content }}
+              </div>
+            </div>
+
+            <!-- Main Router View -->
+            <router-view />
+          </div>
+        </div>
       </div>
     </div>
-  </div>
+  </n-config-provider>
 </template>
 
 <script setup lang="ts">
 import { onMounted } from 'vue'
 import { useUiStore } from '@/stores/uiStore'
 import { useAppStore } from '@/stores/appStore'
+import Sidebar from '@/components/Sidebar.vue'
+import { themeOverrides } from '@/theme'
 
 const uiStore = useUiStore()
 const appStore = useAppStore()
@@ -60,22 +56,29 @@ onMounted(async () => {
 </script>
 
 <style scoped>
+.app-wrapper {
+  display: flex;
+  height: 100vh;
+  background-color: #f5f5f5;
+}
+
 .layout {
   display: flex;
   flex-direction: column;
-  height: 100vh;
-  background-color: #f5f7fa;
+  flex: 1;
+  overflow: hidden;
 }
 
 .layout-header {
   height: 60px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
+  background: #f0f0f0;
+  color: #2d8659;
   display: flex;
   align-items: center;
   padding: 0 24px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
   flex-shrink: 0;
+  border-bottom: 1px solid rgba(45, 134, 89, 0.15);
 }
 
 .layout-header h1 {
@@ -84,33 +87,10 @@ onMounted(async () => {
   margin: 0;
 }
 
-.layout-nav {
-  display: flex;
-  gap: 20px;
-  margin-left: auto;
-}
-
-.layout-nav a {
-  color: rgba(255, 255, 255, 0.8);
-  text-decoration: none;
-  font-size: 14px;
-  transition: color 0.3s;
-  padding: 4px 12px;
-  border-bottom: 2px solid transparent;
-}
-
-.layout-nav a:hover {
-  color: white;
-}
-
-.layout-nav a.active {
-  color: white;
-  border-bottom-color: white;
-}
-
 .layout-content {
   flex: 1;
   overflow: auto;
+  background-color: #e5e5e5;
   padding: 24px;
 }
 
@@ -138,23 +118,23 @@ onMounted(async () => {
 }
 
 .message-success {
-  background-color: #55efc4;
-  color: #00b894;
+  background-color: #2d8659;
+  color: #ffffff;
 }
 
 .message-error {
-  background-color: #ff7675;
-  color: #d63031;
+  background-color: #e63946;
+  color: #ffffff;
 }
 
 .message-warning {
-  background-color: #ffeaa7;
-  color: #d97706;
+  background-color: #f77f00;
+  color: #ffffff;
 }
 
 .message-info {
-  background-color: #74b9ff;
-  color: #0984e3;
+  background-color: #2d8659;
+  color: #ffffff;
 }
 
 @keyframes slideIn {
@@ -169,16 +149,16 @@ onMounted(async () => {
 }
 
 @media (max-width: 768px) {
+  .app-wrapper {
+    flex-direction: column;
+  }
+
   .layout-header {
     padding: 0 16px;
   }
 
   .layout-content {
     padding: 16px;
-  }
-
-  .layout-nav {
-    gap: 12px;
   }
 
   .message-container {

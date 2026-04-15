@@ -345,7 +345,7 @@ watch(() => [form.value.app_id, form.value.env_id], () => {
 }
 
 .confirm-info {
-  background-color: #f5f7fa;
+  background-color: #ffffff;
   padding: 20px;
   border-radius: 4px;
 }
@@ -390,7 +390,7 @@ watch(() => [form.value.app_id, form.value.env_id], () => {
 }
 
 .event-list {
-  background-color: #f5f7fa;
+  background-color: #ffffff;
   border-radius: 4px;
   padding: 12px;
   max-height: 200px;
