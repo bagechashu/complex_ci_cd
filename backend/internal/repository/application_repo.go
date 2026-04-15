@@ -1,98 +1,88 @@
 package repository
 
 import (
+	"context"
 	"database/sql"
-	"fmt"
+	"errors"
 	"time"
 
 	"github.com/op/release-control/internal/models"
 )
 
-type ApplicationRepository struct {
+type ApplicationRepository interface {
+	Create(ctx context.Context, app *models.Application) error
+	GetByID(ctx context.Context, id int) (*models.Application, error)
+	List(ctx context.Context, offset, limit int) ([]*models.Application, int, error)
+	Update(ctx context.Context, app *models.Application) error
+	Delete(ctx context.Context, id int) error
+}
+
+type SQLiteApplicationRepository struct {
 	db *sql.DB
 }
 
-func NewApplicationRepository(db *sql.DB) *ApplicationRepository {
-	return &ApplicationRepository{db: db}
+func NewSQLiteApplicationRepository(db *sql.DB) ApplicationRepository {
+	return &SQLiteApplicationRepository{db: db}
 }
 
-func (r *ApplicationRepository) Create(app *models.Application) (*models.Application, error) {
-	result, err := r.db.Exec(
-		"INSERT INTO application (name, repo, build_type, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
-		app.Name, app.Repo, app.BuildType, time.Now(), time.Now(),
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create application: %w", err)
-	}
+func (r *SQLiteApplicationRepository) Create(ctx context.Context, app *models.Application) error {
+	now := time.Now()
+	app.CreatedAt = now
+	app.UpdatedAt = now
 
-	id, err := result.LastInsertId()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get lastInsertId: %w", err)
-	}
-
-	app.ID = int(id)
-	app.CreatedAt = time.Now()
-	app.UpdatedAt = time.Now()
-	return app, nil
+	_, err := r.db.ExecContext(ctx,
+		"INSERT INTO application (name, image_name, git_repo, build_type, description, created_at, updated_at) VALUES (?,?,?,?,?,?,?)",
+		app.Name, app.ImageName, app.GitRepo, app.BuildType, app.Description, app.CreatedAt, app.UpdatedAt)
+	return err
 }
 
-func (r *ApplicationRepository) GetByID(id int) (*models.Application, error) {
-	app := &models.Application{}
-	err := r.db.QueryRow(
-		"SELECT id, name, repo, build_type, created_at, updated_at FROM application WHERE id = ?",
-		id,
-	).Scan(&app.ID, &app.Name, &app.Repo, &app.BuildType, &app.CreatedAt, &app.UpdatedAt)
-
+func (r *SQLiteApplicationRepository) GetByID(ctx context.Context, id int) (*models.Application, error) {
+	var app models.Application
+	err := r.db.QueryRowContext(ctx,
+		"SELECT id, name, image_name, git_repo, build_type, description, created_at, updated_at FROM application WHERE id = ?",
+		id).Scan(&app.ID, &app.Name, &app.ImageName, &app.GitRepo, &app.BuildType, &app.Description, &app.CreatedAt, &app.UpdatedAt)
 	if err == sql.ErrNoRows {
-		return nil, fmt.Errorf("application not found")
+		return nil, errors.New("application not found")
 	}
-	if err != nil {
-		return nil, fmt.Errorf("failed to get application: %w", err)
-	}
-
-	return app, nil
+	return &app, err
 }
 
-func (r *ApplicationRepository) List(limit int, offset int) ([]*models.Application, error) {
-	rows, err := r.db.Query("SELECT id, name, repo, build_type, created_at, updated_at FROM application ORDER BY id DESC LIMIT ? OFFSET ?", limit, offset)
+func (r *SQLiteApplicationRepository) List(ctx context.Context, offset, limit int) ([]*models.Application, int, error) {
+	var total int
+	err := r.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM application").Scan(&total)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list applications: %w", err)
+		return nil, 0, err
+	}
+
+	rows, err := r.db.QueryContext(ctx,
+		"SELECT id, name, image_name, git_repo, build_type, description, created_at, updated_at FROM application ORDER BY created_at DESC LIMIT ? OFFSET ?",
+		limit, offset)
+	if err != nil {
+		return nil, 0, err
 	}
 	defer rows.Close()
 
 	var apps []*models.Application
 	for rows.Next() {
-		app := &models.Application{}
-		err := rows.Scan(&app.ID, &app.Name, &app.Repo, &app.BuildType, &app.CreatedAt, &app.UpdatedAt)
+		var app models.Application
+		err := rows.Scan(&app.ID, &app.Name, &app.ImageName, &app.GitRepo, &app.BuildType, &app.Description, &app.CreatedAt, &app.UpdatedAt)
 		if err != nil {
-			return nil, fmt.Errorf("failed to scan application: %w", err)
+			return nil, 0, err
 		}
-		apps = append(apps, app)
+		apps = append(apps, &app)
 	}
-
-	if err = rows.Err(); err != nil {
-		return nil, fmt.Errorf("error iterating applications: %w", err)
-	}
-
-	return apps, nil
+	return apps, total, rows.Err()
 }
 
-func (r *ApplicationRepository) Update(app *models.Application) error {
+func (r *SQLiteApplicationRepository) Update(ctx context.Context, app *models.Application) error {
 	app.UpdatedAt = time.Now()
-	_, err := r.db.Exec(
-		"UPDATE application SET name = ?, repo = ?, build_type = ?, updated_at = ? WHERE id = ?",
-		app.Name, app.Repo, app.BuildType, app.UpdatedAt, app.ID,
-	)
-	if err != nil {
-		return fmt.Errorf("failed to update application: %w", err)
-	}
-	return nil
+	_, err := r.db.ExecContext(ctx,
+		"UPDATE application SET name=?, image_name=?, git_repo=?, build_type=?, description=?, updated_at=? WHERE id=?",
+		app.Name, app.ImageName, app.GitRepo, app.BuildType, app.Description, app.UpdatedAt, app.ID)
+	return err
 }
 
-func (r *ApplicationRepository) Delete(id int) error {
-	_, err := r.db.Exec("DELETE FROM application WHERE id = ?", id)
-	if err != nil {
-		return fmt.Errorf("failed to delete application: %w", err)
-	}
-	return nil
+func (r *SQLiteApplicationRepository) Delete(ctx context.Context, id int) error {
+	_, err := r.db.ExecContext(ctx, "DELETE FROM application WHERE id=?", id)
+	return err
 }

@@ -1,0 +1,649 @@
+<template>
+  <div class="cluster-config-page">
+    <div class="page-header">
+      <h1>⚙️ 集群配置</h1>
+      <p class="description">管理 K8s 集群信息和镜像仓库配置</p>
+      <button class="btn-primary" @click="openCreateClusterModal">
+        + 添加集群
+      </button>
+    </div>
+
+    <div class="content-layout">
+      <!-- Left Panel: Clusters List -->
+      <div class="list-panel">
+        <div class="list-header">
+          <h2>集群列表</h2>
+          <input
+            v-model="searchQuery"
+            type="text"
+            class="search-input"
+            placeholder="搜索集群..."
+          />
+        </div>
+
+        <div class="list-container">
+          <div v-if="clusters.length === 0" class="empty-state">
+            <p>暂无集群</p>
+          </div>
+
+          <div
+            v-for="cluster in filteredClusters"
+            :key="cluster.id"
+            class="list-item"
+            :class="{ active: selectedClusterId === cluster.id }"
+            @click="selectCluster(cluster)"
+          >
+            <div class="list-item-header">
+              <div class="cluster-name">{{ cluster.name }}</div>
+              <div class="cluster-actions">
+                <button
+                  class="icon-btn"
+                  @click.stop="deleteCluster(cluster.id)"
+                  title="删除"
+                >
+                  🗑️
+                </button>
+              </div>
+            </div>
+            <div class="cluster-info">
+              <span class="env-badge">{{ cluster.environment }}</span>
+              <span class="type-badge">{{ cluster.type }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right Panel: Cluster Details -->
+      <div class="detail-panel">
+        <div v-if="!selectedCluster" class="empty-detail">
+          <p>请选择一个集群查看详情</p>
+        </div>
+
+        <div v-else class="detail-content">
+          <!-- Cluster Info -->
+          <div class="detail-section">
+            <div class="section-header">
+              <h3>集群信息</h3>
+              <button class="btn-secondary" @click="openEditClusterModal">
+                编辑集群
+              </button>
+            </div>
+
+            <div class="info-grid">
+              <div class="info-item">
+                <label>集群名称:</label>
+                <span>{{ selectedCluster.name }}</span>
+              </div>
+              <div class="info-item">
+                <label>环境:</label>
+                <span class="env-badge">{{ selectedCluster.environment }}</span>
+              </div>
+              <div class="info-item">
+                <label>集群类型:</label>
+                <span>{{ selectedCluster.type }}</span>
+              </div>
+              <div class="info-item">
+                <label>镜像仓库前缀:</label>
+                <span class="code">{{ selectedCluster.registry_prefix }}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Kubeconfig -->
+          <div class="detail-section">
+            <h3>Kubeconfig</h3>
+            <div class="kubeconfig-display">
+              <pre>{{ selectedCluster.kubeconfig || '(未配置)' }}</pre>
+            </div>
+          </div>
+
+          <!-- Connected Applications -->
+          <div class="detail-section">
+            <h3>关联应用</h3>
+            <!-- TODO: Load applications using this cluster -->
+            <p class="help-text">TODO: Show applications using this cluster</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Create/Edit Cluster Modal -->
+    <div v-if="showClusterModal" class="modal-overlay" @click="closeClusterModal">
+      <div class="modal" @click.stop>
+        <div class="modal-header">
+          <h2>{{ editingClusterId ? '编辑集群' : '新建集群' }}</h2>
+          <button class="close-btn" @click="closeClusterModal">×</button>
+        </div>
+
+        <div class="modal-body">
+          <div class="form-group">
+            <label>集群名称 *</label>
+            <input
+              v-model="clusterForm.name"
+              type="text"
+              class="form-input"
+              placeholder="例如: k8s-prod 或 k8s-staging"
+            />
+          </div>
+
+          <div class="form-group">
+            <label>环境 *</label>
+            <select v-model="clusterForm.environment" class="form-input">
+              <option value="">-- 请选择环境 --</option>
+              <option value="dev">开发环境 (dev)</option>
+              <option value="staging">预发布环境 (staging)</option>
+              <option value="production">生产环境 (production)</option>
+              <option value="testing">测试环境 (testing)</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label>集群类型 *</label>
+            <select v-model="clusterForm.type" class="form-input">
+              <option value="kubernetes">Kubernetes</option>
+              <option value="k3s">K3s</option>
+              <option value="openshift">OpenShift</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label>镜像仓库前缀 *</label>
+            <input
+              v-model="clusterForm.registry_prefix"
+              type="text"
+              class="form-input"
+              placeholder="例如: docker.io/company 或 harbor.example.com/company"
+            />
+            <p class="help-text">
+              完整镜像地址 = 前缀 + 应用镜像名 + 标签
+              <br/>
+              例如:
+              <code>{{ clusterForm.registry_prefix }}/api-service:v1.0.0</code>
+            </p>
+          </div>
+
+          <div class="form-group">
+            <label>Kubeconfig 文件内容 *</label>
+            <textarea
+              v-model="clusterForm.kubeconfig"
+              class="form-input form-textarea"
+              rows="10"
+              placeholder="将 kubeconfig 文件内容粘贴到这里"
+            ></textarea>
+            <p class="help-text">
+              通常可以从 ~/.kube/config 获取，或从集群管理员获得
+            </p>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button class="btn-secondary" @click="closeClusterModal">取消</button>
+          <button class="btn-primary" @click="saveCluster">保存</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { ref, computed, onMounted } from 'vue'
+
+interface Cluster {
+  id: number | string
+  name: string
+  environment: string
+  type: string
+  registry_prefix: string
+  kubeconfig?: string
+}
+
+// State
+const searchQuery = ref('')
+const selectedClusterId = ref<number | string | null>(null)
+
+const clusters = ref<Cluster[]>([])
+
+// Cluster Modal
+const showClusterModal = ref(false)
+const editingClusterId = ref<number | string | null>(null)
+const clusterForm = ref<Partial<Cluster>>({
+  type: 'kubernetes'
+})
+
+// Computed
+const filteredClusters = computed(() => {
+  return clusters.value.filter(cluster =>
+    cluster.name.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
+    cluster.environment.toLowerCase().includes(searchQuery.value.toLowerCase())
+  )
+})
+
+const selectedCluster = computed(() => {
+  return clusters.value.find(c => c.id === selectedClusterId.value)
+})
+
+// Functions
+const selectCluster = (cluster: Cluster) => {
+  selectedClusterId.value = cluster.id
+}
+
+const openCreateClusterModal = () => {
+  editingClusterId.value = null
+  clusterForm.value = { type: 'kubernetes' }
+  showClusterModal.value = true
+}
+
+const openEditClusterModal = () => {
+  if (selectedCluster.value) {
+    editingClusterId.value = selectedCluster.value.id
+    clusterForm.value = { ...selectedCluster.value }
+    showClusterModal.value = true
+  }
+}
+
+const closeClusterModal = () => {
+  showClusterModal.value = false
+  editingClusterId.value = null
+}
+
+const saveCluster = async () => {
+  if (!clusterForm.value.name?.trim()) {
+    alert('请输入集群名称')
+    return
+  }
+  if (!clusterForm.value.environment) {
+    alert('请选择环境')
+    return
+  }
+  if (!clusterForm.value.registry_prefix?.trim()) {
+    alert('请输入镜像仓库前缀')
+    return
+  }
+  if (!clusterForm.value.kubeconfig?.trim()) {
+    alert('请输入 Kubeconfig 内容')
+    return
+  }
+
+  // TODO: Save cluster via API
+  console.log('TODO: Save cluster', clusterForm.value)
+  closeClusterModal()
+}
+
+const deleteCluster = async (clusterId: number | string) => {
+  if (confirm('确定删除此集群吗？关联的应用配置也会被清除。')) {
+    // TODO: Delete cluster via API
+    console.log('TODO: Delete cluster', clusterId)
+  }
+}
+
+const loadClusters = async () => {
+  // TODO: Fetch from API GET /api/v1/clusters
+  console.log('TODO: Load clusters')
+}
+
+// Lifecycle
+onMounted(async () => {
+  await loadClusters()
+})
+</script>
+
+<style scoped>
+.cluster-config-page {
+  padding: 24px;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.page-header {
+  margin-bottom: 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.page-header h1 {
+  margin: 0 0 8px 0;
+  font-size: 28px;
+  color: #1a1a1a;
+}
+
+.description {
+  margin: 0;
+  color: #666;
+  font-size: 14px;
+}
+
+.btn-primary {
+  padding: 10px 16px;
+  background: #1890ff;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.btn-primary:hover {
+  background: #40a9ff;
+}
+
+.content-layout {
+  display: grid;
+  grid-template-columns: 300px 1fr;
+  gap: 24px;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* List Panel */
+.list-panel {
+  display: flex;
+  flex-direction: column;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+}
+
+.list-header {
+  padding: 16px;
+  border-bottom: 1px solid #eee;
+}
+
+.list-header h2 {
+  margin: 0 0 12px 0;
+  font-size: 16px;
+}
+
+.search-input {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.list-container {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.empty-state {
+  padding: 32px 16px;
+  text-align: center;
+  color: #999;
+}
+
+.list-item {
+  padding: 12px;
+  border-bottom: 1px solid #f0f0f0;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.list-item:hover {
+  background: #f9f9f9;
+}
+
+.list-item.active {
+  background: #e6f7ff;
+  border-left: 3px solid #1890ff;
+}
+
+.list-item-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.cluster-name {
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+.cluster-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.icon-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 16px;
+  padding: 4px;
+  opacity: 0.6;
+  transition: opacity 0.2s;
+}
+
+.icon-btn:hover {
+  opacity: 1;
+}
+
+.cluster-info {
+  display: flex;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.env-badge {
+  background: #e6f7ff;
+  color: #1890ff;
+  padding: 2px 8px;
+  border-radius: 3px;
+  font-weight: 600;
+}
+
+.type-badge {
+  background: #f0f0f0;
+  color: #666;
+  padding: 2px 8px;
+  border-radius: 3px;
+}
+
+/* Detail Panel */
+.detail-panel {
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  overflow-y: auto;
+  padding: 24px;
+}
+
+.empty-detail {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: #999;
+}
+
+.detail-content {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.detail-section {
+  padding: 16px;
+  background: #f9f9f9;
+  border-radius: 6px;
+  border: 1px solid #f0f0f0;
+}
+
+.detail-section h3 {
+  margin: 0 0 16px 0;
+  font-size: 16px;
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.section-header h3 {
+  margin: 0;
+}
+
+.btn-secondary {
+  padding: 6px 12px;
+  background: white;
+  color: #1a1a1a;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.btn-secondary:hover {
+  background: #f5f5f5;
+}
+
+.info-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.info-item {
+  display: flex;
+  flex-direction: column;
+}
+
+.info-item label {
+  font-weight: 600;
+  color: #666;
+  font-size: 12px;
+}
+
+.info-item span {
+  margin-top: 4px;
+  color: #1a1a1a;
+}
+
+.code {
+  font-family: 'Courier New', monospace;
+  background: white;
+  padding: 2px 6px;
+  border-radius: 3px;
+}
+
+.kubeconfig-display {
+  background: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  padding: 12px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.kubeconfig-display pre {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.help-text {
+  font-size: 12px;
+  color: #999;
+  margin: 0;
+}
+
+/* Modal */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal {
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  max-width: 600px;
+  width: 90%;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.modal-header {
+  padding: 16px;
+  border-bottom: 1px solid #eee;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.modal-header h2 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  color: #999;
+}
+
+.modal-body {
+  padding: 24px;
+}
+
+.modal-footer {
+  padding: 16px;
+  border-top: 1px solid #eee;
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+}
+
+.form-group {
+  margin-bottom: 16px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 600;
+}
+
+.form-input,
+.form-textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.form-input:focus,
+.form-textarea:focus {
+  outline: none;
+  border-color: #1890ff;
+  box-shadow: 0 0 0 3px rgba(24, 144, 255, 0.1);
+}
+
+.form-textarea {
+  resize: vertical;
+  font-family: 'Courier New', monospace;
+}
+
+@media (max-width: 1200px) {
+  .content-layout {
+    grid-template-columns: 1fr;
+  }
+}
+</style>

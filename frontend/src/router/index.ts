@@ -6,30 +6,66 @@ import { createRouter, createWebHistory } from 'vue-router'
 import type { RouteRecordRaw } from 'vue-router'
 
 // 导入页面组件
-import ReleaseFlow from '@/views/ReleaseFlow.vue'
+import KubernetesRelease from '@/views/KubernetesRelease.vue'
+import ClusterConfig from '@/views/ClusterConfig.vue'
+import ShellTask from '@/views/ShellTask.vue'
+import ServerConfig from '@/views/ServerConfig.vue'
 import ReleaseHistory from '@/views/ReleaseHistory.vue'
+import ExecutionHistory from '@/views/ExecutionHistory.vue'
 import ReleaseDetail from '@/views/ReleaseDetail.vue'
 
 // 路由定义
 const routes: RouteRecordRaw[] = [
   {
     path: '/',
-    redirect: '/release'
+    redirect: '/k8s-release'
   },
   {
-    path: '/release',
-    name: 'ReleaseFlow',
-    component: ReleaseFlow,
+    path: '/k8s-release',
+    name: 'KubernetesRelease',
+    component: KubernetesRelease,
     meta: {
-      title: '发布向导'
+      title: 'K8s 发布'
     }
   },
   {
-    path: '/history',
+    path: '/cluster-config',
+    name: 'ClusterConfig',
+    component: ClusterConfig,
+    meta: {
+      title: '集群配置'
+    }
+  },
+  {
+    path: '/shell-task',
+    name: 'ShellTask',
+    component: ShellTask,
+    meta: {
+      title: 'Shell 任务'
+    }
+  },
+  {
+    path: '/server-config',
+    name: 'ServerConfig',
+    component: ServerConfig,
+    meta: {
+      title: '服务器配置'
+    }
+  },
+  {
+    path: '/release-history',
     name: 'ReleaseHistory',
     component: ReleaseHistory,
     meta: {
       title: '发布历史'
+    }
+  },
+  {
+    path: '/execution-history',
+    name: 'ExecutionHistory',
+    component: ExecutionHistory,
+    meta: {
+      title: '执行历史'
     }
   },
   {

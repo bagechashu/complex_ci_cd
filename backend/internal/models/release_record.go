@@ -1,44 +1,36 @@
 package models
 
-import "time"
-
-const (
-	StatusPending    = "pending"
-	StatusValidating = "validating"
-	StatusDeploying  = "deploying"
-	StatusSuccess    = "success"
-	StatusFailed     = "failed"
-	StatusRolledBack = "rolled_back"
+import (
+	"fmt"
+	"time"
 )
 
 type ReleaseRecord struct {
-	ID            int       `json:"id"`
-	AppID         int       `json:"app_id"`
-	EnvID         int       `json:"env_id"`
-	ClusterID     int       `json:"cluster_id"`
-	Image         string    `json:"image"`
-	Status        string    `json:"status"`
-	PreviousImage string    `json:"previous_image,omitempty"`
-	ErrorMsg      string    `json:"error_msg,omitempty"`
-	TriggeredBy   string    `json:"triggered_by,omitempty"`
-	StartedAt     *time.Time `json:"started_at"`
-	CompletedAt   *time.Time `json:"completed_at"`
-	CreatedAt     time.Time `json:"created_at"`
-	UpdatedAt     time.Time `json:"updated_at"`
+	ID           int        `json:"id" db:"id"`
+	AppID        int        `json:"app_id" db:"app_id"`
+	EnvID        int        `json:"env_id" db:"env_id"`
+	ClusterID    int        `json:"cluster_id" db:"cluster_id"`
+	Image        string     `json:"image" db:"image"`
+	Status       string     `json:"status" db:"status"`
+	PreviousImage *string   `json:"previous_image" db:"previous_image"`
+	ErrorMsg     *string    `json:"error_msg" db:"error_msg"`
+	TriggeredBy  string     `json:"triggered_by" db:"triggered_by"`
+	StartedAt    *time.Time `json:"started_at" db:"started_at"`
+	CompletedAt  *time.Time `json:"completed_at" db:"completed_at"`
+	CreatedAt    time.Time  `json:"created_at" db:"created_at"`
+	UpdatedAt    time.Time  `json:"updated_at" db:"updated_at"`
 }
 
-type ReleaseRequest struct {
-	AppID  int    `json:"app_id" binding:"required"`
-	EnvID  int    `json:"env_id" binding:"required"`
-	Image  string `json:"image" binding:"required"`
-	User   string `json:"user"`
+func (r *ReleaseRecord) Validate() error {
+	if r.AppID == 0 {
+		return fmt.Errorf("app_id cannot be empty")
+	}
+	if r.ClusterID == 0 {
+		return fmt.Errorf("cluster_id cannot be empty")
+	}
+	return nil
 }
 
-type ReleaseEvent struct {
-	ID        int       `json:"id"`
-	ReleaseID int       `json:"release_id"`
-	Type      string    `json:"type"` // started, validating, deploying, success, failed, error
-	Message   string    `json:"message"`
-	Details   string    `json:"details,omitempty"`
-	CreatedAt time.Time `json:"created_at"`
+func (r *ReleaseRecord) GetID() interface{} {
+	return r.ID
 }

@@ -40,7 +40,9 @@ func Init(dbPath string) (*sql.DB, error) {
 		return nil, err
 	}
 
-	// Create tables
+	// Initialize schema with version management
+	// First startup: creates all tables and records version 1
+	// Subsequent startups: checks version and applies any pending migrations
 	if err := createTables(db); err != nil {
 		return nil, err
 	}

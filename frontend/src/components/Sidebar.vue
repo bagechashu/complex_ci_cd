@@ -59,18 +59,46 @@ const showUserMenu = ref(false)
 // Menu items configuration
 const menuItems: MenuItem[] = [
   {
-    name: 'ReleaseFlow',
-    path: '/release',
-    label: '发布向导',
+    name: 'KubernetesRelease',
+    path: '/k8s-release',
+    label: 'K8s 发布',
     icon: '🚀',
-    meta: { title: '发布向导' }
+    meta: { title: 'K8s 发布' }
+  },
+  {
+    name: 'ClusterConfig',
+    path: '/cluster-config',
+    label: '集群配置',
+    icon: '⚙️',
+    meta: { title: '集群配置' }
+  },
+  {
+    name: 'ShellTask',
+    path: '/shell-task',
+    label: 'Shell 任务',
+    icon: '🔧',
+    meta: { title: 'Shell 任务' }
+  },
+  {
+    name: 'ServerConfig',
+    path: '/server-config',
+    label: '服务器配置',
+    icon: '🖥️',
+    meta: { title: '服务器配置' }
   },
   {
     name: 'ReleaseHistory',
-    path: '/history',
+    path: '/release-history',
     label: '发布历史',
     icon: '📋',
     meta: { title: '发布历史' }
+  },
+  {
+    name: 'ExecutionHistory',
+    path: '/execution-history',
+    label: '执行历史',
+    icon: '📊',
+    meta: { title: '执行历史' }
   }
 ]
 

@@ -17,6 +17,7 @@ tools: Read, Grep, Glob, Bash, Create, Edit
 - **K8s集成**: client-go (多集群管理、部署更新、状态查询)
 - **部署方式**: K8s (优先) + Salt + Ansible (可扩展接口)
 - **安全**: AES 加密、JWT 认证、RBAC 权限、操作审计
+- **测试**: 单元测试、集成测试、性能测试
 
 ---
 

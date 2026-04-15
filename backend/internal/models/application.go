@@ -1,18 +1,31 @@
 package models
 
-import "time"
+import (
+	"fmt"
+	"time"
+)
 
 type Application struct {
-	ID        int       `json:"id"`
-	Name      string    `json:"name"`
-	Repo      string    `json:"repo,omitempty"`
-	BuildType string    `json:"build_type,omitempty"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	ID          int        `db:"id" json:"id"`
+	Name        string     `db:"name" json:"name"`
+	ImageName   string     `db:"image_name" json:"image_name"`
+	GitRepo     *string    `db:"git_repo" json:"git_repo"`
+	BuildType   *string    `db:"build_type" json:"build_type"`
+	Description *string    `db:"description" json:"description"`
+	CreatedAt   time.Time  `db:"created_at" json:"created_at"`
+	UpdatedAt   time.Time  `db:"updated_at" json:"updated_at"`
 }
 
-type ApplicationRequest struct {
-	Name      string `json:"name" binding:"required"`
-	Repo      string `json:"repo"`
-	BuildType string `json:"build_type"`
+func (a *Application) Validate() error {
+	if a.Name == "" {
+		return fmt.Errorf("application name is required")
+	}
+	if a.ImageName == "" {
+		return fmt.Errorf("image_name is required")
+	}
+	return nil
+}
+
+func (a *Application) GetID() interface{} {
+	return a.ID
 }

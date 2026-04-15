@@ -1,124 +1,110 @@
 package repository
 
 import (
+	"context"
 	"database/sql"
-	"fmt"
+	"errors"
 	"time"
 
 	"github.com/op/release-control/internal/models"
 )
 
-type ReleaseRecordRepository struct {
+type ReleaseRecordRepository interface {
+	Create(ctx context.Context, rr *models.ReleaseRecord) error
+	GetByID(ctx context.Context, id int) (*models.ReleaseRecord, error)
+	List(ctx context.Context, offset, limit int) ([]*models.ReleaseRecord, int, error)
+	GetByApplicationAndCluster(ctx context.Context, appID, clusterID int) ([]*models.ReleaseRecord, error)
+	Update(ctx context.Context, rr *models.ReleaseRecord) error
+	Delete(ctx context.Context, id int) error
+}
+
+type SQLiteReleaseRecordRepository struct {
 	db *sql.DB
 }
 
-func NewReleaseRecordRepository(db *sql.DB) *ReleaseRecordRepository {
-	return &ReleaseRecordRepository{db: db}
+func NewSQLiteReleaseRecordRepository(db *sql.DB) ReleaseRecordRepository {
+	return &SQLiteReleaseRecordRepository{db: db}
 }
 
-func (r *ReleaseRecordRepository) Create(release *models.ReleaseRecord) (*models.ReleaseRecord, error) {
-	result, err := r.db.Exec(
-		"INSERT INTO release_record (app_id, env_id, cluster_id, image, status, previous_image, error_msg, triggered_by, started_at, completed_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-		release.AppID, release.EnvID, release.ClusterID, release.Image, release.Status, release.PreviousImage, release.ErrorMsg, release.TriggeredBy, release.StartedAt, release.CompletedAt, time.Now(), time.Now(),
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create release record: %w", err)
-	}
+func (r *SQLiteReleaseRecordRepository) Create(ctx context.Context, rr *models.ReleaseRecord) error {
+	now := time.Now()
+	rr.CreatedAt = now
+	rr.UpdatedAt = now
 
-	id, err := result.LastInsertId()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get lastInsertId: %w", err)
-	}
-
-	release.ID = int(id)
-	release.CreatedAt = time.Now()
-	release.UpdatedAt = time.Now()
-	return release, nil
-}
-
-func (r *ReleaseRecordRepository) GetByID(id int) (*models.ReleaseRecord, error) {
-	release := &models.ReleaseRecord{}
-	err := r.db.QueryRow(
-		"SELECT id, app_id, env_id, cluster_id, image, status, previous_image, error_msg, triggered_by, started_at, completed_at, created_at, updated_at FROM release_record WHERE id = ?",
-		id,
-	).Scan(&release.ID, &release.AppID, &release.EnvID, &release.ClusterID, &release.Image, &release.Status, &release.PreviousImage, &release.ErrorMsg, &release.TriggeredBy, &release.StartedAt, &release.CompletedAt, &release.CreatedAt, &release.UpdatedAt)
-
-	if err == sql.ErrNoRows {
-		return nil, fmt.Errorf("release record not found")
-	}
-	if err != nil {
-		return nil, fmt.Errorf("failed to get release record: %w", err)
-	}
-
-	return release, nil
-}
-
-func (r *ReleaseRecordRepository) List(limit int, offset int) ([]*models.ReleaseRecord, error) {
-	rows, err := r.db.Query(
-		"SELECT id, app_id, env_id, cluster_id, image, status, previous_image, error_msg, triggered_by, started_at, completed_at, created_at, updated_at FROM release_record ORDER BY id DESC LIMIT ? OFFSET ?",
-		limit, offset,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to list release records: %w", err)
-	}
-	defer rows.Close()
-
-	var releases []*models.ReleaseRecord
-	for rows.Next() {
-		release := &models.ReleaseRecord{}
-		err := rows.Scan(&release.ID, &release.AppID, &release.EnvID, &release.ClusterID, &release.Image, &release.Status, &release.PreviousImage, &release.ErrorMsg, &release.TriggeredBy, &release.StartedAt, &release.CompletedAt, &release.CreatedAt, &release.UpdatedAt)
-		if err != nil {
-			return nil, fmt.Errorf("failed to scan release record: %w", err)
-		}
-		releases = append(releases, release)
-	}
-
-	if err = rows.Err(); err != nil {
-		return nil, fmt.Errorf("error iterating release records: %w", err)
-	}
-
-	return releases, nil
-}
-
-func (r *ReleaseRecordRepository) Update(release *models.ReleaseRecord) error {
-	release.UpdatedAt = time.Now()
-	_, err := r.db.Exec(
-		"UPDATE release_record SET app_id = ?, env_id = ?, cluster_id = ?, image = ?, status = ?, previous_image = ?, error_msg = ?, triggered_by = ?, started_at = ?, completed_at = ?, updated_at = ? WHERE id = ?",
-		release.AppID, release.EnvID, release.ClusterID, release.Image, release.Status, release.PreviousImage, release.ErrorMsg, release.TriggeredBy, release.StartedAt, release.CompletedAt, release.UpdatedAt, release.ID,
-	)
-	if err != nil {
-		return fmt.Errorf("failed to update release record: %w", err)
-	}
-	return nil
-}
-
-func (r *ReleaseRecordRepository) CreateEvent(event *models.ReleaseEvent) error {
-	_, err := r.db.Exec(
-		"INSERT INTO release_event (release_id, type, message, details, created_at) VALUES (?, ?, ?, ?, ?)",
-		event.ReleaseID, event.Type, event.Message, event.Details, time.Now(),
-	)
+	_, err := r.db.ExecContext(ctx,
+		"INSERT INTO release_record (app_id, env_id, cluster_id, image, status, previous_image, error_msg, triggered_by, started_at, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+		rr.AppID, rr.EnvID, rr.ClusterID, rr.Image, rr.Status, rr.PreviousImage, rr.ErrorMsg, rr.TriggeredBy, rr.StartedAt, rr.CreatedAt, rr.UpdatedAt)
 	return err
 }
 
-func (r *ReleaseRecordRepository) GetEvents(releaseID int) ([]*models.ReleaseEvent, error) {
-	rows, err := r.db.Query(
-		"SELECT id, release_id, type, message, details, created_at FROM release_event WHERE release_id = ? ORDER BY created_at ASC",
-		releaseID,
-	)
+func (r *SQLiteReleaseRecordRepository) GetByID(ctx context.Context, id int) (*models.ReleaseRecord, error) {
+	var rr models.ReleaseRecord
+	err := r.db.QueryRowContext(ctx,
+		"SELECT id, app_id, env_id, cluster_id, image, status, previous_image, error_msg, triggered_by, started_at, completed_at, created_at, updated_at FROM release_record WHERE id = ?",
+		id).Scan(&rr.ID, &rr.AppID, &rr.EnvID, &rr.ClusterID, &rr.Image, &rr.Status, &rr.PreviousImage, &rr.ErrorMsg, &rr.TriggeredBy, &rr.StartedAt, &rr.CompletedAt, &rr.CreatedAt, &rr.UpdatedAt)
+	if err == sql.ErrNoRows {
+		return nil, errors.New("release not found")
+	}
+	return &rr, err
+}
+
+func (r *SQLiteReleaseRecordRepository) List(ctx context.Context, offset, limit int) ([]*models.ReleaseRecord, int, error) {
+	var total int
+	err := r.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM release_record").Scan(&total)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get events: %w", err)
+		return nil, 0, err
+	}
+
+	rows, err := r.db.QueryContext(ctx,
+		"SELECT id, app_id, env_id, cluster_id, image, status, previous_image, error_msg, triggered_by, started_at, completed_at, created_at, updated_at FROM release_record ORDER BY created_at DESC LIMIT ? OFFSET ?",
+		limit, offset)
+	if err != nil {
+		return nil, 0, err
 	}
 	defer rows.Close()
 
-	var events []*models.ReleaseEvent
+	var records []*models.ReleaseRecord
 	for rows.Next() {
-		event := &models.ReleaseEvent{}
-		err := rows.Scan(&event.ID, &event.ReleaseID, &event.Type, &event.Message, &event.Details, &event.CreatedAt)
+		var rr models.ReleaseRecord
+		err := rows.Scan(&rr.ID, &rr.AppID, &rr.EnvID, &rr.ClusterID, &rr.Image, &rr.Status, &rr.PreviousImage, &rr.ErrorMsg, &rr.TriggeredBy, &rr.StartedAt, &rr.CompletedAt, &rr.CreatedAt, &rr.UpdatedAt)
 		if err != nil {
-			return nil, fmt.Errorf("failed to scan event: %w", err)
+			return nil, 0, err
 		}
-		events = append(events, event)
+		records = append(records, &rr)
 	}
+	return records, total, rows.Err()
+}
 
-	return events, nil
+func (r *SQLiteReleaseRecordRepository) GetByApplicationAndCluster(ctx context.Context, appID, clusterID int) ([]*models.ReleaseRecord, error) {
+	rows, err := r.db.QueryContext(ctx,
+		"SELECT id, app_id, env_id, cluster_id, image, status, previous_image, error_msg, triggered_by, started_at, completed_at, created_at, updated_at FROM release_record WHERE app_id = ? AND cluster_id = ? ORDER BY created_at DESC",
+		appID, clusterID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var records []*models.ReleaseRecord
+	for rows.Next() {
+		var rr models.ReleaseRecord
+		err := rows.Scan(&rr.ID, &rr.AppID, &rr.EnvID, &rr.ClusterID, &rr.Image, &rr.Status, &rr.PreviousImage, &rr.ErrorMsg, &rr.TriggeredBy, &rr.StartedAt, &rr.CompletedAt, &rr.CreatedAt, &rr.UpdatedAt)
+		if err != nil {
+			return nil, err
+		}
+		records = append(records, &rr)
+	}
+	return records, rows.Err()
+}
+
+func (r *SQLiteReleaseRecordRepository) Update(ctx context.Context, rr *models.ReleaseRecord) error {
+	rr.UpdatedAt = time.Now()
+	_, err := r.db.ExecContext(ctx,
+		"UPDATE release_record SET status=?, completed_at=?, updated_at=? WHERE id=?",
+		rr.Status, rr.CompletedAt, rr.UpdatedAt, rr.ID)
+	return err
+}
+
+func (r *SQLiteReleaseRecordRepository) Delete(ctx context.Context, id int) error {
+	_, err := r.db.ExecContext(ctx, "DELETE FROM release_record WHERE id=?", id)
+	return err
 }

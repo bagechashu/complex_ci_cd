@@ -1,98 +1,88 @@
 package repository
 
 import (
+	"context"
 	"database/sql"
-	"fmt"
+	"errors"
 	"time"
 
 	"github.com/op/release-control/internal/models"
 )
 
-type ClusterRepository struct {
+type ClusterRepository interface {
+	Create(ctx context.Context, cluster *models.Cluster) error
+	GetByID(ctx context.Context, id int) (*models.Cluster, error)
+	List(ctx context.Context, offset, limit int) ([]*models.Cluster, int, error)
+	Update(ctx context.Context, cluster *models.Cluster) error
+	Delete(ctx context.Context, id int) error
+}
+
+type SQLiteClusterRepository struct {
 	db *sql.DB
 }
 
-func NewClusterRepository(db *sql.DB) *ClusterRepository {
-	return &ClusterRepository{db: db}
+func NewSQLiteClusterRepository(db *sql.DB) ClusterRepository {
+	return &SQLiteClusterRepository{db: db}
 }
 
-func (r *ClusterRepository) Create(cluster *models.Cluster) (*models.Cluster, error) {
-	result, err := r.db.Exec(
-		"INSERT INTO cluster (name, type, kubeconfig_path, kubeconfig_encrypted, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
-		cluster.Name, cluster.Type, cluster.KubeconfigPath, cluster.KubeconfigEncrypted, time.Now(), time.Now(),
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create cluster: %w", err)
-	}
+func (r *SQLiteClusterRepository) Create(ctx context.Context, cluster *models.Cluster) error {
+	now := time.Now()
+	cluster.CreatedAt = now
+	cluster.UpdatedAt = now
 
-	id, err := result.LastInsertId()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get lastInsertId: %w", err)
-	}
-
-	cluster.ID = int(id)
-	cluster.CreatedAt = time.Now()
-	cluster.UpdatedAt = time.Now()
-	return cluster, nil
+	_, err := r.db.ExecContext(ctx,
+		"INSERT INTO cluster (name, type, labels, kubeconfig_path, kubeconfig_encrypted, ansible_hosts, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?)",
+		cluster.Name, cluster.Type, cluster.Labels, cluster.KubeconfigPath, cluster.KubeconfigEncrypted, cluster.AnsibleHosts, cluster.CreatedAt, cluster.UpdatedAt)
+	return err
 }
 
-func (r *ClusterRepository) GetByID(id int) (*models.Cluster, error) {
-	cluster := &models.Cluster{}
-	err := r.db.QueryRow(
-		"SELECT id, name, type, kubeconfig_path, kubeconfig_encrypted, created_at, updated_at FROM cluster WHERE id = ?",
-		id,
-	).Scan(&cluster.ID, &cluster.Name, &cluster.Type, &cluster.KubeconfigPath, &cluster.KubeconfigEncrypted, &cluster.CreatedAt, &cluster.UpdatedAt)
-
+func (r *SQLiteClusterRepository) GetByID(ctx context.Context, id int) (*models.Cluster, error) {
+	var c models.Cluster
+	err := r.db.QueryRowContext(ctx,
+		"SELECT id, name, type, labels, kubeconfig_path, kubeconfig_encrypted, ansible_hosts, created_at, updated_at FROM cluster WHERE id = ?",
+		id).Scan(&c.ID, &c.Name, &c.Type, &c.Labels, &c.KubeconfigPath, &c.KubeconfigEncrypted, &c.AnsibleHosts, &c.CreatedAt, &c.UpdatedAt)
 	if err == sql.ErrNoRows {
-		return nil, fmt.Errorf("cluster not found")
+		return nil, errors.New("cluster not found")
 	}
-	if err != nil {
-		return nil, fmt.Errorf("failed to get cluster: %w", err)
-	}
-
-	return cluster, nil
+	return &c, err
 }
 
-func (r *ClusterRepository) List(limit int, offset int) ([]*models.Cluster, error) {
-	rows, err := r.db.Query("SELECT id, name, type, kubeconfig_path, kubeconfig_encrypted, created_at, updated_at FROM cluster ORDER BY id DESC LIMIT ? OFFSET ?", limit, offset)
+func (r *SQLiteClusterRepository) List(ctx context.Context, offset, limit int) ([]*models.Cluster, int, error) {
+	var total int
+	err := r.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM cluster").Scan(&total)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list clusters: %w", err)
+		return nil, 0, err
+	}
+
+	rows, err := r.db.QueryContext(ctx,
+		"SELECT id, name, type, labels, kubeconfig_path, kubeconfig_encrypted, ansible_hosts, created_at, updated_at FROM cluster ORDER BY created_at DESC LIMIT ? OFFSET ?",
+		limit, offset)
+	if err != nil {
+		return nil, 0, err
 	}
 	defer rows.Close()
 
 	var clusters []*models.Cluster
 	for rows.Next() {
-		cluster := &models.Cluster{}
-		err := rows.Scan(&cluster.ID, &cluster.Name, &cluster.Type, &cluster.KubeconfigPath, &cluster.KubeconfigEncrypted, &cluster.CreatedAt, &cluster.UpdatedAt)
+		var c models.Cluster
+		err := rows.Scan(&c.ID, &c.Name, &c.Type, &c.Labels, &c.KubeconfigPath, &c.KubeconfigEncrypted, &c.AnsibleHosts, &c.CreatedAt, &c.UpdatedAt)
 		if err != nil {
-			return nil, fmt.Errorf("failed to scan cluster: %w", err)
+			return nil, 0, err
 		}
-		clusters = append(clusters, cluster)
+		clusters = append(clusters, &c)
 	}
-
-	if err = rows.Err(); err != nil {
-		return nil, fmt.Errorf("error iterating clusters: %w", err)
-	}
-
-	return clusters, nil
+	return clusters, total, rows.Err()
 }
 
-func (r *ClusterRepository) Update(cluster *models.Cluster) error {
+func (r *SQLiteClusterRepository) Update(ctx context.Context, cluster *models.Cluster) error {
 	cluster.UpdatedAt = time.Now()
-	_, err := r.db.Exec(
-		"UPDATE cluster SET name = ?, type = ?, kubeconfig_path = ?, kubeconfig_encrypted = ?, updated_at = ? WHERE id = ?",
-		cluster.Name, cluster.Type, cluster.KubeconfigPath, cluster.KubeconfigEncrypted, cluster.UpdatedAt, cluster.ID,
-	)
-	if err != nil {
-		return fmt.Errorf("failed to update cluster: %w", err)
-	}
-	return nil
+	_, err := r.db.ExecContext(ctx,
+		"UPDATE cluster SET name=?, type=?, labels=?, kubeconfig_path=?, kubeconfig_encrypted=?, ansible_hosts=?, updated_at=? WHERE id=?",
+		cluster.Name, cluster.Type, cluster.Labels, cluster.KubeconfigPath, cluster.KubeconfigEncrypted, cluster.AnsibleHosts, cluster.UpdatedAt, cluster.ID)
+	return err
 }
 
-func (r *ClusterRepository) Delete(id int) error {
-	_, err := r.db.Exec("DELETE FROM cluster WHERE id = ?", id)
-	if err != nil {
-		return fmt.Errorf("failed to delete cluster: %w", err)
-	}
-	return nil
+func (r *SQLiteClusterRepository) Delete(ctx context.Context, id int) error {
+	_, err := r.db.ExecContext(ctx, "DELETE FROM cluster WHERE id=?", id)
+	return err
 }
