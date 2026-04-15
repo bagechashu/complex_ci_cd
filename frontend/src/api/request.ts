@@ -4,7 +4,10 @@
 
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios'
 
-const baseURL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'
+// 在开发模式下使用相对路径（通过Vite代理），生产模式下使用完整URL
+const baseURL = import.meta.env.DEV 
+  ? '/api'
+  : (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api')
 
 // 创建 Axios 实例
 const request: AxiosInstance = axios.create({
@@ -22,6 +25,12 @@ request.interceptors.request.use(
     const requestId = generateUUID()
     config.headers['X-Request-ID'] = requestId
 
+    // 添加认证信息
+    const token = getAuthToken()
+    if (token) {
+      config.headers['Authorization'] = `Bearer ${token}`
+    }
+
     // 调试模式下输出请求
     if (import.meta.env.DEV) {
       console.log(`[${requestId}] ${config.method?.toUpperCase()} ${config.url}`)
@@ -33,6 +42,40 @@ request.interceptors.request.use(
     return Promise.reject(error)
   }
 )
+
+// 获取认证令牌
+function getAuthToken(): string | null {
+  // 从 localStorage 获取 token
+  const token = localStorage.getItem('auth_token')
+  if (token) {
+    return token
+  }
+
+  // 从 sessionStorage 获取 token（临时会话）
+  const sessionToken = sessionStorage.getItem('auth_token')
+  if (sessionToken) {
+    return sessionToken
+  }
+
+  return null
+}
+
+// 设置认证令牌
+export function setAuthToken(token: string, persistent: boolean = false): void {
+  if (persistent) {
+    localStorage.setItem('auth_token', token)
+    sessionStorage.removeItem('auth_token')
+  } else {
+    sessionStorage.setItem('auth_token', token)
+    localStorage.removeItem('auth_token')
+  }
+}
+
+// 清除认证令牌
+export function clearAuthToken(): void {
+  localStorage.removeItem('auth_token')
+  sessionStorage.removeItem('auth_token')
+}
 
 // 响应拦截器
 request.interceptors.response.use(

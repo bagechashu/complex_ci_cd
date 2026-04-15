@@ -70,8 +70,32 @@ func (r *DeploymentTargetRepository) GetByAppEnvCluster(appID, envID, clusterID 
 	return target, nil
 }
 
-func (r *DeploymentTargetRepository) List() ([]*models.DeploymentTarget, error) {
-	rows, err := r.db.Query("SELECT id, app_id, env_id, cluster_id, k8s_namespace, k8s_deployment, container_name, registry_domain, image_repo, created_at, updated_at FROM deployment_target ORDER BY id DESC")
+func (r *DeploymentTargetRepository) List(limit int, offset int) ([]*models.DeploymentTarget, error) {
+	rows, err := r.db.Query("SELECT id, app_id, env_id, cluster_id, k8s_namespace, k8s_deployment, container_name, registry_domain, image_repo, created_at, updated_at FROM deployment_target ORDER BY id DESC LIMIT ? OFFSET ?", limit, offset)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list deployment targets: %w", err)
+	}
+	defer rows.Close()
+
+	var targets []*models.DeploymentTarget
+	for rows.Next() {
+		target := &models.DeploymentTarget{}
+		err := rows.Scan(&target.ID, &target.AppID, &target.EnvID, &target.ClusterID, &target.K8sNamespace, &target.K8sDeployment, &target.ContainerName, &target.RegistryDomain, &target.ImageRepo, &target.CreatedAt, &target.UpdatedAt)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan deployment target: %w", err)
+		}
+		targets = append(targets, target)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating deployment targets: %w", err)
+	}
+
+	return targets, nil
+}
+
+func (r *DeploymentTargetRepository) ListByAppAndEnv(appID int, envID int) ([]*models.DeploymentTarget, error) {
+	rows, err := r.db.Query("SELECT id, app_id, env_id, cluster_id, k8s_namespace, k8s_deployment, container_name, registry_domain, image_repo, created_at, updated_at FROM deployment_target WHERE app_id = ? AND env_id = ? ORDER BY id DESC", appID, envID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list deployment targets: %w", err)
 	}

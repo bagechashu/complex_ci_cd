@@ -5,6 +5,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/cors"
+	"github.com/op/release-control/internal/repository"
 	"github.com/op/release-control/internal/services"
 	"github.com/op/release-control/pkg/logger"
 	"github.com/op/release-control/pkg/middleware"
@@ -14,6 +15,10 @@ import (
 func SetupRoutes(
 	router *chi.Mux,
 	releaseService *services.ReleaseService,
+	appRepo *repository.ApplicationRepository,
+	envRepo *repository.EnvironmentRepository,
+	clusterRepo *repository.ClusterRepository,
+	targetRepo *repository.DeploymentTargetRepository,
 	log *logger.Logger,
 ) {
 	// Add CORS middleware
@@ -42,11 +47,8 @@ func SetupRoutes(
 		r.Get("/releases", listReleasesHandler(releaseService, log))
 		r.Post("/releases/{id}/rollback", rollbackReleaseHandler(releaseService, log))
 
-		// TODO: Add other endpoints
-		// r.Route("/applications", applicationRoutes(appService))
-		// r.Route("/environments", environmentRoutes(envService))
-		// r.Route("/clusters", clusterRoutes(clusterService))
-		// r.Route("/deployment-targets", targetRoutes(targetService))
+		// Metadata endpoints
+		CreateMetadataRoutes(r, appRepo, envRepo, clusterRepo, targetRepo, log)
 	})
 }
 

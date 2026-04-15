@@ -53,8 +53,8 @@ func (r *ClusterRepository) GetByID(id int) (*models.Cluster, error) {
 	return cluster, nil
 }
 
-func (r *ClusterRepository) List() ([]*models.Cluster, error) {
-	rows, err := r.db.Query("SELECT id, name, type, kubeconfig_path, kubeconfig_encrypted, created_at, updated_at FROM cluster ORDER BY id DESC")
+func (r *ClusterRepository) List(limit int, offset int) ([]*models.Cluster, error) {
+	rows, err := r.db.Query("SELECT id, name, type, kubeconfig_path, kubeconfig_encrypted, created_at, updated_at FROM cluster ORDER BY id DESC LIMIT ? OFFSET ?", limit, offset)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list clusters: %w", err)
 	}

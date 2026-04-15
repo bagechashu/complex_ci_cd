@@ -99,7 +99,19 @@ func listReleasesHandler(service *services.ReleaseService, log *logger.Logger) h
 			return
 		}
 
-		middleware.JSONResponse(w, 200, releases)
+		// Ensure releases is not nil for JSON encoding
+		if releases == nil {
+			releases = []*models.ReleaseRecord{}
+		}
+
+		// Return standardized pagination response
+		resp := map[string]interface{}{
+			"data":   releases,
+			"total":  len(releases),
+			"limit":  limit,
+			"offset": offset,
+		}
+		middleware.JSONResponse(w, 200, resp)
 	}
 }
 
@@ -113,13 +125,13 @@ func rollbackReleaseHandler(service *services.ReleaseService, log *logger.Logger
 			return
 		}
 
-		err = service.Rollback(r.Context(), id)
+		rollbackRelease, err := service.Rollback(r.Context(), id)
 		if err != nil {
 			log.Error("Failed to rollback release: %v", err)
 			middleware.ErrorResponse(w, 500, "INTERNAL_ERROR", err.Error())
 			return
 		}
 
-		middleware.JSONResponse(w, 200, map[string]string{"message": "Rollback initiated"})
+		middleware.JSONResponse(w, 202, rollbackRelease)
 	}
 }

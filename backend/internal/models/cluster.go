@@ -6,8 +6,8 @@ type Cluster struct {
 	ID                 int       `json:"id"`
 	Name               string    `json:"name"`
 	Type               string    `json:"type"` // kubernetes, salt, ansible
-	KubeconfigPath     string    `json:"kubeconfig_path,omitempty"`
-	KubeconfigEncrypted string   `json:"kubeconfig_encrypted,omitempty"`
+	KubeconfigPath     *string   `json:"kubeconfig_path,omitempty"`
+	KubeconfigEncrypted *string  `json:"kubeconfig_encrypted,omitempty"`
 	CreatedAt          time.Time `json:"created_at"`
 	UpdatedAt          time.Time `json:"updated_at"`
 }

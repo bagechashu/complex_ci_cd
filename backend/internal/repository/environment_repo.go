@@ -53,8 +53,8 @@ func (r *EnvironmentRepository) GetByID(id int) (*models.Environment, error) {
 	return env, nil
 }
 
-func (r *EnvironmentRepository) List() ([]*models.Environment, error) {
-	rows, err := r.db.Query("SELECT id, name, rank, created_at, updated_at FROM environment ORDER BY rank ASC")
+func (r *EnvironmentRepository) List(limit int, offset int) ([]*models.Environment, error) {
+	rows, err := r.db.Query("SELECT id, name, rank, created_at, updated_at FROM environment ORDER BY rank ASC LIMIT ? OFFSET ?", limit, offset)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list environments: %w", err)
 	}

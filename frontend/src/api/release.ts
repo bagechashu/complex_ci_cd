@@ -16,7 +16,7 @@ import request from './request'
  * @returns 发布响应 (202 Accepted)
  */
 export const createRelease = (data: ReleaseRequest): Promise<ReleaseResponse> => {
-  return request.post('/api/v1/releases', data)
+  return request.post('/v1/releases', data)
 }
 
 /**
@@ -25,7 +25,7 @@ export const createRelease = (data: ReleaseRequest): Promise<ReleaseResponse> =>
  * @returns 发布详情及事件
  */
 export const getRelease = (releaseId: number): Promise<ReleaseResponse> => {
-  return request.get(`/api/v1/releases/${releaseId}`)
+  return request.get(`/v1/releases/${releaseId}`)
 }
 
 /**
@@ -38,7 +38,7 @@ export const listReleases = (
   limit: number = 20,
   offset: number = 0
 ): Promise<ListReleasesResponse> => {
-  return request.get('/api/v1/releases', {
+  return request.get('/v1/releases', {
     params: { limit, offset }
   })
 }
@@ -49,7 +49,7 @@ export const listReleases = (
  * @returns 事件列表
  */
 export const getReleaseEvents = (releaseId: number): Promise<ReleaseEvent[]> => {
-  return request.get(`/api/v1/releases/${releaseId}/events`)
+  return request.get(`/v1/releases/${releaseId}/events`)
 }
 
 /**
@@ -58,7 +58,7 @@ export const getReleaseEvents = (releaseId: number): Promise<ReleaseEvent[]> => 
  * @returns 新的发布响应
  */
 export const rollbackRelease = (releaseId: number): Promise<ReleaseResponse> => {
-  return request.post(`/api/v1/releases/${releaseId}/rollback`)
+  return request.post(`/v1/releases/${releaseId}/rollback`)
 }
 
 export const releaseAPI = {

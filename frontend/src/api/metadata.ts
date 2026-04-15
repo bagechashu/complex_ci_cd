@@ -15,15 +15,16 @@ import request from './request'
 /**
  * 获取应用列表
  */
-export const getApplications = (): Promise<Application[]> => {
-  return request.get('/api/v1/applications')
+export const getApplications = async (): Promise<Application[]> => {
+  const response: any = await request.get('/v1/applications')
+  return response?.data || []
 }
 
 /**
  * 获取单个应用
  */
 export const getApplication = (appId: number): Promise<Application> => {
-  return request.get(`/api/v1/applications/${appId}`)
+  return request.get(`/v1/applications/${appId}`)
 }
 
 // ==================== 环境 ====================
@@ -31,15 +32,16 @@ export const getApplication = (appId: number): Promise<Application> => {
 /**
  * 获取环境列表
  */
-export const getEnvironments = (): Promise<Environment[]> => {
-  return request.get('/api/v1/environments')
+export const getEnvironments = async (): Promise<Environment[]> => {
+  const response: any = await request.get('/v1/environments')
+  return response?.data || []
 }
 
 /**
  * 获取单个环境
  */
 export const getEnvironment = (envId: number): Promise<Environment> => {
-  return request.get(`/api/v1/environments/${envId}`)
+  return request.get(`/v1/environments/${envId}`)
 }
 
 // ==================== 集群 ====================
@@ -47,15 +49,16 @@ export const getEnvironment = (envId: number): Promise<Environment> => {
 /**
  * 获取集群列表
  */
-export const getClusters = (): Promise<Cluster[]> => {
-  return request.get('/api/v1/clusters')
+export const getClusters = async (): Promise<Cluster[]> => {
+  const response: any = await request.get('/v1/clusters')
+  return response?.data || []
 }
 
 /**
  * 获取单个集群
  */
 export const getCluster = (clusterId: number): Promise<Cluster> => {
-  return request.get(`/api/v1/clusters/${clusterId}`)
+  return request.get(`/v1/clusters/${clusterId}`)
 }
 
 // ==================== 部署目标 ====================
@@ -63,8 +66,9 @@ export const getCluster = (clusterId: number): Promise<Cluster> => {
 /**
  * 获取所有部署目标
  */
-export const getDeploymentTargets = (): Promise<DeploymentTarget[]> => {
-  return request.get('/api/v1/deployment-targets')
+export const getDeploymentTargets = async (): Promise<DeploymentTarget[]> => {
+  const response: any = await request.get('/v1/deployment-targets')
+  return response?.data || []
 }
 
 /**
@@ -77,7 +81,7 @@ export const getClustersByAppAndEnv = (
   envId: number
 ): Promise<DeploymentTarget[]> => {
   return request.get(
-    `/api/v1/deployment-targets/app/${appId}/env/${envId}`
+    `/v1/deployment-targets/app/${appId}/env/${envId}`
   )
 }
 
@@ -91,3 +95,5 @@ export const metadataAPI = {
   getDeploymentTargets,
   getClustersByAppAndEnv
 }
+ 
+ 

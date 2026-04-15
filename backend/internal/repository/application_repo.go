@@ -53,8 +53,8 @@ func (r *ApplicationRepository) GetByID(id int) (*models.Application, error) {
 	return app, nil
 }
 
-func (r *ApplicationRepository) List() ([]*models.Application, error) {
-	rows, err := r.db.Query("SELECT id, name, repo, build_type, created_at, updated_at FROM application ORDER BY id DESC")
+func (r *ApplicationRepository) List(limit int, offset int) ([]*models.Application, error) {
+	rows, err := r.db.Query("SELECT id, name, repo, build_type, created_at, updated_at FROM application ORDER BY id DESC LIMIT ? OFFSET ?", limit, offset)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list applications: %w", err)
 	}

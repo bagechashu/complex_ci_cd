@@ -68,7 +68,7 @@ func main() {
 
 	// Setup router
 	router := chi.NewRouter()
-	handlers.SetupRoutes(router, releaseService, log)
+	handlers.SetupRoutes(router, releaseService, appRepo, envRepo, clusterRepo, targetRepo, log)
 
 	// Start server
 	addr := fmt.Sprintf("%s:%d", cfg.ServerHost, cfg.ServerPort)

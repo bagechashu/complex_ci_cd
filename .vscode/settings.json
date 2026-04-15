@@ -3,6 +3,9 @@
         "/^\\./server 2>&1 &$/": {
             "approve": true,
             "matchCommandLine": true
-        }
+        },
+        "go": true,
+        "npx tsc": true,
+        "lsof": true
     }
 }

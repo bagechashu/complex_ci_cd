@@ -21,11 +21,9 @@ func (f *DeployerFactory) CreateDeployer(clusterType string) (DeployStrategy, er
 	case "kubernetes":
 		return NewK8sDeployer(f.log), nil
 	case "salt":
-		// return NewSaltDeployer(f.log), nil
-		return nil, fmt.Errorf("salt deployer not implemented yet")
+		return NewSaltDeployer(f.log), nil
 	case "ansible":
-		// return NewAnsibleDeployer(f.log), nil
-		return nil, fmt.Errorf("ansible deployer not implemented yet")
+		return NewAnsibleDeployer(f.log), nil
 	default:
 		return nil, fmt.Errorf("unsupported cluster type: %s", clusterType)
 	}
