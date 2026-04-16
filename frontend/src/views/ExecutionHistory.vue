@@ -153,6 +153,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
+import { getExecutionHistories } from '@/api/metadata'
 
 interface ExecutionHistory {
   id: number
@@ -242,8 +243,19 @@ const statusText = (status: string): string => {
 }
 
 const formatTime = (dateStr: string): string => {
-  // TODO: Format timestamp
-  return dateStr
+  try {
+    const date = new Date(dateStr)
+    return date.toLocaleString('zh-CN', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit'
+    })
+  } catch {
+    return dateStr
+  }
 }
 
 const formatDuration = (seconds?: number): string => {
@@ -254,8 +266,14 @@ const formatDuration = (seconds?: number): string => {
 }
 
 const retryExecution = async (historyId: number) => {
-  // TODO: Retry execution via API
-  console.log('TODO: Retry execution', historyId)
+  try {
+    // Retry execution would call the execute endpoint with the same task
+    console.log('Retrying execution:', historyId)
+    alert('重试逻辑需要根据任务类型实现')
+  } catch (error) {
+    console.error('Failed to retry execution:', error)
+    alert('重试执行失败')
+  }
 }
 
 const viewDetails = (historyId: number) => {
@@ -265,8 +283,17 @@ const viewDetails = (historyId: number) => {
 
 const deleteHistory = async (historyId: number) => {
   if (confirm('确定删除此执行记录吗？')) {
-    // TODO: Delete via API
-    console.log('TODO: Delete history', historyId)
+    try {
+      // Would require a delete API endpoint
+      console.log('Deleting history:', historyId)
+      const index = histories.value.findIndex(h => h.id === historyId)
+      if (index > -1) {
+        histories.value.splice(index, 1)
+      }
+    } catch (error) {
+      console.error('Failed to delete history:', error)
+      alert('删除失败')
+    }
   }
 }
 
@@ -283,8 +310,12 @@ const nextPage = () => {
 }
 
 const loadExecutionHistories = async () => {
-  // TODO: Fetch from API GET /api/v1/shell-execution-history
-  console.log('TODO: Load execution histories')
+  try {
+    const data = await getExecutionHistories()
+    histories.value = data
+  } catch (error) {
+    console.error('Failed to load execution histories:', error)
+  }
 }
 
 // Lifecycle

@@ -9,9 +9,9 @@ type DeploymentTarget struct {
 	ClusterID      int       `json:"cluster_id"`
 	K8sNamespace   string    `json:"k8s_namespace"`
 	K8sDeployment  string    `json:"k8s_deployment"`
-	ContainerName  string    `json:"container_name"`
-	RegistryDomain string    `json:"registry_domain"`
-	ImageRepo      string    `json:"image_repo"`
+	ContainerName  *string   `json:"container_name"`
+	RegistryDomain *string   `json:"registry_domain"`
+	ImageRepo      *string   `json:"image_repo"`
 	CreatedAt      time.Time `json:"created_at"`
 	UpdatedAt      time.Time `json:"updated_at"`
 }

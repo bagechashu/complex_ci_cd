@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/op/release-control/internal/models"
+	"built-and-deploy/internal/models"
 )
 
 const (
@@ -45,10 +45,11 @@ func (r *DeploymentTargetRepository) Create(target *models.DeploymentTarget) (*m
 
 func (r *DeploymentTargetRepository) GetByID(id int) (*models.DeploymentTarget, error) {
 	target := &models.DeploymentTarget{}
+	var containerName, registryDomain, imageRepo *string
 	err := r.db.QueryRow(
 		sqDeploymentTargetSelect+" WHERE id = ?",
 		id,
-	).Scan(&target.ID, &target.AppID, &target.EnvID, &target.ClusterID, &target.K8sNamespace, &target.K8sDeployment, &target.ContainerName, &target.RegistryDomain, &target.ImageRepo, &target.CreatedAt, &target.UpdatedAt)
+	).Scan(&target.ID, &target.AppID, &target.EnvID, &target.ClusterID, &target.K8sNamespace, &target.K8sDeployment, &containerName, &registryDomain, &imageRepo, &target.CreatedAt, &target.UpdatedAt)
 
 	if err == sql.ErrNoRows {
 		return nil, fmt.Errorf("deployment target not found")
@@ -56,16 +57,21 @@ func (r *DeploymentTargetRepository) GetByID(id int) (*models.DeploymentTarget, 
 	if err != nil {
 		return nil, fmt.Errorf("failed to get deployment target: %w", err)
 	}
+
+	target.ContainerName = containerName
+	target.RegistryDomain = registryDomain
+	target.ImageRepo = imageRepo
 
 	return target, nil
 }
 
 func (r *DeploymentTargetRepository) GetByAppEnvCluster(appID, envID, clusterID int) (*models.DeploymentTarget, error) {
 	target := &models.DeploymentTarget{}
+	var containerName, registryDomain, imageRepo *string
 	err := r.db.QueryRow(
 		sqDeploymentTargetSelect+" WHERE app_id = ? AND env_id = ? AND cluster_id = ?",
 		appID, envID, clusterID,
-	).Scan(&target.ID, &target.AppID, &target.EnvID, &target.ClusterID, &target.K8sNamespace, &target.K8sDeployment, &target.ContainerName, &target.RegistryDomain, &target.ImageRepo, &target.CreatedAt, &target.UpdatedAt)
+	).Scan(&target.ID, &target.AppID, &target.EnvID, &target.ClusterID, &target.K8sNamespace, &target.K8sDeployment, &containerName, &registryDomain, &imageRepo, &target.CreatedAt, &target.UpdatedAt)
 
 	if err == sql.ErrNoRows {
 		return nil, fmt.Errorf("deployment target not found")
@@ -73,6 +79,10 @@ func (r *DeploymentTargetRepository) GetByAppEnvCluster(appID, envID, clusterID 
 	if err != nil {
 		return nil, fmt.Errorf("failed to get deployment target: %w", err)
 	}
+
+	target.ContainerName = containerName
+	target.RegistryDomain = registryDomain
+	target.ImageRepo = imageRepo
 
 	return target, nil
 }
@@ -87,10 +97,42 @@ func (r *DeploymentTargetRepository) List(limit int, offset int) ([]*models.Depl
 	var targets []*models.DeploymentTarget
 	for rows.Next() {
 		target := &models.DeploymentTarget{}
-		err := rows.Scan(&target.ID, &target.AppID, &target.EnvID, &target.ClusterID, &target.K8sNamespace, &target.K8sDeployment, &target.ContainerName, &target.RegistryDomain, &target.ImageRepo, &target.CreatedAt, &target.UpdatedAt)
+		var containerName, registryDomain, imageRepo *string
+		err := rows.Scan(&target.ID, &target.AppID, &target.EnvID, &target.ClusterID, &target.K8sNamespace, &target.K8sDeployment, &containerName, &registryDomain, &imageRepo, &target.CreatedAt, &target.UpdatedAt)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan deployment target: %w", err)
 		}
+		target.ContainerName = containerName
+		target.RegistryDomain = registryDomain
+		target.ImageRepo = imageRepo
+		targets = append(targets, target)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating deployment targets: %w", err)
+	}
+
+	return targets, nil
+}
+
+func (r *DeploymentTargetRepository) GetByApp(appID int) ([]*models.DeploymentTarget, error) {
+	rows, err := r.db.Query(sqDeploymentTargetSelect+" WHERE app_id = ? ORDER BY id DESC", appID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get deployment targets by app: %w", err)
+	}
+	defer rows.Close()
+
+	var targets []*models.DeploymentTarget
+	for rows.Next() {
+		target := &models.DeploymentTarget{}
+		var containerName, registryDomain, imageRepo *string
+		err := rows.Scan(&target.ID, &target.AppID, &target.EnvID, &target.ClusterID, &target.K8sNamespace, &target.K8sDeployment, &containerName, &registryDomain, &imageRepo, &target.CreatedAt, &target.UpdatedAt)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan deployment target: %w", err)
+		}
+		target.ContainerName = containerName
+		target.RegistryDomain = registryDomain
+		target.ImageRepo = imageRepo
 		targets = append(targets, target)
 	}
 
@@ -111,10 +153,14 @@ func (r *DeploymentTargetRepository) ListByAppAndEnv(appID int, envID int) ([]*m
 	var targets []*models.DeploymentTarget
 	for rows.Next() {
 		target := &models.DeploymentTarget{}
-		err := rows.Scan(&target.ID, &target.AppID, &target.EnvID, &target.ClusterID, &target.K8sNamespace, &target.K8sDeployment, &target.ContainerName, &target.RegistryDomain, &target.ImageRepo, &target.CreatedAt, &target.UpdatedAt)
+		var containerName, registryDomain, imageRepo *string
+		err := rows.Scan(&target.ID, &target.AppID, &target.EnvID, &target.ClusterID, &target.K8sNamespace, &target.K8sDeployment, &containerName, &registryDomain, &imageRepo, &target.CreatedAt, &target.UpdatedAt)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan deployment target: %w", err)
 		}
+		target.ContainerName = containerName
+		target.RegistryDomain = registryDomain
+		target.ImageRepo = imageRepo
 		targets = append(targets, target)
 	}
 

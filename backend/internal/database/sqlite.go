@@ -3,11 +3,12 @@ package database
 import (
 	"database/sql"
 	"fmt"
-	"os"
+
+	"built-and-deploy/pkg/logger"
 )
 
 // CurrentSchemaVersion is the current database schema version
-const CurrentSchemaVersion = 1
+const CurrentSchemaVersion = 2
 
 // initSchemaVersion initializes the schema_version table if it doesn't exist
 func initSchemaVersion(db *sql.DB) error {
@@ -152,25 +153,22 @@ func migrateSchemaV1(db *sql.DB) error {
 	return recordSchemaVersion(db, 1, "Initial schema with application, environment, cluster, deployment_target, release_record, release_event, audit_log")
 }
 
-// migrateSchemaV2 is a placeholder for future migrations
-// Example: adding new fields, creating new tables, etc.
-// To use: uncomment and implement when needed
-/*
+// migrateSchemaV2 adds new fields to cluster table for environment and registry support
 func migrateSchemaV2(db *sql.DB) error {
-	// Example: Add new column to application table
 	schema := `
-	ALTER TABLE application ADD COLUMN image_name TEXT;
-	ALTER TABLE cluster ADD COLUMN registry_prefix TEXT;
+	ALTER TABLE cluster ADD COLUMN environment TEXT DEFAULT '';
+	ALTER TABLE cluster ADD COLUMN registry_prefix TEXT DEFAULT '';
+	ALTER TABLE cluster ADD COLUMN kubeconfig TEXT;
 	`
 	if _, err := db.Exec(schema); err != nil {
 		return err
 	}
-	return recordSchemaVersion(db, 2, "Added image_name to application and registry_prefix to cluster")
+	return recordSchemaVersion(db, 2, "Added environment, registry_prefix, and kubeconfig fields to cluster table")
 }
-*/
 
 // applyMigrations applies all pending migrations based on current schema version
 func applyMigrations(db *sql.DB) error {
+	log := logger.GetLogger()
 	currentVersion, err := getSchemaVersion(db)
 	if err != nil {
 		return fmt.Errorf("failed to get schema version: %w", err)
@@ -187,10 +185,12 @@ func applyMigrations(db *sql.DB) error {
 			if err := migrateSchemaV1(db); err != nil {
 				return fmt.Errorf("failed to apply schema v%d: %w", version, err)
 			}
-		// case 2:
-		//	if err := migrateSchemaV2(db); err != nil {
-		//		return fmt.Errorf("failed to apply schema v%d: %w", version, err)
-		//	}
+			log.Info("Applied schema version 1: Initial schema created")
+		case 2:
+			if err := migrateSchemaV2(db); err != nil {
+				return fmt.Errorf("failed to apply schema v%d: %w", version, err)
+			}
+			log.Info("Applied schema version 2: Added environment, registry_prefix, and kubeconfig fields to cluster table")
 		default:
 			return fmt.Errorf("unknown schema version: %d", version)
 		}
@@ -211,22 +211,9 @@ func createTables(db *sql.DB) error {
 		return fmt.Errorf("failed to apply migrations: %w", err)
 	}
 
-	// Check if we should insert initial data
-	// Set environment variable INIT_DATA=true to insert test data on first run
-	if os.Getenv("INIT_DATA") == "true" {
-		// Only insert if this is the first time (schema_version has only version 1)
-		currentVersion, err := getSchemaVersion(db)
-		if err != nil {
-			return fmt.Errorf("failed to check schema version: %w", err)
-		}
-
-		// Insert initial data only on first migration (V1 just applied)
-		if currentVersion == 1 {
-			if err := InsertInitialData(db); err != nil {
-				return fmt.Errorf("failed to insert initial data: %w", err)
-			}
-		}
-	}
+	// Note: Initial data should be loaded manually using backend/db/init_data.sql
+	// Run: sqlite3 release_control.db < backend/db/init_data.sql
+	logger.GetLogger().Info("Database tables created successfully", "note", "Run: sqlite3 release_control.db < backend/db/init_data.sql to load sample data")
 
 	return nil
 }

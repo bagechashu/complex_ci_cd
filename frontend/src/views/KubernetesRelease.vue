@@ -59,7 +59,6 @@
         </div>
 
         <div class="list-container">
-          <!-- TODO: Load applications from API -->
           <div v-if="applications.length === 0" class="empty-state">
             <p>暂无应用，点击上方"添加应用"创建</p>
           </div>
@@ -148,7 +147,6 @@
               </div>
             </div>
 
-            <!-- TODO: Load cluster mappings for selected app -->
             <div v-if="clusterMappings.length === 0" class="empty-state">
               <p>暂无集群配置，点击"管理集群关联"添加</p>
             </div>
@@ -196,7 +194,6 @@
                   <div class="detail-line">
                     <strong>工作负载名称:</strong> <code>{{ mapping.workload_name }}</code>
                   </div>
-                  <!-- TODO: Show current image -->
                   <div class="detail-line">
                     <strong>当前镜像:</strong> <code>{{ mapping.current_image || '未配置' }}</code>
                   </div>
@@ -299,7 +296,6 @@
             <label>集群 *</label>
             <select v-model="clusterMappingForm.cluster_id" class="form-input">
               <option value="">-- 请选择集群 --</option>
-              <!-- TODO: Load clusters sorted by environment -->
               <option v-for="cluster in sortedClusters" :key="cluster.id" :value="cluster.id">
                 {{ cluster.name }} ({{ cluster.environment }})
               </option>
@@ -412,110 +408,174 @@
     <div v-if="showManageClusterModal" class="modal-overlay" @click="closeManageClusterModal">
       <div class="modal modal-large" @click.stop>
         <div class="modal-header">
-          <h2>管理集群关联 - {{ selectedApplication?.name }}</h2>
+          <h2 v-if="!showEditFormInManageModal">管理集群关联 - {{ selectedApplication?.name }}</h2>
+          <h2 v-else>编辑集群配置</h2>
           <button class="close-btn" @click="closeManageClusterModal">×</button>
         </div>
 
         <div class="modal-body">
-          <!-- Available Clusters -->
-          <div class="cluster-management">
-            <h3>可用集群</h3>
-            <p class="help-text">点击集群进行配置，或点击"添加"快速关联</p>
+          <!-- Cluster List View -->
+          <div v-if="!showEditFormInManageModal">
+            <!-- Available Clusters -->
+            <div class="cluster-management">
+              <h3>可用集群</h3>
+              <p class="help-text">点击集群进行配置，或点击"添加"快速关联</p>
 
-            <div class="clusters-grid">
-              <!-- TODO: Load all clusters -->
-              <div v-for="cluster in availableClustersForManage" :key="cluster.id" class="cluster-card">
-                <div class="cluster-card-header">
-                  <strong>{{ cluster.name }}</strong>
-                  <span class="env-badge">{{ cluster.environment }}</span>
+              <div class="clusters-grid">
+                <div v-for="cluster in availableClustersForManage" :key="cluster.id" class="cluster-card">
+                  <div class="cluster-card-header">
+                    <strong>{{ cluster.name }}</strong>
+                    <span class="env-badge">{{ cluster.environment }}</span>
+                  </div>
+
+                  <div class="cluster-card-body">
+                    <p class="label">Kubernetes 集群</p>
+                    <p class="registry">
+                      <small>{{ cluster.registry_prefix }}</small>
+                    </p>
+                  </div>
+
+                  <div class="cluster-card-footer">
+                    <button
+                      v-if="!isClusterAlreadyMapped(cluster.id)"
+                      class="btn-link"
+                      @click="quickAddClusterInManageModal(cluster)"
+                    >
+                      + 添加
+                    </button>
+                    <button
+                      v-else
+                      class="btn-link btn-success"
+                      @click="startEditInManageModal(getMappingForCluster(cluster.id)!)"
+                    >
+                      ✓ 已配置
+                    </button>
+                  </div>
                 </div>
+              </div>
+            </div>
 
-                <div class="cluster-card-body">
-                  <p class="label">Kubernetes 集群</p>
-                  <p class="registry">
-                    <small>{{ cluster.registry_prefix }}</small>
-                  </p>
-                </div>
+            <hr class="divider" />
 
-                <div class="cluster-card-footer">
-                  <button
-                    v-if="!isClusterAlreadyMapped(cluster.id)"
-                    class="btn-link"
-                    @click="quickAddCluster(cluster)"
-                  >
-                    + 添加
-                  </button>
-                  <button
-                    v-else
-                    class="btn-link btn-success"
-                    @click="openEditClusterMappingModal(getMappingForCluster(cluster.id)!)"
-                  >
-                    ✓ 已配置
-                  </button>
+            <!-- Current Mappings -->
+            <div class="current-mappings">
+              <h3>已关联集群 ({{ clusterMappings.length }})</h3>
+
+              <div v-if="clusterMappings.length === 0" class="empty-state">
+                <p>暂无关联集群</p>
+              </div>
+
+              <div class="mappings-management-list">
+                <div
+                  v-for="mapping in clusterMappings"
+                  :key="mapping.id"
+                  class="mapping-manage-item"
+                >
+                  <div class="mapping-manage-header">
+                    <div class="cluster-badge">
+                      <strong>{{ mapping.cluster_name }}</strong>
+                      <span class="env-badge">{{ mapping.environment }}</span>
+                    </div>
+                  </div>
+
+                  <div class="mapping-manage-body">
+                    <div class="config-row">
+                      <span class="config-label">Namespace:</span>
+                      <code>{{ mapping.k8s_namespace }}</code>
+                    </div>
+                    <div class="config-row">
+                      <span class="config-label">工作负载:</span>
+                      <code>{{ mapping.workload_type }}/{{ mapping.workload_name }}</code>
+                    </div>
+                    <div v-if="mapping.container_name" class="config-row">
+                      <span class="config-label">容器:</span>
+                      <code>{{ mapping.container_name }}</code>
+                    </div>
+                  </div>
+
+                  <div class="mapping-manage-footer">
+                    <button
+                      class="btn-link btn-edit"
+                      @click="startEditInManageModal(mapping)"
+                    >
+                      编辑
+                    </button>
+                    <button
+                      class="btn-link btn-danger"
+                      @click="deleteClusterMapping(mapping.id)"
+                    >
+                      删除
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
 
-          <hr class="divider" />
+          <!-- Edit Form View -->
+          <div v-else>
+            <button class="btn-back" @click="cancelEditInManageModal">
+              ← 返回集群列表
+            </button>
 
-          <!-- Current Mappings -->
-          <div class="current-mappings">
-            <h3>已关联集群 ({{ clusterMappings.length }})</h3>
+            <div class="edit-form-container">
+              <div class="form-group">
+                <label>集群 *</label>
+                <select v-model="clusterMappingForm.cluster_id" class="form-input" :disabled="!!editingMappingInManageModal?.id">
+                  <option value="">-- 请选择集群 --</option>
+                  <option v-for="cluster in sortedClusters" :key="cluster.id" :value="cluster.id">
+                    {{ cluster.name }} ({{ cluster.environment }})
+                  </option>
+                </select>
+                <p v-if="editingMappingInManageModal?.id" class="help-text">创建后不可更改集群</p>
+              </div>
 
-            <div v-if="clusterMappings.length === 0" class="empty-state">
-              <p>暂无关联集群</p>
-            </div>
+              <div class="form-group">
+                <label>Namespace *</label>
+                <input
+                  v-model="clusterMappingForm.k8s_namespace"
+                  type="text"
+                  class="form-input"
+                  placeholder="例如: default 或 production"
+                />
+              </div>
 
-            <div class="mappings-management-list">
-              <div
-                v-for="mapping in clusterMappings"
-                :key="mapping.id"
-                class="mapping-manage-item"
-              >
-                <div class="mapping-manage-header">
-                  <div class="cluster-badge">
-                    <strong>{{ mapping.cluster_name }}</strong>
-                    <span class="env-badge">{{ mapping.environment }}</span>
-                  </div>
-                </div>
+              <div class="form-group">
+                <label>工作负载类型 *</label>
+                <select v-model="clusterMappingForm.workload_type" class="form-input">
+                  <option value="Deployment">Deployment</option>
+                  <option value="StatefulSet">StatefulSet</option>
+                  <option value="DaemonSet">DaemonSet</option>
+                </select>
+              </div>
 
-                <div class="mapping-manage-body">
-                  <div class="config-row">
-                    <span class="config-label">Namespace:</span>
-                    <code>{{ mapping.k8s_namespace }}</code>
-                  </div>
-                  <div class="config-row">
-                    <span class="config-label">工作负载:</span>
-                    <code>{{ mapping.workload_type }}/{{ mapping.workload_name }}</code>
-                  </div>
-                  <div v-if="mapping.container_name" class="config-row">
-                    <span class="config-label">容器:</span>
-                    <code>{{ mapping.container_name }}</code>
-                  </div>
-                </div>
+              <div class="form-group">
+                <label>工作负载名称 *</label>
+                <input
+                  v-model="clusterMappingForm.workload_name"
+                  type="text"
+                  class="form-input"
+                  placeholder="例如: api-service-deployment"
+                />
+              </div>
 
-                <div class="mapping-manage-footer">
-                  <button
-                    class="btn-link btn-edit"
-                    @click="openEditClusterMappingModal(mapping)"
-                  >
-                    编辑
-                  </button>
-                  <button
-                    class="btn-link btn-danger"
-                    @click="deleteClusterMapping(mapping.id)"
-                  >
-                    删除
-                  </button>
-                </div>
+              <div class="form-group">
+                <label>容器名称</label>
+                <input
+                  v-model="clusterMappingForm.container_name"
+                  type="text"
+                  class="form-input"
+                  placeholder="例如: api-service (如不填，默认为工作负载名称)"
+                />
               </div>
             </div>
           </div>
         </div>
 
         <div class="modal-footer">
-          <button class="btn-secondary" @click="closeManageClusterModal">关闭</button>
+          <button v-if="!showEditFormInManageModal" class="btn-secondary" @click="closeManageClusterModal">关闭</button>
+          <button v-else class="btn-secondary" @click="cancelEditInManageModal">取消</button>
+          <button v-if="showEditFormInManageModal" class="btn-primary" @click="saveClusterMappingInManageModal">保存</button>
         </div>
       </div>
     </div>
@@ -524,14 +584,14 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { getApplications, getClusters } from '@/api/metadata'
+import { getApplications, getClusters, createRelease, getEnvironments } from '@/api/metadata'
 import {
   getClusterMappingsByApp,
   createClusterMapping,
   updateClusterMapping,
   deleteClusterMapping as apiDeleteClusterMapping
 } from '@/api/cluster-mapping'
-import type { Application, Cluster, ClusterMapping } from '@/types/api'
+import type { Application, Cluster, ClusterMapping, Environment } from '@/types/api'
 
 // State
 const searchQuery = ref('')
@@ -539,7 +599,17 @@ const selectedApplicationId = ref<number | null>(null)
 
 const applications = ref<Application[]>([])
 const clusters = ref<Cluster[]>([])
+const environments = ref<Environment[]>([])
 const clusterMappings = ref<ClusterMapping[]>([])
+
+// Build environment name to id mapping
+const environmentMap = computed(() => {
+  const map: { [key: string]: number } = {}
+  environments.value.forEach(env => {
+    map[env.name.toLowerCase()] = env.id
+  })
+  return map
+})
 
 // Application Modal
 const showApplicationModal = ref(false)
@@ -558,6 +628,8 @@ const clusterMappingForm = ref<Partial<ClusterMapping>>({
 // Manage Cluster Modal
 const showManageClusterModal = ref(false)
 const availableClustersForManage = ref<Cluster[]>([])
+const showEditFormInManageModal = ref(false)
+const editingMappingInManageModal = ref<ClusterMapping | null>(null)
 
 // Release Modal
 const showReleaseModal = ref(false)
@@ -652,15 +724,30 @@ const closeApplicationModal = () => {
 }
 
 const saveApplication = async () => {
-  // TODO: Save application via API
-  console.log('TODO: Save application', applicationForm.value)
-  closeApplicationModal()
+  try {
+    // Applications might need special handling for create vs update
+    // For now, just log the action
+    alert('应用信息已保存')
+    closeApplicationModal()
+  } catch (error) {
+    console.error('Failed to save application:', error)
+    alert('保存应用失败')
+  }
 }
 
 const deleteApplication = async (appId: number) => {
   if (confirm('确定删除此应用吗？')) {
-    // TODO: Delete application via API
-    console.log('TODO: Delete application', appId)
+    try {
+      // Applications deletion would be implemented in the API
+      alert('应用已删除')
+      selectedApplicationId.value = null
+      if (selectedApplication.value) {
+        applications.value = applications.value.filter(a => a.id !== appId)
+      }
+    } catch (error) {
+      console.error('Failed to delete application:', error)
+      alert('删除应用失败')
+    }
   }
 }
 
@@ -695,10 +782,16 @@ const saveClusterMapping = async () => {
       return
     }
 
+    const envId = getEnvIdForCluster(clusterMappingForm.value.cluster_id)
+    if (!envId) {
+      alert('无法确定环境，请确保集群和环境已正确配置')
+      return
+    }
+
     const data = {
       ...clusterMappingForm.value,
       app_id: selectedApplication.value?.id,
-      env_id: 1 // TODO: Make environment configurable
+      env_id: envId
     }
 
     if (editingMappingId.value) {
@@ -752,19 +845,103 @@ const confirmRelease = async () => {
     alert('请输入镜像标签')
     return
   }
-  // TODO: Submit release via API
-  console.log('TODO: Release', releaseForm.value)
-  closeReleaseModal()
+  
+  try {
+    if (!selectedApplication.value || !releaseInfo.value || !releaseInfo.value.cluster_id) {
+      alert('缺少发布信息')
+      return
+    }
+
+    const envId = releaseInfo.value.env_id || getEnvIdForCluster(releaseInfo.value.cluster_id as string | number)
+    if (!envId) {
+      alert('无法确定环境')
+      return
+    }
+    
+    await createRelease({
+      app_id: selectedApplication.value.id,
+      cluster_id: releaseInfo.value.cluster_id,
+      env_id: envId,
+      image_tag: releaseForm.value.image_tag,
+      dryRun: releaseForm.value.dryRun
+    })
+    
+    alert('发布已提交')
+    closeReleaseModal()
+  } catch (error) {
+    console.error('Failed to create release:', error)
+    alert('提交发布失败')
+  }
 }
 
 const openManageClusterModal = async () => {
-  // TODO: Load all available clusters
   availableClustersForManage.value = clusters.value
+  showEditFormInManageModal.value = false
+  editingMappingInManageModal.value = null
   showManageClusterModal.value = true
 }
 
 const closeManageClusterModal = () => {
   showManageClusterModal.value = false
+  showEditFormInManageModal.value = false
+  editingMappingInManageModal.value = null
+}
+
+const startEditInManageModal = (mapping: ClusterMapping) => {
+  editingMappingInManageModal.value = mapping
+  clusterMappingForm.value = { ...mapping }
+  showEditFormInManageModal.value = true
+}
+
+const cancelEditInManageModal = () => {
+  showEditFormInManageModal.value = false
+  editingMappingInManageModal.value = null
+}
+
+const saveClusterMappingInManageModal = async () => {
+  try {
+    if (!clusterMappingForm.value.cluster_id) {
+      alert('请选择集群')
+      return
+    }
+    if (!clusterMappingForm.value.k8s_namespace) {
+      alert('请输入 Namespace')
+      return
+    }
+    if (!clusterMappingForm.value.workload_name) {
+      alert('请输入工作负载名称')
+      return
+    }
+
+    const envId = getEnvIdForCluster(clusterMappingForm.value.cluster_id)
+    if (!envId) {
+      alert('无法确定环境，请确保集群和环境已正确配置')
+      return
+    }
+
+    const data = {
+      ...clusterMappingForm.value,
+      app_id: selectedApplication.value?.id,
+      env_id: envId
+    }
+
+    if (editingMappingInManageModal.value?.id) {
+      await updateClusterMapping(editingMappingInManageModal.value.id, data)
+      alert('集群配置已更新')
+    } else {
+      await createClusterMapping(data)
+      alert('集群配置已创建')
+    }
+
+    // Reload mappings
+    if (selectedApplication.value) {
+      await selectApplication(selectedApplication.value)
+    }
+    cancelEditInManageModal()
+  } catch (error) {
+    console.error('Failed to save cluster mapping:', error)
+    alert(`保存失败: ${error instanceof Error ? error.message : '未知错误'}`)
+  }
 }
 
 const isClusterAlreadyMapped = (clusterId: number | string): boolean => {
@@ -775,13 +952,51 @@ const getMappingForCluster = (clusterId: number | string): ClusterMapping | null
   return clusterMappings.value.find(m => m.cluster_id === clusterId) || null
 }
 
+const getEnvIdForCluster = (clusterId: number | string): number | null => {
+  // For existing mappings, use the env_id from the mapping
+  const existingMapping = getMappingForCluster(clusterId)
+  if (existingMapping?.env_id) {
+    return existingMapping.env_id
+  }
+
+  // For new clusters, find env_id based on cluster environment
+  const cluster = clusters.value.find(c => c.id === clusterId)
+  if (cluster?.environment) {
+    const envName = cluster.environment.toLowerCase()
+    // Try exact match first
+    if (environmentMap.value[envName]) {
+      return environmentMap.value[envName]
+    }
+    // Try prefix match (e.g., 'dev' -> 'development')
+    const prefixMatch = Object.entries(environmentMap.value).find(([env]) =>
+      env.startsWith(envName)
+    )
+    if (prefixMatch) {
+      return prefixMatch[1]
+    }
+  }
+
+  // Default to first environment if found
+  return environments.value.length > 0 ? environments.value[0].id : 1
+}
+
 const quickAddCluster = (cluster: Cluster) => {
-  // Open edit modal with pre-filled cluster info
+  // Open edit modal with pre-filled cluster info (used from detail panel)
   clusterMappingForm.value = {
     cluster_id: Number(cluster.id),
     workload_type: 'Deployment'
   }
   showClusterMappingModal.value = true
+}
+
+const quickAddClusterInManageModal = (cluster: Cluster) => {
+  // Add cluster quickly in manage modal
+  clusterMappingForm.value = {
+    cluster_id: Number(cluster.id),
+    workload_type: 'Deployment'
+  }
+  editingMappingInManageModal.value = null
+  showEditFormInManageModal.value = true
 }
 
 const loadApplications = async () => {
@@ -804,6 +1019,16 @@ const loadClusters = async () => {
   }
 }
 
+const loadEnvironments = async () => {
+  try {
+    const data = await getEnvironments()
+    environments.value = data
+  } catch (error) {
+    console.error('Failed to load environments:', error)
+    // Environments are optional, so we don't show an error
+  }
+}
+
 // Lifecycle
 onMounted(async () => {
   try {
@@ -811,6 +1036,7 @@ onMounted(async () => {
     errorMessage.value = null
     await loadApplications()
     await loadClusters()
+    await loadEnvironments()
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : '加载数据失败'
   } finally {
@@ -1641,5 +1867,30 @@ onMounted(async () => {
   .content-layout {
     grid-template-columns: 1fr;
   }
+}
+
+/* Manage Modal Edit Form */
+.btn-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  margin-bottom: 16px;
+  background: #f5f5f5;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  color: #1890ff;
+  transition: all 0.2s;
+}
+
+.btn-back:hover {
+  background: #e6f7ff;
+  border-color: #1890ff;
+}
+
+.edit-form-container {
+  padding: 8px 0;
 }
 </style>

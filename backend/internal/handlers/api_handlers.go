@@ -5,10 +5,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
-	"github.com/op/release-control/internal/models"
-	"github.com/op/release-control/internal/repository"
+	"built-and-deploy/internal/models"
+	"built-and-deploy/internal/repository"
 )
 
 // Application Handlers
@@ -252,9 +253,8 @@ func ListDeploymentTargetsByAppHandler(repo *repository.DeploymentTargetReposito
 			return
 		}
 
-		// For now, return all deployment targets
-		// TODO: Implement GetByApp method in repository
-		targets, err := repo.List(100, 0)
+		// Get deployment targets by app using the GetByApp method
+		targets, err := repo.GetByApp(appIDInt)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -327,8 +327,8 @@ func CreateDeploymentTargetHandler(repo *repository.DeploymentTargetRepository) 
 
 		created, err := repo.Create(&target)
 		if err != nil {
-			// Check if it's a unique constraint error
-			if err != nil {
+			// Return 409 Conflict for duplicate unique constraint errors
+			if strings.Contains(err.Error(), "UNIQUE constraint failed") {
 				http.Error(w, fmt.Sprintf("duplicate deployment target: %v", err), http.StatusConflict)
 				return
 			}
@@ -379,13 +379,13 @@ func UpdateDeploymentTargetHandler(repo *repository.DeploymentTargetRepository) 
 		if updates.K8sDeployment != "" {
 			existing.K8sDeployment = updates.K8sDeployment
 		}
-		if updates.ContainerName != "" {
+		if updates.ContainerName != nil && *updates.ContainerName != "" {
 			existing.ContainerName = updates.ContainerName
 		}
-		if updates.RegistryDomain != "" {
+		if updates.RegistryDomain != nil && *updates.RegistryDomain != "" {
 			existing.RegistryDomain = updates.RegistryDomain
 		}
-		if updates.ImageRepo != "" {
+		if updates.ImageRepo != nil && *updates.ImageRepo != "" {
 			existing.ImageRepo = updates.ImageRepo
 		}
 
@@ -423,5 +423,321 @@ func DeleteDeploymentTargetHandler(repo *repository.DeploymentTargetRepository) 
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusNoContent)
+	}
+}
+
+// Cluster Handlers - Additional
+func GetClusterHandler(repo repository.ClusterRepository) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		idStr := r.PathValue("id")
+		if idStr == "" {
+			http.Error(w, "id is required", http.StatusBadRequest)
+			return
+		}
+
+		var id int
+		_, err := fmt.Sscanf(idStr, "%d", &id)
+		if err != nil {
+			http.Error(w, "invalid id", http.StatusBadRequest)
+			return
+		}
+
+		ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+		defer cancel()
+
+		cluster, err := repo.GetByID(ctx, id)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusNotFound)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(cluster)
+	}
+}
+
+func UpdateClusterHandler(repo repository.ClusterRepository) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		idStr := r.PathValue("id")
+		if idStr == "" {
+			http.Error(w, "id is required", http.StatusBadRequest)
+			return
+		}
+
+		var id int
+		_, err := fmt.Sscanf(idStr, "%d", &id)
+		if err != nil {
+			http.Error(w, "invalid id", http.StatusBadRequest)
+			return
+		}
+
+		ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+		defer cancel()
+
+		// Get existing cluster
+		existing, err := repo.GetByID(ctx, id)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusNotFound)
+			return
+		}
+
+		// Decode request body
+		var updates models.Cluster
+		err = json.NewDecoder(r.Body).Decode(&updates)
+		if err != nil {
+			http.Error(w, "invalid request body", http.StatusBadRequest)
+			return
+		}
+
+		// Update fields
+		if updates.Name != "" {
+			existing.Name = updates.Name
+		}
+		if updates.Type != "" {
+			existing.Type = updates.Type
+		}
+		if updates.Environment != "" {
+			existing.Environment = updates.Environment
+		}
+		if updates.RegistryPrefix != "" {
+			existing.RegistryPrefix = updates.RegistryPrefix
+		}
+		if updates.Labels != nil && *updates.Labels != "" {
+			existing.Labels = updates.Labels
+		}
+		if updates.KubeconfigPath != nil && *updates.KubeconfigPath != "" {
+			existing.KubeconfigPath = updates.KubeconfigPath
+		}
+		if updates.Kubeconfig != nil && *updates.Kubeconfig != "" {
+			existing.Kubeconfig = updates.Kubeconfig
+		}
+		if updates.KubeconfigEncrypted != nil && *updates.KubeconfigEncrypted != "" {
+			existing.KubeconfigEncrypted = updates.KubeconfigEncrypted
+		}
+		if updates.AnsibleHosts != nil && *updates.AnsibleHosts != "" {
+			existing.AnsibleHosts = updates.AnsibleHosts
+		}
+
+		err = repo.Update(ctx, existing)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(existing)
+	}
+}
+
+func DeleteClusterHandler(repo repository.ClusterRepository) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		idStr := r.PathValue("id")
+		if idStr == "" {
+			http.Error(w, "id is required", http.StatusBadRequest)
+			return
+		}
+
+		var id int
+		_, err := fmt.Sscanf(idStr, "%d", &id)
+		if err != nil {
+			http.Error(w, "invalid id", http.StatusBadRequest)
+			return
+		}
+
+		ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+		defer cancel()
+
+		err = repo.Delete(ctx, id)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusNoContent)
+	}
+}
+
+// Shell Server Handlers - Placeholder implementations
+func GetShellServersHandler() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"total": 0,
+			"data":  []interface{}{},
+		})
+	}
+}
+
+func CreateShellServerHandler() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var server map[string]interface{}
+		err := json.NewDecoder(r.Body).Decode(&server)
+		if err != nil {
+			http.Error(w, "invalid request body", http.StatusBadRequest)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusCreated)
+		json.NewEncoder(w).Encode(server)
+	}
+}
+
+func UpdateShellServerHandler() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var server map[string]interface{}
+		err := json.NewDecoder(r.Body).Decode(&server)
+		if err != nil {
+			http.Error(w, "invalid request body", http.StatusBadRequest)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(server)
+	}
+}
+
+func DeleteShellServerHandler() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusNoContent)
+	}
+}
+
+// Shell Task Handlers - Placeholder implementations
+func GetShellTasksHandler() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"total": 0,
+			"data":  []interface{}{},
+		})
+	}
+}
+
+func CreateShellTaskHandler() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var task map[string]interface{}
+		err := json.NewDecoder(r.Body).Decode(&task)
+		if err != nil {
+			http.Error(w, "invalid request body", http.StatusBadRequest)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusCreated)
+		json.NewEncoder(w).Encode(task)
+	}
+}
+
+func UpdateShellTaskHandler() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var task map[string]interface{}
+		err := json.NewDecoder(r.Body).Decode(&task)
+		if err != nil {
+			http.Error(w, "invalid request body", http.StatusBadRequest)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(task)
+	}
+}
+
+func DeleteShellTaskHandler() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusNoContent)
+	}
+}
+
+func ExecuteShellTaskHandler() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var payload map[string]interface{}
+		err := json.NewDecoder(r.Body).Decode(&payload)
+		if err != nil {
+			http.Error(w, "invalid request body", http.StatusBadRequest)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"status": "success",
+			"message": "Task execution initiated",
+		})
+	}
+}
+
+// Command Approval Handlers - Placeholder implementations
+func GetCommandApprovalsHandler() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"total": 0,
+			"data":  []interface{}{},
+		})
+	}
+}
+
+func CreateCommandApprovalHandler() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var approval map[string]interface{}
+		err := json.NewDecoder(r.Body).Decode(&approval)
+		if err != nil {
+			http.Error(w, "invalid request body", http.StatusBadRequest)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusCreated)
+		json.NewEncoder(w).Encode(approval)
+	}
+}
+
+func ApproveCommandHandler() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"status": "approved",
+		})
+	}
+}
+
+func RejectCommandHandler() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"status": "rejected",
+		})
+	}
+}
+
+// Execution History Handler - Placeholder implementation
+func GetShellExecutionHistoryHandler() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"total": 0,
+			"data":  []interface{}{},
+		})
+	}
+}
+
+// Release Events Handler - Placeholder
+func ReleaseEventsHandler() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode([]interface{}{})
+	}
+}
+
+// Shell Server Detail Handler - Placeholder
+func GetShellServerDetailHandler() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{})
+	}
+}
+
+// Shell Task Detail Handler - Placeholder
+func GetShellTaskDetailHandler() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{})
 	}
 }

@@ -8,6 +8,7 @@ import type { ReleaseResponse, ReleaseEvent } from '@/types/api'
 import type { ReleaseRecord } from '@/types/models'
 import { releaseAPI } from '@/api/release'
 import { useAppStore } from './appStore'
+import { getCurrentUser } from '@/utils/auth'
 
 export const useReleaseStore = defineStore('release', () => {
   // ============ State ============
@@ -87,7 +88,7 @@ export const useReleaseStore = defineStore('release', () => {
     try {
       const response = await releaseAPI.createRelease({
         ...data,
-        user: 'current-user' // TODO: 从认证系统获取当前用户
+        user: getCurrentUser() // 从认证系统获取当前用户
       })
       currentRelease.value = response
       return response

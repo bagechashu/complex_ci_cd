@@ -265,6 +265,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
+import { getShellServers, createShellServer, updateShellServer, deleteShellServer as apiDeleteShellServer } from '@/api/metadata'
 
 interface Server {
   id: number | string
@@ -371,21 +372,45 @@ const saveServer = async () => {
     .map((cmd: string) => cmd.trim())
     .filter((cmd: string) => cmd) || []
 
-  // TODO: Save server via API
-  console.log('TODO: Save server', { ...serverForm.value, allowed_commands: allowedCommands })
-  closeServerModal()
+  try {
+    const payload = {
+      ...serverForm.value,
+      allowed_commands: allowedCommands
+    }
+    
+    if (editingServerId.value) {
+      await updateShellServer(editingServerId.value as number, payload)
+    } else {
+      await createShellServer(payload)
+    }
+    await loadServers()
+    closeServerModal()
+  } catch (error) {
+    console.error('Failed to save server:', error)
+    alert('保存服务器失败')
+  }
 }
 
 const deleteServer = async (serverId: number | string) => {
   if (confirm('确定删除此服务器吗？')) {
-    // TODO: Delete server via API
-    console.log('TODO: Delete server', serverId)
+    try {
+      await apiDeleteShellServer(serverId as number)
+      await loadServers()
+      selectedServerId.value = null
+    } catch (error) {
+      console.error('Failed to delete server:', error)
+      alert('删除服务器失败')
+    }
   }
 }
 
 const loadServers = async () => {
-  // TODO: Fetch from API GET /api/v1/shell-servers
-  console.log('TODO: Load shell servers')
+  try {
+    const data = await getShellServers()
+    servers.value = data
+  } catch (error) {
+    console.error('Failed to load servers:', error)
+  }
 }
 
 // Lifecycle

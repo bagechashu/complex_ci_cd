@@ -7,31 +7,34 @@ import (
 	"os/signal"
 	"syscall"
 
+	"built-and-deploy/internal/config"
+	"built-and-deploy/internal/database"
+	"built-and-deploy/internal/handlers"
+	"built-and-deploy/internal/repository"
+	"built-and-deploy/pkg/logger"
+
 	"github.com/go-chi/chi/v5"
-	"github.com/op/release-control/internal/config"
-	"github.com/op/release-control/internal/database"
-	"github.com/op/release-control/internal/handlers"
-	"github.com/op/release-control/internal/repository"
-	"github.com/op/release-control/pkg/logger"
 )
 
 // Use air for live reload during development
 func main() {
 	cfg := config.LoadConfig()
-	log := logger.NewLogger()
+	
+	// Initialize global logger
+	logger.InitLogger()
+	log := logger.GetLogger()
 
 	log.Info("Starting Release Control Server")
-	log.Info("Environment: %s", cfg.Environment)
-	log.Info("Database: %s", cfg.DatabasePath)
+	log.Info("Configuration loaded", "environment", cfg.Environment, "database", cfg.DatabasePath)
 
 	sqlDB, err := database.Init(cfg.DatabasePath)
 	if err != nil {
-		log.Error("Failed to initialize database: %v", err)
+		log.Error("Failed to initialize database", "error", err)
 		os.Exit(1)
 	}
 	defer database.Close()
 
-	log.Info("✅ Database initialized successfully")
+	log.Info("Database initialized successfully")
 
 	router := chi.NewRouter()
 	
@@ -45,7 +48,7 @@ func main() {
 	handlers.SetupRoutes(router, appRepo, clusterRepo, releaseRepo, deploymentTargetRepo, log)
 
 	addr := fmt.Sprintf("%s:%d", cfg.ServerHost, cfg.ServerPort)
-	log.Info("Server listening on %s", addr)
+	log.Info("Server listening", "address", addr)
 
 	server := &http.Server{
 		Addr:    addr,
@@ -57,12 +60,12 @@ func main() {
 
 	go func() {
 		sig := <-sigChan
-		log.Info("Received signal: %v", sig)
+		log.Info("Received signal", "signal", sig.String())
 		server.Close()
 	}()
 
 	if err := server.ListenAndServe(); err != http.ErrServerClosed {
-		log.Error("Server error: %v", err)
+		log.Error("Server error", "error", err)
 		os.Exit(1)
 	}
 

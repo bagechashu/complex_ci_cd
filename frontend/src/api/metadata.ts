@@ -61,6 +61,27 @@ export const getCluster = (clusterId: number): Promise<Cluster> => {
   return request.get(`/v1/clusters/${clusterId}`)
 }
 
+/**
+ * 创建集群
+ */
+export const createCluster = (cluster: Partial<Cluster>): Promise<Cluster> => {
+  return request.post('/v1/clusters', cluster)
+}
+
+/**
+ * 更新集群
+ */
+export const updateCluster = (clusterId: number, cluster: Partial<Cluster>): Promise<Cluster> => {
+  return request.put(`/v1/clusters/${clusterId}`, cluster)
+}
+
+/**
+ * 删除集群
+ */
+export const deleteCluster = (clusterId: number): Promise<void> => {
+  return request.delete(`/v1/clusters/${clusterId}`)
+}
+
 // ==================== 部署目标 ====================
 
 /**
@@ -85,6 +106,161 @@ export const getClustersByAppAndEnv = (
   )
 }
 
+// ==================== Shell 服务器 ====================
+
+/**
+ * 获取所有 Shell 服务器
+ */
+export const getShellServers = async (): Promise<any[]> => {
+  const response: any = await request.get('/v1/shell-servers')
+  return response?.data || []
+}
+
+/**
+ * 获取单个 Shell 服务器
+ */
+export const getShellServer = (serverId: number): Promise<any> => {
+  return request.get(`/v1/shell-servers/${serverId}`)
+}
+
+/**
+ * 创建 Shell 服务器
+ */
+export const createShellServer = (server: any): Promise<any> => {
+  return request.post('/v1/shell-servers', server)
+}
+
+/**
+ * 更新 Shell 服务器
+ */
+export const updateShellServer = (serverId: number, server: any): Promise<any> => {
+  return request.put(`/v1/shell-servers/${serverId}`, server)
+}
+
+/**
+ * 删除 Shell 服务器
+ */
+export const deleteShellServer = (serverId: number): Promise<void> => {
+  return request.delete(`/v1/shell-servers/${serverId}`)
+}
+
+// ==================== Shell 任务 ====================
+
+/**
+ * 获取所有 Shell 任务
+ */
+export const getShellTasks = async (): Promise<any[]> => {
+  const response: any = await request.get('/v1/shell-tasks')
+  return response?.data || []
+}
+
+/**
+ * 获取单个 Shell 任务
+ */
+export const getShellTask = (taskId: number): Promise<any> => {
+  return request.get(`/v1/shell-tasks/${taskId}`)
+}
+
+/**
+ * 创建 Shell 任务
+ */
+export const createShellTask = (task: any): Promise<any> => {
+  return request.post('/v1/shell-tasks', task)
+}
+
+/**
+ * 更新 Shell 任务
+ */
+export const updateShellTask = (taskId: number, task: any): Promise<any> => {
+  return request.put(`/v1/shell-tasks/${taskId}`, task)
+}
+
+/**
+ * 删除 Shell 任务
+ */
+export const deleteShellTask = (taskId: number): Promise<void> => {
+  return request.delete(`/v1/shell-tasks/${taskId}`)
+}
+
+/**
+ * 执行 Shell 任务
+ */
+export const executeShellTask = (taskId: number, payload: any): Promise<any> => {
+  return request.post(`/v1/shell-tasks/${taskId}/execute`, payload)
+}
+
+// ==================== 命令批准 ====================
+
+/**
+ * 获取所有命令批准
+ */
+export const getCommandApprovals = async (status?: string): Promise<any[]> => {
+  const url = status ? `/v1/command-approvals?status=${status}` : '/v1/command-approvals'
+  const response: any = await request.get(url)
+  return response?.data || []
+}
+
+/**
+ * 提交命令批准
+ */
+export const submitCommandApproval = (payload: any): Promise<any> => {
+  return request.post('/v1/command-approvals', payload)
+}
+
+/**
+ * 批准命令
+ */
+export const approveCommand = (approvalId: number): Promise<any> => {
+  return request.put(`/v1/command-approvals/${approvalId}/approve`, {})
+}
+
+/**
+ * 拒绝命令
+ */
+export const rejectCommand = (approvalId: number, reason?: string): Promise<any> => {
+  return request.put(`/v1/command-approvals/${approvalId}/reject`, { reason })
+}
+
+// ==================== 发布 ====================
+
+/**
+ * 获取所有发布记录
+ */
+export const getReleases = async (): Promise<any[]> => {
+  const response: any = await request.get('/v1/releases')
+  return response?.data || []
+}
+
+/**
+ * 获取单个发布记录
+ */
+export const getRelease = (releaseId: number): Promise<any> => {
+  return request.get(`/v1/releases/${releaseId}`)
+}
+
+/**
+ * 创建发布
+ */
+export const createRelease = (payload: any): Promise<any> => {
+  return request.post('/v1/releases', payload)
+}
+
+/**
+ * 获取发布事件
+ */
+export const getReleaseEvents = async (releaseId: number): Promise<any[]> => {
+  const response: any = await request.get(`/v1/releases/${releaseId}/events`)
+  return response?.data || []
+}
+// ==================== 执行历史 ====================
+
+/**
+ * 获取所有执行历史
+ */
+export const getExecutionHistories = async (): Promise<any[]> => {
+  const response: any = await request.get('/v1/shell-execution-history')
+  return response?.data || []
+}
 export const metadataAPI = {
   getApplications,
   getApplication,
@@ -92,8 +268,29 @@ export const metadataAPI = {
   getEnvironment,
   getClusters,
   getCluster,
+  createCluster,
+  updateCluster,
+  deleteCluster,
   getDeploymentTargets,
-  getClustersByAppAndEnv
+  getClustersByAppAndEnv,
+  getShellServers,
+  getShellServer,
+  createShellServer,
+  updateShellServer,
+  deleteShellServer,
+  getShellTasks,
+  getShellTask,
+  createShellTask,
+  updateShellTask,
+  deleteShellTask,
+  executeShellTask,
+  getCommandApprovals,
+  submitCommandApproval,
+  approveCommand,
+  rejectCommand,
+  getReleases,
+  getRelease,
+  createRelease,
+  getReleaseEvents,
+  getExecutionHistories
 }
- 
- 

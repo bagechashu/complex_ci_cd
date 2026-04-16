@@ -6,7 +6,7 @@ import (
 	"errors"
 	"time"
 
-	"github.com/op/release-control/internal/models"
+	"built-and-deploy/internal/models"
 )
 
 const (

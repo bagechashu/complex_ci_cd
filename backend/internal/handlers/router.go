@@ -3,11 +3,12 @@ package handlers
 import (
 	"net/http"
 
+	"built-and-deploy/internal/repository"
+	"built-and-deploy/pkg/logger"
+	"built-and-deploy/pkg/middleware"
+
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/cors"
-	"github.com/op/release-control/internal/repository"
-	"github.com/op/release-control/pkg/logger"
-	"github.com/op/release-control/pkg/middleware"
 )
 
 // SetupRoutes sets up all API routes - SIMPLIFIED VERSION
@@ -45,6 +46,9 @@ func SetupRoutes(
 		// Clusters
 		r.Get("/clusters", ListClustersHandler(clusterRepo))
 		r.Post("/clusters", CreateClusterHandler(clusterRepo))
+		r.Get("/clusters/{id}", GetClusterHandler(clusterRepo))
+		r.Put("/clusters/{id}", UpdateClusterHandler(clusterRepo))
+		r.Delete("/clusters/{id}", DeleteClusterHandler(clusterRepo))
 
 		// Deployment Targets (App-Cluster Configs)
 		r.Get("/app-cluster-configs", ListDeploymentTargetsHandler(deploymentTargetRepo))
@@ -57,12 +61,37 @@ func SetupRoutes(
 		// Releases
 		r.Get("/releases", ListReleasesHandler(releaseRepo))
 		r.Post("/releases", CreateReleaseHandler(releaseRepo))
+		r.Get("/releases/{id}/events", ReleaseEventsHandler())
 
 		// Environments (placeholder - returns empty list for now)
 		r.Get("/environments", environmentsHandler)
 		
 		// Deployment Targets (placeholder - returns empty list for now)
 		r.Get("/deployment-targets", deploymentTargetsHandler)
+
+		// Shell Servers
+		r.Get("/shell-servers", GetShellServersHandler())
+		r.Post("/shell-servers", CreateShellServerHandler())
+		r.Get("/shell-servers/{id}", GetShellServerDetailHandler())
+		r.Put("/shell-servers/{id}", UpdateShellServerHandler())
+		r.Delete("/shell-servers/{id}", DeleteShellServerHandler())
+
+		// Shell Tasks
+		r.Get("/shell-tasks", GetShellTasksHandler())
+		r.Post("/shell-tasks", CreateShellTaskHandler())
+		r.Get("/shell-tasks/{id}", GetShellTaskDetailHandler())
+		r.Put("/shell-tasks/{id}", UpdateShellTaskHandler())
+		r.Delete("/shell-tasks/{id}", DeleteShellTaskHandler())
+		r.Post("/shell-tasks/{id}/execute", ExecuteShellTaskHandler())
+
+		// Shell Execution History
+		r.Get("/shell-execution-history", GetShellExecutionHistoryHandler())
+
+		// Command Approvals
+		r.Get("/command-approvals", GetCommandApprovalsHandler())
+		r.Post("/command-approvals", CreateCommandApprovalHandler())
+		r.Put("/command-approvals/{id}/approve", ApproveCommandHandler())
+		r.Put("/command-approvals/{id}/reject", RejectCommandHandler())
 	})
 }
 

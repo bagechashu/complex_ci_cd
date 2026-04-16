@@ -107,6 +107,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
+import { getApplications } from '@/api/metadata'
 
 interface Application {
   id: number
@@ -143,29 +144,50 @@ const selectedApp = computed(() => {
 
 // Functions
 const loadApplications = async () => {
-  // TODO: Fetch from API GET /api/v1/applications
-  console.log('TODO: Load applications from API')
+  try {
+    const data = await getApplications()
+    applications.value = data
+  } catch (error) {
+    console.error('Failed to load applications:', error)
+  }
 }
 
 const selectApp = async (appId: number) => {
   selectedAppId.value = appId
-  // TODO: Load cluster mappings for this app
-  console.log('TODO: Load cluster mappings for app', appId)
+  try {
+    const response = await fetch(`/api/v1/deployment-targets/app/${appId}`)
+    const result = await response.json()
+    clusterMappings.value = result.data || []
+  } catch (error) {
+    console.error('Failed to load cluster mappings:', error)
+  }
 }
 
 const editSelectedApp = () => {
-  // TODO: Open edit app modal
-  console.log('TODO: Edit application', selectedAppId.value)
+  if (selectedAppId.value) {
+    showCreateApp.value = true
+  }
 }
 
 const editMapping = (mapping: ClusterMapping) => {
-  // TODO: Open edit mapping modal
-  console.log('TODO: Edit mapping', mapping)
+  showAddMapping.value = true
 }
 
 const deleteMapping = async (mappingId: number) => {
-  // TODO: Delete mapping via API
-  console.log('TODO: Delete mapping', mappingId)
+  if (confirm('确认删除此映射吗？')) {
+    try {
+      const response = await fetch(`/api/v1/deployment-targets/${mappingId}`, {
+        method: 'DELETE'
+      })
+      if (response.ok) {
+        if (selectedAppId.value) {
+          await selectApp(selectedAppId.value)
+        }
+      }
+    } catch (error) {
+      console.error('Failed to delete mapping:', error)
+    }
+  }
 }
 
 // Lifecycle

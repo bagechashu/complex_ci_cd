@@ -187,6 +187,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
+import { getClusters, createCluster, updateCluster, deleteCluster as apiDeleteCluster } from '@/api/metadata'
 
 interface Cluster {
   id: number | string
@@ -264,21 +265,40 @@ const saveCluster = async () => {
     return
   }
 
-  // TODO: Save cluster via API
-  console.log('TODO: Save cluster', clusterForm.value)
-  closeClusterModal()
+  try {
+    if (editingClusterId.value) {
+      await updateCluster(editingClusterId.value as number, clusterForm.value)
+    } else {
+      await createCluster(clusterForm.value)
+    }
+    await loadClusters()
+    closeClusterModal()
+  } catch (error) {
+    console.error('Failed to save cluster:', error)
+    alert('保存集群失败')
+  }
 }
 
 const deleteCluster = async (clusterId: number | string) => {
   if (confirm('确定删除此集群吗？关联的应用配置也会被清除。')) {
-    // TODO: Delete cluster via API
-    console.log('TODO: Delete cluster', clusterId)
+    try {
+      await apiDeleteCluster(clusterId as number)
+      await loadClusters()
+      selectedClusterId.value = null
+    } catch (error) {
+      console.error('Failed to delete cluster:', error)
+      alert('删除集群失败')
+    }
   }
 }
 
 const loadClusters = async () => {
-  // TODO: Fetch from API GET /api/v1/clusters
-  console.log('TODO: Load clusters')
+  try {
+    const data = await getClusters()
+    clusters.value = data
+  } catch (error) {
+    console.error('Failed to load clusters:', error)
+  }
 }
 
 // Lifecycle

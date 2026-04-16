@@ -3,7 +3,7 @@ package deployers
 import (
 	"fmt"
 
-	"github.com/op/release-control/pkg/logger"
+	"built-and-deploy/pkg/logger"
 )
 
 // DeployerFactory creates deployers based on type

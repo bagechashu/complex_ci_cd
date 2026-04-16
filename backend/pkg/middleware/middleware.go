@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/op/release-control/pkg/logger"
+	"built-and-deploy/pkg/logger"
 )
 
 type ResponseWriter struct {
@@ -43,7 +43,12 @@ func Logging(log *logger.Logger) func(http.Handler) http.Handler {
 			start := time.Now()
 			wrapped := &ResponseWriter{ResponseWriter: w, statusCode: http.StatusOK}
 			next.ServeHTTP(wrapped, r)
-			log.Info("Request | %s %s | %d | %s", r.Method, r.RequestURI, wrapped.statusCode, time.Since(start))
+			log.Info("HTTP Request",
+				"method", r.Method,
+				"path", r.RequestURI,
+				"status", wrapped.statusCode,
+				"duration_ms", time.Since(start).Milliseconds(),
+			)
 		})
 	}
 }

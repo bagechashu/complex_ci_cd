@@ -3,7 +3,7 @@ package deployers
 import (
 	"context"
 
-	"github.com/op/release-control/internal/models"
+	"built-and-deploy/internal/models"
 )
 
 // DeployStrategy defines the interface for deployment strategies

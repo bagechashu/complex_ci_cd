@@ -255,6 +255,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
+import { getShellTasks, createShellTask, updateShellTask, deleteShellTask as apiDeleteShellTask, executeShellTask } from '@/api/metadata'
 
 interface Task {
   id: number
@@ -346,15 +347,35 @@ const saveTask = async () => {
     .map((s: string) => s.trim())
     .filter((s: string) => s) || []
 
-  // TODO: Save task via API
-  console.log('TODO: Save task', { ...taskForm.value, servers })
-  closeTaskModal()
+  try {
+    const payload = {
+      ...taskForm.value,
+      servers
+    }
+    
+    if (editingTaskId.value) {
+      await updateShellTask(editingTaskId.value, payload)
+    } else {
+      await createShellTask(payload)
+    }
+    await loadTasks()
+    closeTaskModal()
+  } catch (error) {
+    console.error('Failed to save task:', error)
+    alert('保存任务失败')
+  }
 }
 
 const deleteTask = async (taskId: number) => {
   if (confirm('确定删除此任务吗？')) {
-    // TODO: Delete task via API
-    console.log('TODO: Delete task', taskId)
+    try {
+      await apiDeleteShellTask(taskId)
+      await loadTasks()
+      selectedTaskId.value = null
+    } catch (error) {
+      console.error('Failed to delete task:', error)
+      alert('删除任务失败')
+    }
   }
 }
 
@@ -368,18 +389,31 @@ const closeExecuteModal = () => {
 }
 
 const confirmExecute = async () => {
-  // TODO: Execute task via API
-  console.log('TODO: Execute task', {
-    taskId: selectedTaskId.value,
-    reason: executeForm.value.reason,
-    dryRun: executeForm.value.dryRun
-  })
-  closeExecuteModal()
+  if (!selectedTaskId.value) {
+    alert('请先选择任务')
+    return
+  }
+  
+  try {
+    await executeShellTask(selectedTaskId.value, {
+      reason: executeForm.value.reason,
+      dryRun: executeForm.value.dryRun
+    })
+    closeExecuteModal()
+    alert('任务已提交执行')
+  } catch (error) {
+    console.error('Failed to execute task:', error)
+    alert('执行任务失败')
+  }
 }
 
 const loadTasks = async () => {
-  // TODO: Fetch from API GET /api/v1/shell-tasks
-  console.log('TODO: Load shell tasks')
+  try {
+    const data = await getShellTasks()
+    tasks.value = data
+  } catch (error) {
+    console.error('Failed to load tasks:', error)
+  }
 }
 
 // Lifecycle

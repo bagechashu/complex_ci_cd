@@ -178,6 +178,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+import { getCommandApprovals, submitCommandApproval, approveCommand as apiApproveCommand, rejectCommand as apiRejectCommand } from '@/api/metadata'
 
 interface CommandApproval {
   id: number
@@ -221,27 +222,53 @@ const submitForApproval = async () => {
     return
   }
 
-  // TODO: Submit for approval via API POST /api/v1/command-approvals
-  console.log('TODO: Submit for approval', form.value)
-
-  // Reset form
-  form.value = {
-    method: 'ansible',
-    targetHosts: '',
-    commandTemplate: '',
-    command: '',
-    dryRun: false
+  try {
+    await submitCommandApproval({
+      method: form.value.method,
+      targetHosts: form.value.targetHosts,
+      command: form.value.command,
+      dryRun: form.value.dryRun
+    })
+    alert('命令已提交批准')
+    
+    // Reset form
+    form.value = {
+      method: 'ansible',
+      targetHosts: '',
+      commandTemplate: '',
+      command: '',
+      dryRun: false
+    }
+    
+    await loadPendingApprovals()
+  } catch (error) {
+    console.error('Failed to submit for approval:', error)
+    alert('提交批准失败')
   }
 }
 
 const approveCommand = async (approvalId: number) => {
-  // TODO: Approve command via API PUT /api/v1/command-approvals/:id/approve
-  console.log('TODO: Approve command', approvalId)
+  try {
+    await apiApproveCommand(approvalId)
+    await loadPendingApprovals()
+    await loadExecutionHistory()
+    alert('命令已批准')
+  } catch (error) {
+    console.error('Failed to approve command:', error)
+    alert('批准命令失败')
+  }
 }
 
 const rejectCommand = async (approvalId: number) => {
-  // TODO: Reject command via API PUT /api/v1/command-approvals/:id/reject
-  console.log('TODO: Reject command', approvalId)
+  try {
+    await apiRejectCommand(approvalId, '用户拒绝')
+    await loadPendingApprovals()
+    await loadExecutionHistory()
+    alert('命令已拒绝')
+  } catch (error) {
+    console.error('Failed to reject command:', error)
+    alert('拒绝命令失败')
+  }
 }
 
 const formatTime = (dateStr: string): string => {
@@ -259,13 +286,21 @@ const statusText = (status: string): string => {
 }
 
 const loadPendingApprovals = async () => {
-  // TODO: Fetch from API GET /api/v1/command-approvals?status=pending
-  console.log('TODO: Load pending approvals')
+  try {
+    const data = await getCommandApprovals('pending')
+    pendingApprovals.value = data
+  } catch (error) {
+    console.error('Failed to load pending approvals:', error)
+  }
 }
 
 const loadExecutionHistory = async () => {
-  // TODO: Fetch from API GET /api/v1/command-approvals?status=approved,rejected
-  console.log('TODO: Load execution history')
+  try {
+    const data = await getCommandApprovals('approved,rejected')
+    executionHistory.value = data
+  } catch (error) {
+    console.error('Failed to load execution history:', error)
+  }
 }
 
 // Lifecycle

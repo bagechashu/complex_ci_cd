@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/op/release-control/internal/models"
-	"github.com/op/release-control/pkg/logger"
+	"built-and-deploy/internal/models"
+	"built-and-deploy/pkg/logger"
 )
 
 // K8sDeployer implements deployment strategy for Kubernetes

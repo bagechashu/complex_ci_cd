@@ -162,6 +162,8 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
+import { getApplications, getClusters, createRelease } from '@/api/metadata'
+import { getClusterMappingsByApp } from '@/api/cluster-mapping'
 
 interface Application {
   id: number
@@ -225,13 +227,27 @@ const completeImageUri = computed(() => {
 
 // Functions
 const loadApplications = async () => {
-  // TODO: Fetch from API
-  console.log('TODO: Load applications')
+  try {
+    const data = await getApplications()
+    applications.value = data
+    
+    // Also load clusters
+    const clustersData = await getClusters()
+    clusters.value = clustersData
+  } catch (error) {
+    console.error('Failed to load applications:', error)
+  }
 }
 
 const onClusterChange = async () => {
-  // TODO: Load cluster mapping for selected cluster and app
-  console.log('TODO: Load cluster mapping')
+  if (form.value.applicationId && form.value.clusterId) {
+    try {
+      const mappings = await getClusterMappingsByApp(form.value.applicationId)
+      clusterMappings.value = mappings
+    } catch (error) {
+      console.error('Failed to load cluster mapping:', error)
+    }
+  }
 }
 
 const canProceedToNextStep = (): boolean => {
@@ -260,9 +276,23 @@ const previousStep = () => {
 }
 
 const submitRelease = async () => {
-  // TODO: Submit release via API
-  console.log('TODO: Submit release', form.value)
-  currentStep.value = 5
+  try {
+    if (!form.value.applicationId || !form.value.clusterId || !form.value.imageTag.trim()) {
+      alert('请完成所有步骤')
+      return
+    }
+    
+    await createRelease({
+      app_id: form.value.applicationId,
+      cluster_id: form.value.clusterId,
+      image_tag: form.value.imageTag
+    })
+    
+    currentStep.value = 5
+  } catch (error) {
+    console.error('Failed to submit release:', error)
+    alert('发布提交失败')
+  }
 }
 
 // Lifecycle
