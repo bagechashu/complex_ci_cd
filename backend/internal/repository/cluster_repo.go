@@ -9,6 +9,14 @@ import (
 	"github.com/op/release-control/internal/models"
 )
 
+const (
+	sqClusterInsert = "INSERT INTO cluster (name, type, labels, kubeconfig_path, kubeconfig_encrypted, ansible_hosts, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?)"
+	sqClusterSelect = "SELECT id, name, type, labels, kubeconfig_path, kubeconfig_encrypted, ansible_hosts, created_at, updated_at FROM cluster"
+	sqClusterUpdate = "UPDATE cluster SET name=?, type=?, labels=?, kubeconfig_path=?, kubeconfig_encrypted=?, ansible_hosts=?, updated_at=? WHERE id=?"
+	sqClusterDelete = "DELETE FROM cluster WHERE id=?"
+	sqClusterCount  = "SELECT COUNT(*) FROM cluster"
+)
+
 type ClusterRepository interface {
 	Create(ctx context.Context, cluster *models.Cluster) error
 	GetByID(ctx context.Context, id int) (*models.Cluster, error)
@@ -30,17 +38,14 @@ func (r *SQLiteClusterRepository) Create(ctx context.Context, cluster *models.Cl
 	cluster.CreatedAt = now
 	cluster.UpdatedAt = now
 
-	_, err := r.db.ExecContext(ctx,
-		"INSERT INTO cluster (name, type, labels, kubeconfig_path, kubeconfig_encrypted, ansible_hosts, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?)",
+	_, err := r.db.ExecContext(ctx, sqClusterInsert,
 		cluster.Name, cluster.Type, cluster.Labels, cluster.KubeconfigPath, cluster.KubeconfigEncrypted, cluster.AnsibleHosts, cluster.CreatedAt, cluster.UpdatedAt)
 	return err
 }
 
 func (r *SQLiteClusterRepository) GetByID(ctx context.Context, id int) (*models.Cluster, error) {
 	var c models.Cluster
-	err := r.db.QueryRowContext(ctx,
-		"SELECT id, name, type, labels, kubeconfig_path, kubeconfig_encrypted, ansible_hosts, created_at, updated_at FROM cluster WHERE id = ?",
-		id).Scan(&c.ID, &c.Name, &c.Type, &c.Labels, &c.KubeconfigPath, &c.KubeconfigEncrypted, &c.AnsibleHosts, &c.CreatedAt, &c.UpdatedAt)
+	err := r.db.QueryRowContext(ctx, sqClusterSelect+" WHERE id = ?", id).Scan(&c.ID, &c.Name, &c.Type, &c.Labels, &c.KubeconfigPath, &c.KubeconfigEncrypted, &c.AnsibleHosts, &c.CreatedAt, &c.UpdatedAt)
 	if err == sql.ErrNoRows {
 		return nil, errors.New("cluster not found")
 	}
@@ -49,14 +54,12 @@ func (r *SQLiteClusterRepository) GetByID(ctx context.Context, id int) (*models.
 
 func (r *SQLiteClusterRepository) List(ctx context.Context, offset, limit int) ([]*models.Cluster, int, error) {
 	var total int
-	err := r.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM cluster").Scan(&total)
+	err := r.db.QueryRowContext(ctx, sqClusterCount).Scan(&total)
 	if err != nil {
 		return nil, 0, err
 	}
 
-	rows, err := r.db.QueryContext(ctx,
-		"SELECT id, name, type, labels, kubeconfig_path, kubeconfig_encrypted, ansible_hosts, created_at, updated_at FROM cluster ORDER BY created_at DESC LIMIT ? OFFSET ?",
-		limit, offset)
+	rows, err := r.db.QueryContext(ctx, sqClusterSelect+" ORDER BY created_at DESC LIMIT ? OFFSET ?", limit, offset)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -76,13 +79,12 @@ func (r *SQLiteClusterRepository) List(ctx context.Context, offset, limit int) (
 
 func (r *SQLiteClusterRepository) Update(ctx context.Context, cluster *models.Cluster) error {
 	cluster.UpdatedAt = time.Now()
-	_, err := r.db.ExecContext(ctx,
-		"UPDATE cluster SET name=?, type=?, labels=?, kubeconfig_path=?, kubeconfig_encrypted=?, ansible_hosts=?, updated_at=? WHERE id=?",
+	_, err := r.db.ExecContext(ctx, sqClusterUpdate,
 		cluster.Name, cluster.Type, cluster.Labels, cluster.KubeconfigPath, cluster.KubeconfigEncrypted, cluster.AnsibleHosts, cluster.UpdatedAt, cluster.ID)
 	return err
 }
 
 func (r *SQLiteClusterRepository) Delete(ctx context.Context, id int) error {
-	_, err := r.db.ExecContext(ctx, "DELETE FROM cluster WHERE id=?", id)
+	_, err := r.db.ExecContext(ctx, sqClusterDelete, id)
 	return err
 }

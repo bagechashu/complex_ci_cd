@@ -9,6 +9,14 @@ import (
 	"github.com/op/release-control/internal/models"
 )
 
+const (
+	sqCommandApprovalInsert = "INSERT INTO command_approval (id, request_id, approval_status, approved_by, approved_at, created_at, updated_at) VALUES (?,?,?,?,?,?,?)"
+	sqCommandApprovalSelect = "SELECT id, request_id, approval_status, approved_by, approved_at, created_at, updated_at FROM command_approval"
+	sqCommandApprovalUpdate = "UPDATE command_approval SET request_id=?, approval_status=?, approved_by=?, approved_at=?, updated_at=? WHERE id=?"
+	sqCommandApprovalDelete = "DELETE FROM command_approval WHERE id=?"
+	sqCommandApprovalCount  = "SELECT COUNT(*) FROM command_approval"
+)
+
 type CommandApprovalRepository interface {
 	Create(ctx context.Context, ca *models.CommandApproval) error
 	GetByID(ctx context.Context, id string) (*models.CommandApproval, error)
@@ -34,17 +42,14 @@ func (r *SQLiteCommandApprovalRepository) Create(ctx context.Context, ca *models
 	ca.CreatedAt = now
 	ca.UpdatedAt = now
 
-	_, err := r.db.ExecContext(ctx,
-		"INSERT INTO command_approval (id, request_id, approval_status, approved_by, approved_at, created_at, updated_at) VALUES (?,?,?,?,?,?,?)",
+	_, err := r.db.ExecContext(ctx, sqCommandApprovalInsert,
 		ca.ID, ca.RequestID, ca.ApprovalStatus, ca.ApprovedBy, ca.ApprovedAt, ca.CreatedAt, ca.UpdatedAt)
 	return err
 }
 
 func (r *SQLiteCommandApprovalRepository) GetByID(ctx context.Context, id string) (*models.CommandApproval, error) {
 	var ca models.CommandApproval
-	err := r.db.QueryRowContext(ctx,
-		"SELECT id, request_id, approval_status, approved_by, approved_at, created_at, updated_at FROM command_approval WHERE id = ?",
-		id).Scan(&ca.ID, &ca.RequestID, &ca.ApprovalStatus, &ca.ApprovedBy, &ca.ApprovedAt, &ca.CreatedAt, &ca.UpdatedAt)
+	err := r.db.QueryRowContext(ctx, sqCommandApprovalSelect+" WHERE id = ?", id).Scan(&ca.ID, &ca.RequestID, &ca.ApprovalStatus, &ca.ApprovedBy, &ca.ApprovedAt, &ca.CreatedAt, &ca.UpdatedAt)
 	if err == sql.ErrNoRows {
 		return nil, errors.New("approval not found")
 	}
@@ -53,9 +58,7 @@ func (r *SQLiteCommandApprovalRepository) GetByID(ctx context.Context, id string
 
 func (r *SQLiteCommandApprovalRepository) GetByRequestID(ctx context.Context, requestID string) (*models.CommandApproval, error) {
 	var ca models.CommandApproval
-	err := r.db.QueryRowContext(ctx,
-		"SELECT id, request_id, approval_status, approved_by, approved_at, created_at, updated_at FROM command_approval WHERE request_id = ?",
-		requestID).Scan(&ca.ID, &ca.RequestID, &ca.ApprovalStatus, &ca.ApprovedBy, &ca.ApprovedAt, &ca.CreatedAt, &ca.UpdatedAt)
+	err := r.db.QueryRowContext(ctx, sqCommandApprovalSelect+" WHERE request_id = ?", requestID).Scan(&ca.ID, &ca.RequestID, &ca.ApprovalStatus, &ca.ApprovedBy, &ca.ApprovedAt, &ca.CreatedAt, &ca.UpdatedAt)
 	if err == sql.ErrNoRows {
 		return nil, errors.New("approval not found")
 	}
@@ -64,11 +67,9 @@ func (r *SQLiteCommandApprovalRepository) GetByRequestID(ctx context.Context, re
 
 func (r *SQLiteCommandApprovalRepository) List(ctx context.Context, offset, limit int) ([]*models.CommandApproval, int, error) {
 	var total int
-	r.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM command_approval").Scan(&total)
+	r.db.QueryRowContext(ctx, sqCommandApprovalCount).Scan(&total)
 
-	rows, err := r.db.QueryContext(ctx,
-		"SELECT id, request_id, approval_status, approved_by, approved_at, created_at, updated_at FROM command_approval ORDER BY created_at DESC LIMIT ? OFFSET ?",
-		limit, offset)
+	rows, err := r.db.QueryContext(ctx, sqCommandApprovalSelect+" ORDER BY created_at DESC LIMIT ? OFFSET ?", limit, offset)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -85,13 +86,12 @@ func (r *SQLiteCommandApprovalRepository) List(ctx context.Context, offset, limi
 
 func (r *SQLiteCommandApprovalRepository) Update(ctx context.Context, ca *models.CommandApproval) error {
 	ca.UpdatedAt = time.Now()
-	_, err := r.db.ExecContext(ctx,
-		"UPDATE command_approval SET request_id=?, approval_status=?, approved_by=?, approved_at=?, updated_at=? WHERE id=?",
+	_, err := r.db.ExecContext(ctx, sqCommandApprovalUpdate,
 		ca.RequestID, ca.ApprovalStatus, ca.ApprovedBy, ca.ApprovedAt, ca.UpdatedAt, ca.ID)
 	return err
 }
 
 func (r *SQLiteCommandApprovalRepository) Delete(ctx context.Context, id string) error {
-	_, err := r.db.ExecContext(ctx, "DELETE FROM command_approval WHERE id=?", id)
+	_, err := r.db.ExecContext(ctx, sqCommandApprovalDelete, id)
 	return err
 }

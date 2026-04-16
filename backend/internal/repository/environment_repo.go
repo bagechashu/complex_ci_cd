@@ -8,6 +8,13 @@ import (
 	"github.com/op/release-control/internal/models"
 )
 
+const (
+	sqEnvironmentInsert = "INSERT INTO environment (name, rank, created_at, updated_at) VALUES (?, ?, ?, ?)"
+	sqEnvironmentSelect = "SELECT id, name, rank, created_at, updated_at FROM environment"
+	sqEnvironmentUpdate = "UPDATE environment SET name = ?, rank = ?, updated_at = ? WHERE id = ?"
+	sqEnvironmentDelete = "DELETE FROM environment WHERE id = ?"
+)
+
 type EnvironmentRepository struct {
 	db *sql.DB
 }
@@ -18,7 +25,7 @@ func NewEnvironmentRepository(db *sql.DB) *EnvironmentRepository {
 
 func (r *EnvironmentRepository) Create(env *models.Environment) (*models.Environment, error) {
 	result, err := r.db.Exec(
-		"INSERT INTO environment (name, rank, created_at, updated_at) VALUES (?, ?, ?, ?)",
+		sqEnvironmentInsert,
 		env.Name, env.Rank, time.Now(), time.Now(),
 	)
 	if err != nil {
@@ -39,7 +46,7 @@ func (r *EnvironmentRepository) Create(env *models.Environment) (*models.Environ
 func (r *EnvironmentRepository) GetByID(id int) (*models.Environment, error) {
 	env := &models.Environment{}
 	err := r.db.QueryRow(
-		"SELECT id, name, rank, created_at, updated_at FROM environment WHERE id = ?",
+		sqEnvironmentSelect+" WHERE id = ?",
 		id,
 	).Scan(&env.ID, &env.Name, &env.Rank, &env.CreatedAt, &env.UpdatedAt)
 
@@ -54,7 +61,7 @@ func (r *EnvironmentRepository) GetByID(id int) (*models.Environment, error) {
 }
 
 func (r *EnvironmentRepository) List(limit int, offset int) ([]*models.Environment, error) {
-	rows, err := r.db.Query("SELECT id, name, rank, created_at, updated_at FROM environment ORDER BY rank ASC LIMIT ? OFFSET ?", limit, offset)
+	rows, err := r.db.Query(sqEnvironmentSelect+" ORDER BY rank ASC LIMIT ? OFFSET ?", limit, offset)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list environments: %w", err)
 	}
@@ -80,7 +87,7 @@ func (r *EnvironmentRepository) List(limit int, offset int) ([]*models.Environme
 func (r *EnvironmentRepository) Update(env *models.Environment) error {
 	env.UpdatedAt = time.Now()
 	_, err := r.db.Exec(
-		"UPDATE environment SET name = ?, rank = ?, updated_at = ? WHERE id = ?",
+		sqEnvironmentUpdate,
 		env.Name, env.Rank, env.UpdatedAt, env.ID,
 	)
 	if err != nil {
@@ -90,7 +97,7 @@ func (r *EnvironmentRepository) Update(env *models.Environment) error {
 }
 
 func (r *EnvironmentRepository) Delete(id int) error {
-	_, err := r.db.Exec("DELETE FROM environment WHERE id = ?", id)
+	_, err := r.db.Exec(sqEnvironmentDelete, id)
 	if err != nil {
 		return fmt.Errorf("failed to delete environment: %w", err)
 	}

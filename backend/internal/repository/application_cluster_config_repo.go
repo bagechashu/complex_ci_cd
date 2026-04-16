@@ -10,6 +10,15 @@ import (
 	"github.com/op/release-control/internal/models"
 )
 
+const (
+	sqAppClusterConfigInsert = "INSERT INTO application_cluster_config (id, application_id, cluster_id, labels, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)"
+	sqAppClusterConfigSelect = "SELECT id, application_id, cluster_id, labels, created_at, updated_at FROM application_cluster_config"
+	sqAppClusterConfigUpdate = "UPDATE application_cluster_config SET labels = ?, updated_at = ? WHERE id = ?"
+	sqAppClusterConfigDelete = "DELETE FROM application_cluster_config WHERE id = ?"
+	sqAppClusterConfigDeleteByAppCluster = "DELETE FROM application_cluster_config WHERE application_id = ? AND cluster_id = ?"
+	sqAppClusterConfigCount = "SELECT COUNT(*) FROM application_cluster_config"
+)
+
 // ApplicationClusterConfigRepository 定义应用-集群配置的数据访问接口
 type ApplicationClusterConfigRepository interface {
 	Create(ctx context.Context, config *models.ApplicationClusterConfig) error
@@ -43,13 +52,7 @@ func (r *SQLiteApplicationClusterConfigRepository) Create(ctx context.Context, c
 	config.CreatedAt = now
 	config.UpdatedAt = now
 
-	query := `
-		INSERT INTO application_cluster_config 
-		(id, application_id, cluster_id, labels, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?)
-	`
-
-	_, err := r.db.ExecContext(ctx, query,
+	_, err := r.db.ExecContext(ctx, sqAppClusterConfigInsert,
 		config.ID,
 		config.ApplicationID,
 		config.ClusterID,
@@ -67,14 +70,8 @@ func (r *SQLiteApplicationClusterConfigRepository) Create(ctx context.Context, c
 
 // GetByID 实现 GetByID 方法
 func (r *SQLiteApplicationClusterConfigRepository) GetByID(ctx context.Context, id string) (*models.ApplicationClusterConfig, error) {
-	query := `
-		SELECT id, application_id, cluster_id, labels, created_at, updated_at
-		FROM application_cluster_config
-		WHERE id = ?
-	`
-
 	config := &models.ApplicationClusterConfig{}
-	err := r.db.QueryRowContext(ctx, query, id).Scan(
+	err := r.db.QueryRowContext(ctx, sqAppClusterConfigSelect+" WHERE id = ?", id).Scan(
 		&config.ID,
 		&config.ApplicationID,
 		&config.ClusterID,
@@ -95,15 +92,8 @@ func (r *SQLiteApplicationClusterConfigRepository) GetByID(ctx context.Context, 
 
 // GetByApplicationAndCluster 实现 GetByApplicationAndCluster 方法
 func (r *SQLiteApplicationClusterConfigRepository) GetByApplicationAndCluster(ctx context.Context, appID, clusterID string) (*models.ApplicationClusterConfig, error) {
-	query := `
-		SELECT id, application_id, cluster_id, labels, created_at, updated_at
-		FROM application_cluster_config
-		WHERE application_id = ? AND cluster_id = ?
-		LIMIT 1
-	`
-
 	config := &models.ApplicationClusterConfig{}
-	err := r.db.QueryRowContext(ctx, query, appID, clusterID).Scan(
+	err := r.db.QueryRowContext(ctx, sqAppClusterConfigSelect+" WHERE application_id = ? AND cluster_id = ? LIMIT 1", appID, clusterID).Scan(
 		&config.ID,
 		&config.ApplicationID,
 		&config.ClusterID,
@@ -124,14 +114,7 @@ func (r *SQLiteApplicationClusterConfigRepository) GetByApplicationAndCluster(ct
 
 // GetByApplication 实现 GetByApplication 方法
 func (r *SQLiteApplicationClusterConfigRepository) GetByApplication(ctx context.Context, applicationID string) ([]*models.ApplicationClusterConfig, error) {
-	query := `
-		SELECT id, application_id, cluster_id, labels, created_at, updated_at
-		FROM application_cluster_config
-		WHERE application_id = ?
-		ORDER BY created_at DESC
-	`
-
-	rows, err := r.db.QueryContext(ctx, query, applicationID)
+	rows, err := r.db.QueryContext(ctx, sqAppClusterConfigSelect+" WHERE application_id = ? ORDER BY created_at DESC", applicationID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query configs: %w", err)
 	}
@@ -163,14 +146,7 @@ func (r *SQLiteApplicationClusterConfigRepository) GetByApplication(ctx context.
 
 // GetByCluster 实现 GetByCluster 方法
 func (r *SQLiteApplicationClusterConfigRepository) GetByCluster(ctx context.Context, clusterID string) ([]*models.ApplicationClusterConfig, error) {
-	query := `
-		SELECT id, application_id, cluster_id, labels, created_at, updated_at
-		FROM application_cluster_config
-		WHERE cluster_id = ?
-		ORDER BY created_at DESC
-	`
-
-	rows, err := r.db.QueryContext(ctx, query, clusterID)
+	rows, err := r.db.QueryContext(ctx, sqAppClusterConfigSelect+" WHERE cluster_id = ? ORDER BY created_at DESC", clusterID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query configs: %w", err)
 	}
@@ -208,13 +184,7 @@ func (r *SQLiteApplicationClusterConfigRepository) Update(ctx context.Context, c
 
 	config.UpdatedAt = time.Now()
 
-	query := `
-		UPDATE application_cluster_config
-		SET labels = ?, updated_at = ?
-		WHERE id = ?
-	`
-
-	result, err := r.db.ExecContext(ctx, query,
+	result, err := r.db.ExecContext(ctx, sqAppClusterConfigUpdate,
 		config.Labels,
 		config.UpdatedAt,
 		config.ID,
@@ -238,9 +208,7 @@ func (r *SQLiteApplicationClusterConfigRepository) Update(ctx context.Context, c
 
 // Delete 实现 Delete 方法
 func (r *SQLiteApplicationClusterConfigRepository) Delete(ctx context.Context, id string) error {
-	query := `DELETE FROM application_cluster_config WHERE id = ?`
-
-	result, err := r.db.ExecContext(ctx, query, id)
+	result, err := r.db.ExecContext(ctx, sqAppClusterConfigDelete, id)
 	if err != nil {
 		return fmt.Errorf("failed to delete config: %w", err)
 	}
@@ -259,12 +227,7 @@ func (r *SQLiteApplicationClusterConfigRepository) Delete(ctx context.Context, i
 
 // DeleteByApplicationAndCluster 实现 DeleteByApplicationAndCluster 方法
 func (r *SQLiteApplicationClusterConfigRepository) DeleteByApplicationAndCluster(ctx context.Context, appID, clusterID string) error {
-	query := `
-		DELETE FROM application_cluster_config
-		WHERE application_id = ? AND cluster_id = ?
-	`
-
-	_, err := r.db.ExecContext(ctx, query, appID, clusterID)
+	_, err := r.db.ExecContext(ctx, sqAppClusterConfigDeleteByAppCluster, appID, clusterID)
 	if err != nil {
 		return fmt.Errorf("failed to delete config: %w", err)
 	}
@@ -274,21 +237,13 @@ func (r *SQLiteApplicationClusterConfigRepository) DeleteByApplicationAndCluster
 
 // List 实现 List 方法
 func (r *SQLiteApplicationClusterConfigRepository) List(ctx context.Context, offset, limit int) ([]*models.ApplicationClusterConfig, int, error) {
-	countQuery := `SELECT COUNT(*) FROM application_cluster_config`
 	var total int
-	err := r.db.QueryRowContext(ctx, countQuery).Scan(&total)
+	err := r.db.QueryRowContext(ctx, sqAppClusterConfigCount).Scan(&total)
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to count configs: %w", err)
 	}
 
-	query := `
-		SELECT id, application_id, cluster_id, labels, created_at, updated_at
-		FROM application_cluster_config
-		ORDER BY created_at DESC
-		LIMIT ? OFFSET ?
-	`
-
-	rows, err := r.db.QueryContext(ctx, query, limit, offset)
+	rows, err := r.db.QueryContext(ctx, sqAppClusterConfigSelect+" ORDER BY created_at DESC LIMIT ? OFFSET ?", limit, offset)
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to query configs: %w", err)
 	}
