@@ -75,7 +75,7 @@ export interface Cluster {
   type?: string // kubernetes | salt | ansible
   environment?: string
   registry_prefix?: string
-  kubeconfig?: string | null
+  k8s_connection_status?: string // "connected" | "disconnected" | "unknown"
   created_at?: string
   updated_at?: string
 }

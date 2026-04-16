@@ -86,22 +86,48 @@
                 <label>镜像仓库前缀:</label>
                 <span class="code">{{ selectedCluster.registry_prefix }}</span>
               </div>
+              <div class="info-item">
+                <label>Kubernetes 连接状态:</label>
+                <span :class="['status-badge', selectedCluster.k8s_connection_status]">
+                  {{ getConnectionStatusLabel(selectedCluster.k8s_connection_status) }}
+                </span>
+              </div>
             </div>
           </div>
 
-          <!-- Kubeconfig -->
+          <!-- Security Notice -->
           <div class="detail-section">
-            <h3>Kubeconfig</h3>
-            <div class="kubeconfig-display">
-              <pre>{{ selectedCluster.kubeconfig || '(未配置)' }}</pre>
+            <h3>🔐 安全信息</h3>
+            <div class="security-notice">
+              <p><strong>Kubeconfig 是敏感信息</strong>，系统已加密存储，不显示具体内容。</p>
+              <p v-if="selectedCluster.k8s_connection_status === 'connected'" class="status-ok">
+                ✓ Kubernetes 集群连接正常
+              </p>
+              <p v-else-if="selectedCluster.k8s_connection_status === 'disconnected'" class="status-error">
+                ✗ 无法连接 Kubernetes 集群，请检查 Kubeconfig 配置
+              </p>
+              <p v-else class="status-unknown">
+                ⚠ 连接状态未知
+              </p>
+              <p class="help-text">要更新 Kubeconfig，请点击"编辑集群"按钮。</p>
             </div>
           </div>
 
           <!-- Connected Applications -->
           <div class="detail-section">
             <h3>关联应用</h3>
-            <!-- TODO: Load applications using this cluster -->
-            <p class="help-text">TODO: Show applications using this cluster</p>
+            <div v-if="loadingApplications" class="loading">
+              <p>加载中...</p>
+            </div>
+            <div v-else-if="clusterApplications.length === 0" class="empty-apps">
+              <p class="help-text">该集群暂无关联应用</p>
+            </div>
+            <div v-else class="apps-list">
+              <div v-for="app in clusterApplications" :key="app.id" class="app-item">
+                <div class="app-name">{{ app.name }}</div>
+                <div class="app-image">{{ app.image_name }}</div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -168,10 +194,16 @@
               v-model="clusterForm.kubeconfig"
               class="form-input form-textarea"
               rows="10"
-              placeholder="将 kubeconfig 文件内容粘贴到这里"
+              :placeholder="editingClusterId ? '输入新的 kubeconfig 内容来更新（当前值已隐藏）' : '将 kubeconfig 文件内容粘贴到这里'"
             ></textarea>
             <p class="help-text">
-              通常可以从 ~/.kube/config 获取，或从集群管理员获得
+              <strong>⚠️ Kubeconfig 是敏感信息</strong>，系统加密存储。编辑时必须提供完整的新 kubeconfig 内容，当前值不显示。
+              <br/>
+              通常可以从 ~/.kube/config 获取，或从集群管理员获得。
+              <br/>
+              <span v-if="editingClusterId && clusterForm.kubeconfig === undefined" style="color: #ff7d00;">
+                💡 提示：保存时将验证 Kubeconfig 连接性
+              </span>
             </p>
           </div>
         </div>
@@ -187,7 +219,8 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { getClusters, createCluster, updateCluster, deleteCluster as apiDeleteCluster } from '@/api/metadata'
+import { getClusters, createCluster, updateCluster, deleteCluster as apiDeleteCluster, getApplicationsByCluster } from '@/api/metadata'
+import type { Application } from '@/types/api'
 
 interface Cluster {
   id: number | string
@@ -195,12 +228,14 @@ interface Cluster {
   environment: string
   type: string
   registry_prefix: string
-  kubeconfig?: string
+  k8s_connection_status?: string
 }
 
 // State
 const searchQuery = ref('')
 const selectedClusterId = ref<number | string | null>(null)
+const clusterApplications = ref<Application[]>([])
+const loadingApplications = ref(false)
 
 const clusters = ref<Cluster[]>([])
 
@@ -226,6 +261,19 @@ const selectedCluster = computed(() => {
 // Functions
 const selectCluster = (cluster: Cluster) => {
   selectedClusterId.value = cluster.id
+  loadApplicationsForCluster(cluster.id)
+}
+
+const loadApplicationsForCluster = async (clusterId: number | string) => {
+  loadingApplications.value = true
+  try {
+    clusterApplications.value = await getApplicationsByCluster(clusterId)
+  } catch (error) {
+    console.error('Failed to load applications for cluster:', error)
+    clusterApplications.value = []
+  } finally {
+    loadingApplications.value = false
+  }
 }
 
 const openCreateClusterModal = () => {
@@ -237,7 +285,12 @@ const openCreateClusterModal = () => {
 const openEditClusterModal = () => {
   if (selectedCluster.value) {
     editingClusterId.value = selectedCluster.value.id
-    clusterForm.value = { ...selectedCluster.value }
+    // Don't include kubeconfig in form to prevent showing sensitive data
+    const { kubeconfig, ...rest } = selectedCluster.value as any
+    clusterForm.value = { 
+      ...rest,
+      kubeconfig: undefined // Force empty, secure by default
+    }
     showClusterModal.value = true
   }
 }
@@ -298,6 +351,17 @@ const loadClusters = async () => {
     clusters.value = data
   } catch (error) {
     console.error('Failed to load clusters:', error)
+  }
+}
+
+const getConnectionStatusLabel = (status?: string): string => {
+  switch (status) {
+    case 'connected':
+      return '✓ 已连接'
+    case 'disconnected':
+      return '✗ 未连接'
+    default:
+      return '⚠ 未知'
   }
 }
 
@@ -659,6 +723,109 @@ onMounted(async () => {
 .form-textarea {
   resize: vertical;
   font-family: 'Courier New', monospace;
+}
+
+/* Status Badge */
+.status-badge {
+  padding: 4px 12px;
+  border-radius: 4px;
+  font-weight: 600;
+  display: inline-block;
+  font-size: 14px;
+}
+
+.status-badge.connected {
+  background: #f0f9ff;
+  color: #22863a;
+  border: 1px solid #22863a;
+}
+
+.status-badge.disconnected {
+  background: #fff5f5;
+  color: #cb2431;
+  border: 1px solid #cb2431;
+}
+
+.status-badge.unknown {
+  background: #fffbea;
+  color: #d79a3a;
+  border: 1px solid #d79a3a;
+}
+
+/* Security Notice */
+.security-notice {
+  background: #fef5e7;
+  border: 1px solid #f9e79f;
+  border-radius: 4px;
+  padding: 12px;
+}
+
+.security-notice p {
+  margin: 8px 0;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.security-notice .status-ok {
+  color: #22863a;
+}
+
+.security-notice .status-error {
+  color: #cb2431;
+}
+
+.security-notice .status-unknown {
+  color: #d79a3a;
+}
+
+.security-notice .help-text {
+  margin-top: 12px;
+}
+
+/* Applications List */
+.loading {
+  padding: 12px;
+  color: #666;
+  font-size: 14px;
+  text-align: center;
+}
+
+.empty-apps {
+  padding: 12px 0;
+}
+
+.apps-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.app-item {
+  padding: 12px;
+  background: white;
+  border: 1px solid #f0f0f0;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+}
+
+.app-item:hover {
+  background: #f9f9f9;
+  border-color: #1890ff;
+  box-shadow: 0 1px 4px rgba(24, 144, 255, 0.1);
+}
+
+.app-name {
+  font-weight: 600;
+  color: #1a1a1a;
+  font-size: 14px;
+  margin-bottom: 4px;
+}
+
+.app-image {
+  font-size: 12px;
+  color: #666;
+  font-family: 'Courier New', monospace;
+  word-break: break-all;
 }
 
 @media (max-width: 1200px) {

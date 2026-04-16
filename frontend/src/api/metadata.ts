@@ -106,6 +106,40 @@ export const getClustersByAppAndEnv = (
   )
 }
 
+/**
+ * 获取与指定集群关联的应用列表
+ * @param clusterId 集群 ID
+ */
+export const getApplicationsByCluster = async (
+  clusterId: number | string
+): Promise<Application[]> => {
+  try {
+    const allTargets = await getDeploymentTargets()
+    const appIds = new Set<number>()
+    
+    // 从部署目标中提取与该集群关联的应用 ID
+    allTargets.forEach(target => {
+      if (target.cluster_id === clusterId || target.cluster_id === parseInt(String(clusterId))) {
+        appIds.add(target.app_id)
+      }
+    })
+    
+    // 如果没有应用，返回空数组
+    if (appIds.size === 0) {
+      return []
+    }
+    
+    // 获取所有应用
+    const allApps = await getApplications()
+    
+    // 过滤出在集群中的应用
+    return allApps.filter(app => appIds.has(app.id))
+  } catch (error) {
+    console.error('Failed to fetch applications for cluster:', error)
+    return []
+  }
+}
+
 // ==================== Shell 服务器 ====================
 
 /**

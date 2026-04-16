@@ -66,8 +66,8 @@ func SetupRoutes(
 		// Environments (placeholder - returns empty list for now)
 		r.Get("/environments", environmentsHandler)
 		
-		// Deployment Targets (placeholder - returns empty list for now)
-		r.Get("/deployment-targets", deploymentTargetsHandler)
+		// Deployment Targets
+		r.Get("/deployment-targets", ListDeploymentTargetsHandler(deploymentTargetRepo))
 
 		// Shell Servers
 		r.Get("/shell-servers", GetShellServersHandler())

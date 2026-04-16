@@ -9,7 +9,7 @@ import (
 )
 
 // CurrentSchemaVersion is the current database schema version
-const CurrentSchemaVersion = 3
+const CurrentSchemaVersion = 4
 
 // initSchemaVersion initializes the schema_version table if it doesn't exist
 func initSchemaVersion(db *sql.DB) error {
@@ -187,6 +187,20 @@ func migrateSchemaV3(db *sql.DB) error {
 	return recordSchemaVersion(db, 3, "Added workload_type and workload_name fields to deployment_target table")
 }
 
+// migrateSchemaV4 adds k8s_connection_status field to cluster table
+func migrateSchemaV4(db *sql.DB) error {
+	stmt := "ALTER TABLE cluster ADD COLUMN k8s_connection_status TEXT DEFAULT 'unknown'"
+	
+	if _, err := db.Exec(stmt); err != nil {
+		// Ignore "column already exists" errors for idempotency
+		if !strings.Contains(err.Error(), "already exists") {
+			return err
+		}
+	}
+	
+	return recordSchemaVersion(db, 4, "Added k8s_connection_status field to cluster table for tracking Kubernetes connectivity")
+}
+
 // applyMigrations applies all pending migrations based on current schema version
 func applyMigrations(db *sql.DB) error {
 	log := logger.GetLogger()
@@ -217,6 +231,11 @@ func applyMigrations(db *sql.DB) error {
 				return fmt.Errorf("failed to apply schema v%d: %w", version, err)
 			}
 			log.Info("Applied schema version 3: Added workload_type and workload_name fields to deployment_target table")
+		case 4:
+			if err := migrateSchemaV4(db); err != nil {
+				return fmt.Errorf("failed to apply schema v%d: %w", version, err)
+			}
+			log.Info("Applied schema version 4: Added k8s_connection_status field to cluster table")
 		default:
 			return fmt.Errorf("unknown schema version: %d", version)
 		}

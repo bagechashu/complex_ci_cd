@@ -10,9 +10,9 @@ import (
 )
 
 const (
-	sqClusterInsert = "INSERT INTO cluster (name, type, environment, registry_prefix, labels, kubeconfig_path, kubeconfig, kubeconfig_encrypted, ansible_hosts, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)"
-	sqClusterSelect = "SELECT id, name, type, environment, registry_prefix, labels, kubeconfig_path, kubeconfig, kubeconfig_encrypted, ansible_hosts, created_at, updated_at FROM cluster"
-	sqClusterUpdate = "UPDATE cluster SET name=?, type=?, environment=?, registry_prefix=?, labels=?, kubeconfig_path=?, kubeconfig=?, kubeconfig_encrypted=?, ansible_hosts=?, updated_at=? WHERE id=?"
+	sqClusterInsert = "INSERT INTO cluster (name, type, environment, registry_prefix, labels, kubeconfig_path, kubeconfig, kubeconfig_encrypted, k8s_connection_status, ansible_hosts, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)"
+	sqClusterSelect = "SELECT id, name, type, environment, registry_prefix, labels, kubeconfig_path, kubeconfig, kubeconfig_encrypted, k8s_connection_status, ansible_hosts, created_at, updated_at FROM cluster"
+	sqClusterUpdate = "UPDATE cluster SET name=?, type=?, environment=?, registry_prefix=?, labels=?, kubeconfig_path=?, kubeconfig=?, kubeconfig_encrypted=?, k8s_connection_status=?, ansible_hosts=?, updated_at=? WHERE id=?"
 	sqClusterDelete = "DELETE FROM cluster WHERE id=?"
 	sqClusterCount  = "SELECT COUNT(*) FROM cluster"
 )
@@ -41,7 +41,7 @@ func (r *SQLiteClusterRepository) Create(ctx context.Context, cluster *models.Cl
 	_, err := r.db.ExecContext(ctx, sqClusterInsert,
 		cluster.Name, cluster.Type, cluster.Environment, cluster.RegistryPrefix,
 		cluster.Labels, cluster.KubeconfigPath, cluster.Kubeconfig, cluster.KubeconfigEncrypted,
-		cluster.AnsibleHosts, cluster.CreatedAt, cluster.UpdatedAt)
+		cluster.K8sConnectionStatus, cluster.AnsibleHosts, cluster.CreatedAt, cluster.UpdatedAt)
 	return err
 }
 
@@ -50,7 +50,7 @@ func (r *SQLiteClusterRepository) GetByID(ctx context.Context, id int) (*models.
 	err := r.db.QueryRowContext(ctx, sqClusterSelect+" WHERE id = ?", id).Scan(
 		&c.ID, &c.Name, &c.Type, &c.Environment, &c.RegistryPrefix,
 		&c.Labels, &c.KubeconfigPath, &c.Kubeconfig, &c.KubeconfigEncrypted,
-		&c.AnsibleHosts, &c.CreatedAt, &c.UpdatedAt)
+		&c.K8sConnectionStatus, &c.AnsibleHosts, &c.CreatedAt, &c.UpdatedAt)
 	if err == sql.ErrNoRows {
 		return nil, errors.New("cluster not found")
 	}
@@ -76,7 +76,7 @@ func (r *SQLiteClusterRepository) List(ctx context.Context, offset, limit int) (
 		err := rows.Scan(
 			&c.ID, &c.Name, &c.Type, &c.Environment, &c.RegistryPrefix,
 			&c.Labels, &c.KubeconfigPath, &c.Kubeconfig, &c.KubeconfigEncrypted,
-			&c.AnsibleHosts, &c.CreatedAt, &c.UpdatedAt)
+			&c.K8sConnectionStatus, &c.AnsibleHosts, &c.CreatedAt, &c.UpdatedAt)
 		if err != nil {
 			return nil, 0, err
 		}
@@ -90,7 +90,7 @@ func (r *SQLiteClusterRepository) Update(ctx context.Context, cluster *models.Cl
 	_, err := r.db.ExecContext(ctx, sqClusterUpdate,
 		cluster.Name, cluster.Type, cluster.Environment, cluster.RegistryPrefix,
 		cluster.Labels, cluster.KubeconfigPath, cluster.Kubeconfig, cluster.KubeconfigEncrypted,
-		cluster.AnsibleHosts, cluster.UpdatedAt, cluster.ID)
+		cluster.K8sConnectionStatus, cluster.AnsibleHosts, cluster.UpdatedAt, cluster.ID)
 	return err
 }
 
