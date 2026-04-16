@@ -9,9 +9,9 @@ import (
 )
 
 const (
-	sqDeploymentTargetInsert = "INSERT INTO deployment_target (app_id, env_id, cluster_id, k8s_namespace, k8s_deployment, container_name, registry_domain, image_repo, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
-	sqDeploymentTargetSelect = "SELECT id, app_id, env_id, cluster_id, k8s_namespace, k8s_deployment, container_name, registry_domain, image_repo, created_at, updated_at FROM deployment_target"
-	sqDeploymentTargetUpdate = "UPDATE deployment_target SET app_id = ?, env_id = ?, cluster_id = ?, k8s_namespace = ?, k8s_deployment = ?, container_name = ?, registry_domain = ?, image_repo = ?, updated_at = ? WHERE id = ?"
+	sqDeploymentTargetInsert = "INSERT INTO deployment_target (app_id, env_id, cluster_id, k8s_namespace, k8s_deployment, container_name, registry_domain, image_repo, workload_type, workload_name, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+	sqDeploymentTargetSelect = "SELECT id, app_id, env_id, cluster_id, k8s_namespace, k8s_deployment, container_name, registry_domain, image_repo, workload_type, workload_name, created_at, updated_at FROM deployment_target"
+	sqDeploymentTargetUpdate = "UPDATE deployment_target SET app_id = ?, env_id = ?, cluster_id = ?, k8s_namespace = ?, k8s_deployment = ?, container_name = ?, registry_domain = ?, image_repo = ?, workload_type = ?, workload_name = ?, updated_at = ? WHERE id = ?"
 	sqDeploymentTargetDelete = "DELETE FROM deployment_target WHERE id = ?"
 )
 
@@ -26,7 +26,7 @@ func NewDeploymentTargetRepository(db *sql.DB) *DeploymentTargetRepository {
 func (r *DeploymentTargetRepository) Create(target *models.DeploymentTarget) (*models.DeploymentTarget, error) {
 	result, err := r.db.Exec(
 		sqDeploymentTargetInsert,
-		target.AppID, target.EnvID, target.ClusterID, target.K8sNamespace, target.K8sDeployment, target.ContainerName, target.RegistryDomain, target.ImageRepo, time.Now(), time.Now(),
+		target.AppID, target.EnvID, target.ClusterID, target.K8sNamespace, target.K8sDeployment, target.ContainerName, target.RegistryDomain, target.ImageRepo, target.WorkloadType, target.WorkloadName, time.Now(), time.Now(),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create deployment target: %w", err)
@@ -49,7 +49,7 @@ func (r *DeploymentTargetRepository) GetByID(id int) (*models.DeploymentTarget, 
 	err := r.db.QueryRow(
 		sqDeploymentTargetSelect+" WHERE id = ?",
 		id,
-	).Scan(&target.ID, &target.AppID, &target.EnvID, &target.ClusterID, &target.K8sNamespace, &target.K8sDeployment, &containerName, &registryDomain, &imageRepo, &target.CreatedAt, &target.UpdatedAt)
+	).Scan(&target.ID, &target.AppID, &target.EnvID, &target.ClusterID, &target.K8sNamespace, &target.K8sDeployment, &containerName, &registryDomain, &imageRepo, &target.WorkloadType, &target.WorkloadName, &target.CreatedAt, &target.UpdatedAt)
 
 	if err == sql.ErrNoRows {
 		return nil, fmt.Errorf("deployment target not found")
@@ -71,7 +71,7 @@ func (r *DeploymentTargetRepository) GetByAppEnvCluster(appID, envID, clusterID 
 	err := r.db.QueryRow(
 		sqDeploymentTargetSelect+" WHERE app_id = ? AND env_id = ? AND cluster_id = ?",
 		appID, envID, clusterID,
-	).Scan(&target.ID, &target.AppID, &target.EnvID, &target.ClusterID, &target.K8sNamespace, &target.K8sDeployment, &containerName, &registryDomain, &imageRepo, &target.CreatedAt, &target.UpdatedAt)
+	).Scan(&target.ID, &target.AppID, &target.EnvID, &target.ClusterID, &target.K8sNamespace, &target.K8sDeployment, &containerName, &registryDomain, &imageRepo, &target.WorkloadType, &target.WorkloadName, &target.CreatedAt, &target.UpdatedAt)
 
 	if err == sql.ErrNoRows {
 		return nil, fmt.Errorf("deployment target not found")
@@ -98,7 +98,7 @@ func (r *DeploymentTargetRepository) List(limit int, offset int) ([]*models.Depl
 	for rows.Next() {
 		target := &models.DeploymentTarget{}
 		var containerName, registryDomain, imageRepo *string
-		err := rows.Scan(&target.ID, &target.AppID, &target.EnvID, &target.ClusterID, &target.K8sNamespace, &target.K8sDeployment, &containerName, &registryDomain, &imageRepo, &target.CreatedAt, &target.UpdatedAt)
+		err := rows.Scan(&target.ID, &target.AppID, &target.EnvID, &target.ClusterID, &target.K8sNamespace, &target.K8sDeployment, &containerName, &registryDomain, &imageRepo, &target.WorkloadType, &target.WorkloadName, &target.CreatedAt, &target.UpdatedAt)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan deployment target: %w", err)
 		}
@@ -126,7 +126,7 @@ func (r *DeploymentTargetRepository) GetByApp(appID int) ([]*models.DeploymentTa
 	for rows.Next() {
 		target := &models.DeploymentTarget{}
 		var containerName, registryDomain, imageRepo *string
-		err := rows.Scan(&target.ID, &target.AppID, &target.EnvID, &target.ClusterID, &target.K8sNamespace, &target.K8sDeployment, &containerName, &registryDomain, &imageRepo, &target.CreatedAt, &target.UpdatedAt)
+		err := rows.Scan(&target.ID, &target.AppID, &target.EnvID, &target.ClusterID, &target.K8sNamespace, &target.K8sDeployment, &containerName, &registryDomain, &imageRepo, &target.WorkloadType, &target.WorkloadName, &target.CreatedAt, &target.UpdatedAt)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan deployment target: %w", err)
 		}
@@ -154,7 +154,7 @@ func (r *DeploymentTargetRepository) ListByAppAndEnv(appID int, envID int) ([]*m
 	for rows.Next() {
 		target := &models.DeploymentTarget{}
 		var containerName, registryDomain, imageRepo *string
-		err := rows.Scan(&target.ID, &target.AppID, &target.EnvID, &target.ClusterID, &target.K8sNamespace, &target.K8sDeployment, &containerName, &registryDomain, &imageRepo, &target.CreatedAt, &target.UpdatedAt)
+		err := rows.Scan(&target.ID, &target.AppID, &target.EnvID, &target.ClusterID, &target.K8sNamespace, &target.K8sDeployment, &containerName, &registryDomain, &imageRepo, &target.WorkloadType, &target.WorkloadName, &target.CreatedAt, &target.UpdatedAt)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan deployment target: %w", err)
 		}
@@ -175,7 +175,7 @@ func (r *DeploymentTargetRepository) Update(target *models.DeploymentTarget) err
 	target.UpdatedAt = time.Now()
 	_, err := r.db.Exec(
 		sqDeploymentTargetUpdate,
-		target.AppID, target.EnvID, target.ClusterID, target.K8sNamespace, target.K8sDeployment, target.ContainerName, target.RegistryDomain, target.ImageRepo, target.UpdatedAt, target.ID,
+		target.AppID, target.EnvID, target.ClusterID, target.K8sNamespace, target.K8sDeployment, target.ContainerName, target.RegistryDomain, target.ImageRepo, target.WorkloadType, target.WorkloadName, target.UpdatedAt, target.ID,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to update deployment target: %w", err)

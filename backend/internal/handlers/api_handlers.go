@@ -237,7 +237,7 @@ func ListDeploymentTargetsHandler(repo *repository.DeploymentTargetRepository) h
 	}
 }
 
-func ListDeploymentTargetsByAppHandler(repo *repository.DeploymentTargetRepository) http.HandlerFunc {
+func ListDeploymentTargetsByAppHandler(repo *repository.DeploymentTargetRepository, clusterRepo repository.ClusterRepository) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		appID := r.PathValue("app_id")
 		if appID == "" {
@@ -258,6 +258,19 @@ func ListDeploymentTargetsByAppHandler(repo *repository.DeploymentTargetReposito
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
+		}
+
+		// Enrich targets with cluster information
+		ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+		defer cancel()
+
+		for _, target := range targets {
+			cluster, err := clusterRepo.GetByID(ctx, target.ClusterID)
+			if err == nil && cluster != nil {
+				target.ClusterName = cluster.Name
+				target.Environment = cluster.Environment
+				target.RegistryPrefix = cluster.RegistryPrefix
+			}
 		}
 
 		w.Header().Set("Content-Type", "application/json")
@@ -324,6 +337,14 @@ func CreateDeploymentTargetHandler(repo *repository.DeploymentTargetRepository) 
 			http.Error(w, "k8s_deployment is required", http.StatusBadRequest)
 			return
 		}
+		if target.WorkloadType == "" {
+			http.Error(w, "workload_type is required", http.StatusBadRequest)
+			return
+		}
+		if target.WorkloadName == "" {
+			http.Error(w, "workload_name is required", http.StatusBadRequest)
+			return
+		}
 
 		created, err := repo.Create(&target)
 		if err != nil {
@@ -387,6 +408,12 @@ func UpdateDeploymentTargetHandler(repo *repository.DeploymentTargetRepository) 
 		}
 		if updates.ImageRepo != nil && *updates.ImageRepo != "" {
 			existing.ImageRepo = updates.ImageRepo
+		}
+		if updates.WorkloadType != "" {
+			existing.WorkloadType = updates.WorkloadType
+		}
+		if updates.WorkloadName != "" {
+			existing.WorkloadName = updates.WorkloadName
 		}
 
 		err = repo.Update(existing)

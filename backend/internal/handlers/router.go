@@ -52,7 +52,7 @@ func SetupRoutes(
 
 		// Deployment Targets (App-Cluster Configs)
 		r.Get("/app-cluster-configs", ListDeploymentTargetsHandler(deploymentTargetRepo))
-		r.Get("/app-cluster-configs/by-app/{app_id}", ListDeploymentTargetsByAppHandler(deploymentTargetRepo))
+		r.Get("/app-cluster-configs/by-app/{app_id}", ListDeploymentTargetsByAppHandler(deploymentTargetRepo, clusterRepo))
 		r.Post("/app-cluster-configs", CreateDeploymentTargetHandler(deploymentTargetRepo))
 		r.Get("/app-cluster-configs/{id}", GetDeploymentTargetHandler(deploymentTargetRepo))
 		r.Put("/app-cluster-configs/{id}", UpdateDeploymentTargetHandler(deploymentTargetRepo))

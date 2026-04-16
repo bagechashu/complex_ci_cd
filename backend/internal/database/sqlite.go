@@ -3,12 +3,13 @@ package database
 import (
 	"database/sql"
 	"fmt"
+	"strings"
 
 	"built-and-deploy/pkg/logger"
 )
 
 // CurrentSchemaVersion is the current database schema version
-const CurrentSchemaVersion = 2
+const CurrentSchemaVersion = 3
 
 // initSchemaVersion initializes the schema_version table if it doesn't exist
 func initSchemaVersion(db *sql.DB) error {
@@ -166,6 +167,26 @@ func migrateSchemaV2(db *sql.DB) error {
 	return recordSchemaVersion(db, 2, "Added environment, registry_prefix, and kubeconfig fields to cluster table")
 }
 
+// migrateSchemaV3 adds workload_type and workload_name fields to deployment_target table
+func migrateSchemaV3(db *sql.DB) error {
+	// SQLite requires separate ALTER TABLE statements
+	alterStmts := []string{
+		"ALTER TABLE deployment_target ADD COLUMN workload_type TEXT DEFAULT 'Deployment'",
+		"ALTER TABLE deployment_target ADD COLUMN workload_name TEXT",
+	}
+	
+	for _, stmt := range alterStmts {
+		if _, err := db.Exec(stmt); err != nil {
+			// Ignore "column already exists" errors for idempotency
+			if !strings.Contains(err.Error(), "already exists") {
+				return err
+			}
+		}
+	}
+	
+	return recordSchemaVersion(db, 3, "Added workload_type and workload_name fields to deployment_target table")
+}
+
 // applyMigrations applies all pending migrations based on current schema version
 func applyMigrations(db *sql.DB) error {
 	log := logger.GetLogger()
@@ -191,6 +212,11 @@ func applyMigrations(db *sql.DB) error {
 				return fmt.Errorf("failed to apply schema v%d: %w", version, err)
 			}
 			log.Info("Applied schema version 2: Added environment, registry_prefix, and kubeconfig fields to cluster table")
+		case 3:
+			if err := migrateSchemaV3(db); err != nil {
+				return fmt.Errorf("failed to apply schema v%d: %w", version, err)
+			}
+			log.Info("Applied schema version 3: Added workload_type and workload_name fields to deployment_target table")
 		default:
 			return fmt.Errorf("unknown schema version: %d", version)
 		}

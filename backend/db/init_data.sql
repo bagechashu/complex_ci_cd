@@ -20,20 +20,20 @@ INSERT OR IGNORE INTO cluster (name, type, environment, registry_prefix, created
 ('k8s-prod-cn2', 'kubernetes', 'production', 'docker.io/company', datetime('now'), datetime('now'));
 
 -- 4. Insert deployment targets (app-env-cluster mappings)
-INSERT OR IGNORE INTO deployment_target (app_id, env_id, cluster_id, k8s_namespace, k8s_deployment, container_name, created_at, updated_at) VALUES 
+INSERT OR IGNORE INTO deployment_target (app_id, env_id, cluster_id, k8s_namespace, k8s_deployment, container_name, workload_type, workload_name, created_at, updated_at) VALUES 
 -- api-service
-((SELECT id FROM application WHERE name='api-service'), (SELECT id FROM environment WHERE name='development'), (SELECT id FROM cluster WHERE name='k8s-dev'), 'development', 'api-service', 'api', datetime('now'), datetime('now')),
-((SELECT id FROM application WHERE name='api-service'), (SELECT id FROM environment WHERE name='staging'), (SELECT id FROM cluster WHERE name='k8s-staging'), 'staging', 'api-service', 'api', datetime('now'), datetime('now')),
-((SELECT id FROM application WHERE name='api-service'), (SELECT id FROM environment WHERE name='production'), (SELECT id FROM cluster WHERE name='k8s-prod-cn1'), 'production', 'api-service', 'api-prod', datetime('now'), datetime('now')),
-((SELECT id FROM application WHERE name='api-service'), (SELECT id FROM environment WHERE name='production'), (SELECT id FROM cluster WHERE name='k8s-prod-cn2'), 'production', 'api-service', 'api-prod', datetime('now'), datetime('now')),
+((SELECT id FROM application WHERE name='api-service'), (SELECT id FROM environment WHERE name='development'), (SELECT id FROM cluster WHERE name='k8s-dev'), 'development', 'api-service', 'api', 'Deployment', 'api-service-deployment', datetime('now'), datetime('now')),
+((SELECT id FROM application WHERE name='api-service'), (SELECT id FROM environment WHERE name='staging'), (SELECT id FROM cluster WHERE name='k8s-staging'), 'staging', 'api-service', 'api', 'Deployment', 'api-service-deployment', datetime('now'), datetime('now')),
+((SELECT id FROM application WHERE name='api-service'), (SELECT id FROM environment WHERE name='production'), (SELECT id FROM cluster WHERE name='k8s-prod-cn1'), 'production', 'api-service', 'api-prod', 'Deployment', 'api-service-prod', datetime('now'), datetime('now')),
+((SELECT id FROM application WHERE name='api-service'), (SELECT id FROM environment WHERE name='production'), (SELECT id FROM cluster WHERE name='k8s-prod-cn2'), 'production', 'api-service', 'api-prod', 'Deployment', 'api-service-prod', datetime('now'), datetime('now')),
 -- web-ui
-((SELECT id FROM application WHERE name='web-ui'), (SELECT id FROM environment WHERE name='development'), (SELECT id FROM cluster WHERE name='k8s-dev'), 'development', 'web-ui', 'web', datetime('now'), datetime('now')),
-((SELECT id FROM application WHERE name='web-ui'), (SELECT id FROM environment WHERE name='staging'), (SELECT id FROM cluster WHERE name='k8s-staging'), 'staging', 'web-ui', 'web', datetime('now'), datetime('now')),
-((SELECT id FROM application WHERE name='web-ui'), (SELECT id FROM environment WHERE name='production'), (SELECT id FROM cluster WHERE name='k8s-prod-cn1'), 'production', 'web-ui', 'web-prod', datetime('now'), datetime('now')),
+((SELECT id FROM application WHERE name='web-ui'), (SELECT id FROM environment WHERE name='development'), (SELECT id FROM cluster WHERE name='k8s-dev'), 'development', 'web-ui', 'web', 'Deployment', 'web-ui-deployment', datetime('now'), datetime('now')),
+((SELECT id FROM application WHERE name='web-ui'), (SELECT id FROM environment WHERE name='staging'), (SELECT id FROM cluster WHERE name='k8s-staging'), 'staging', 'web-ui', 'web', 'Deployment', 'web-ui-deployment', datetime('now'), datetime('now')),
+((SELECT id FROM application WHERE name='web-ui'), (SELECT id FROM environment WHERE name='production'), (SELECT id FROM cluster WHERE name='k8s-prod-cn1'), 'production', 'web-ui', 'web-prod', 'Deployment', 'web-ui-prod', datetime('now'), datetime('now')),
 -- data-processor
-((SELECT id FROM application WHERE name='data-processor'), (SELECT id FROM environment WHERE name='development'), (SELECT id FROM cluster WHERE name='k8s-dev'), 'development', 'data-processor', 'processor', datetime('now'), datetime('now')),
-((SELECT id FROM application WHERE name='data-processor'), (SELECT id FROM environment WHERE name='staging'), (SELECT id FROM cluster WHERE name='k8s-staging'), 'staging', 'data-processor', 'processor', datetime('now'), datetime('now')),
-((SELECT id FROM application WHERE name='data-processor'), (SELECT id FROM environment WHERE name='production'), (SELECT id FROM cluster WHERE name='k8s-prod-cn1'), 'production', 'data-processor', 'processor-prod', datetime('now'), datetime('now'));
+((SELECT id FROM application WHERE name='data-processor'), (SELECT id FROM environment WHERE name='development'), (SELECT id FROM cluster WHERE name='k8s-dev'), 'development', 'data-processor', 'processor', 'StatefulSet', 'data-processor-statefulset', datetime('now'), datetime('now')),
+((SELECT id FROM application WHERE name='data-processor'), (SELECT id FROM environment WHERE name='staging'), (SELECT id FROM cluster WHERE name='k8s-staging'), 'staging', 'data-processor', 'processor', 'StatefulSet', 'data-processor-statefulset', datetime('now'), datetime('now')),
+((SELECT id FROM application WHERE name='data-processor'), (SELECT id FROM environment WHERE name='production'), (SELECT id FROM cluster WHERE name='k8s-prod-cn1'), 'production', 'data-processor', 'processor-prod', 'StatefulSet', 'data-processor-prod', datetime('now'), datetime('now'));
 
 -- 5. Insert sample release records
 INSERT OR IGNORE INTO release_record (app_id, env_id, cluster_id, image, status, previous_image, triggered_by, started_at, completed_at, created_at, updated_at) VALUES 

@@ -12,6 +12,12 @@ type DeploymentTarget struct {
 	ContainerName  *string   `json:"container_name"`
 	RegistryDomain *string   `json:"registry_domain"`
 	ImageRepo      *string   `json:"image_repo"`
+	WorkloadType   string    `json:"workload_type"`
+	WorkloadName   string    `json:"workload_name"`
+	// Enriched fields from cluster table (not stored in deployment_target table)
+	ClusterName    string    `json:"cluster_name,omitempty"`
+	Environment    string    `json:"environment,omitempty"`
+	RegistryPrefix string    `json:"registry_prefix,omitempty"`
 	CreatedAt      time.Time `json:"created_at"`
 	UpdatedAt      time.Time `json:"updated_at"`
 }

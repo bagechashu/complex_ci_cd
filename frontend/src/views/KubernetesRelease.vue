@@ -85,7 +85,7 @@
             <div class="app-info">
               <span class="badge">{{ app.image_name }}</span>
               <span class="config-count">
-                {{ clusterMappings.filter(m => m.app_id === app.id).length }} 集群
+                {{ (allMappingsByApp[app.id] || []).length }} 集群
               </span>
             </div>
           </div>
@@ -601,6 +601,8 @@ const applications = ref<Application[]>([])
 const clusters = ref<Cluster[]>([])
 const environments = ref<Environment[]>([])
 const clusterMappings = ref<ClusterMapping[]>([])
+// Store all mappings by app_id for list display
+const allMappingsByApp = ref<{ [appId: number]: ClusterMapping[] }>({})
 
 // Build environment name to id mapping
 const environmentMap = computed(() => {
@@ -664,9 +666,9 @@ const filteredApplications = computed(() => {
     if (sortBy.value === 'name') {
       compareVal = a.name.localeCompare(b.name)
     } else if (sortBy.value === 'config-count') {
-      // Get count of mapped clusters for each app
-      const aCount = clusterMappings.value.filter(m => m.app_id === a.id).length
-      const bCount = clusterMappings.value.filter(m => m.app_id === b.id).length
+      // Get count of mapped clusters for each app from pre-loaded data
+      const aCount = (allMappingsByApp.value[a.id] || []).length
+      const bCount = (allMappingsByApp.value[b.id] || []).length
       compareVal = aCount - bCount
     }
 
@@ -694,13 +696,18 @@ const sortedClusters = computed(() => {
 // Functions
 const selectApplication = async (app: Application) => {
   selectedApplicationId.value = app.id
-  // Load cluster mappings for this app
-  try {
-    const mappings = await getClusterMappingsByApp(app.id)
-    clusterMappings.value = mappings
-  } catch (error) {
-    console.error('Failed to load cluster mappings:', error)
-    clusterMappings.value = []
+  // Use pre-loaded mappings if available, otherwise fetch
+  if (allMappingsByApp.value[app.id]) {
+    clusterMappings.value = allMappingsByApp.value[app.id]
+  } else {
+    try {
+      const mappings = await getClusterMappingsByApp(app.id)
+      clusterMappings.value = mappings
+      allMappingsByApp.value[app.id] = mappings
+    } catch (error) {
+      console.error('Failed to load cluster mappings:', error)
+      clusterMappings.value = []
+    }
   }
 }
 
@@ -1003,6 +1010,16 @@ const loadApplications = async () => {
   try {
     const data = await getApplications()
     applications.value = data
+    // Pre-load cluster mappings for all applications
+    for (const app of data) {
+      try {
+        const mappings = await getClusterMappingsByApp(app.id)
+        allMappingsByApp.value[app.id] = mappings
+      } catch (error) {
+        console.error(`Failed to load mappings for app ${app.id}:`, error)
+        allMappingsByApp.value[app.id] = []
+      }
+    }
   } catch (error) {
     console.error('Failed to load applications:', error)
     alert('加载应用列表失败')
