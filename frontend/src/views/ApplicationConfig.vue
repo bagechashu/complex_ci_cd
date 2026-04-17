@@ -13,8 +13,17 @@
           <button class="btn-primary" @click="showCreateApp = true">+ 新建应用</button>
         </div>
 
+        <!-- Search Box -->
+        <div class="search-box">
+          <input
+            v-model="searchKeyword"
+            type="text"
+            placeholder="搜索应用名称或镜像..."
+            @input="handleSearch"
+          />
+        </div>
+
         <div class="applications-list">
-          <!-- TODO: Load applications from API -->
           <div
             v-for="app in applications"
             :key="app.id"
@@ -25,6 +34,31 @@
             <div class="app-name">{{ app.name }}</div>
             <div class="app-image">{{ app.image_name }}</div>
           </div>
+          
+          <div v-if="applications.length === 0" class="empty-list">
+            <p>暂无应用</p>
+          </div>
+        </div>
+
+        <!-- Pagination -->
+        <div class="pagination">
+          <button
+            :disabled="currentPage === 1"
+            @click="goToPreviousPage"
+            class="pagination-btn"
+          >
+            ← 上一页
+          </button>
+          <span class="pagination-info">
+            第 {{ currentPage }} / {{ totalPages }} 页
+          </span>
+          <button
+            :disabled="currentPage === totalPages"
+            @click="goToNextPage"
+            class="pagination-btn"
+          >
+            下一页 →
+          </button>
         </div>
       </div>
 
@@ -137,6 +171,14 @@ const clusterMappings = ref<ClusterMapping[]>([])
 const showCreateApp = ref(false)
 const showAddMapping = ref(false)
 
+// Pagination & Search
+const currentPage = ref(1)
+const totalPages = ref(1)
+const totalCount = ref(0)
+const pageSize = 10
+const searchKeyword = ref('')
+let searchTimeout: ReturnType<typeof setTimeout>
+
 // Computed
 const selectedApp = computed(() => {
   return applications.value.find(app => app.id === selectedAppId.value)
@@ -145,10 +187,36 @@ const selectedApp = computed(() => {
 // Functions
 const loadApplications = async () => {
   try {
-    const data = await getApplications()
-    applications.value = data
+    const response = await getApplications(currentPage.value, pageSize, searchKeyword.value)
+    applications.value = response.data
+    currentPage.value = response.page
+    totalPages.value = response.totalPages
+    totalCount.value = response.total
   } catch (error) {
     console.error('Failed to load applications:', error)
+  }
+}
+
+const handleSearch = () => {
+  // Debounce search input
+  clearTimeout(searchTimeout)
+  currentPage.value = 1
+  searchTimeout = setTimeout(() => {
+    loadApplications()
+  }, 300)
+}
+
+const goToPreviousPage = () => {
+  if (currentPage.value > 1) {
+    currentPage.value--
+    loadApplications()
+  }
+}
+
+const goToNextPage = () => {
+  if (currentPage.value < totalPages.value) {
+    currentPage.value++
+    loadApplications()
   }
 }
 
@@ -350,6 +418,68 @@ onMounted(async () => {
   text-align: center;
   padding: 32px 16px;
   color: #999;
+}
+
+.empty-list {
+  text-align: center;
+  padding: 32px 16px;
+  color: #999;
+}
+
+/* Search Box */
+.search-box {
+  padding: 12px 16px;
+  border-bottom: 1px solid #eee;
+}
+
+.search-box input {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #d9d9d9;
+  border-radius: 4px;
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.search-box input:focus {
+  border-color: #1890ff;
+  box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
+}
+
+/* Pagination */
+.pagination {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  border-top: 1px solid #eee;
+  background: #fafafa;
+}
+
+.pagination-btn {
+  padding: 6px 12px;
+  border: 1px solid #d9d9d9;
+  background: white;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.pagination-btn:hover:not(:disabled) {
+  border-color: #1890ff;
+  color: #1890ff;
+}
+
+.pagination-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.pagination-info {
+  font-size: 12px;
+  color: #666;
 }
 
 /* Buttons */

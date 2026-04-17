@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -18,16 +19,54 @@ func ListApplicationsHandler(repo repository.ApplicationRepository) http.Handler
 		ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
 		defer cancel()
 
-		apps, total, err := repo.List(ctx, 0, 100)
+		// Parse pagination and search parameters
+		pageStr := r.URL.Query().Get("page")
+		pageSizeStr := r.URL.Query().Get("pageSize")
+		search := r.URL.Query().Get("search")
+
+		page := 1
+		if pageStr != "" {
+			if p, err := strconv.Atoi(pageStr); err == nil && p > 0 {
+				page = p
+			}
+		}
+
+		pageSize := 10
+		if pageSizeStr != "" {
+			if ps, err := strconv.Atoi(pageSizeStr); err == nil && ps > 0 && ps <= 100 {
+				pageSize = ps
+			}
+		}
+
+		offset := (page - 1) * pageSize
+
+		var apps []*models.Application
+		var total int
+		var err error
+
+		if search != "" {
+			apps, total, err = repo.ListWithSearch(ctx, offset, pageSize, search)
+		} else {
+			apps, total, err = repo.List(ctx, offset, pageSize)
+		}
+
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 
+		totalPages := (total + pageSize - 1) / pageSize
+		if totalPages == 0 {
+			totalPages = 1
+		}
+
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]interface{}{
-			"total": total,
-			"data":  apps,
+			"page":       page,
+			"pageSize":   pageSize,
+			"total":      total,
+			"totalPages": totalPages,
+			"data":       apps,
 		})
 	}
 }

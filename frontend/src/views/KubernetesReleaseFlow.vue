@@ -21,15 +21,30 @@
           <h3>选择应用</h3>
           <p>选择要发布的应用</p>
           
-          <!-- TODO: Load applications from API -->
+          <!-- Search Box -->
+          <div class="form-group">
+            <label>搜索应用</label>
+            <input
+              v-model="appSearchKeyword"
+              type="text"
+              class="form-input"
+              placeholder="搜索应用名称或镜像..."
+              @input="loadApplications"
+            />
+          </div>
+
+          <!-- Application Selection -->
           <div class="form-group">
             <label>应用 *</label>
             <select v-model="form.applicationId" class="form-input">
               <option value="">-- 请选择应用 --</option>
-              <option v-for="app in applications" :key="app.id" :value="app.id">
+              <option v-for="app in filteredApplications" :key="app.id" :value="app.id">
                 {{ app.name }} ({{ app.image_name }})
               </option>
             </select>
+            <div v-if="filteredApplications.length === 0" class="no-result">
+              未找到匹配的应用
+            </div>
           </div>
         </div>
 
@@ -203,8 +218,20 @@ const applications = ref<Application[]>([])
 const clusters = ref<Cluster[]>([])
 const availableClusters = ref<Cluster[]>([])
 const clusterMappings = ref<ClusterMapping[]>([])
+const appSearchKeyword = ref('')
 
 // Computed
+const filteredApplications = computed(() => {
+  if (!appSearchKeyword.value) {
+    return applications.value
+  }
+  const keyword = appSearchKeyword.value.toLowerCase()
+  return applications.value.filter(app =>
+    app.name.toLowerCase().includes(keyword) ||
+    app.image_name.toLowerCase().includes(keyword)
+  )
+})
+
 const selectedApp = computed(() => {
   return applications.value.find(app => app.id === form.value.applicationId)
 })
@@ -228,8 +255,9 @@ const completeImageUri = computed(() => {
 // Functions
 const loadApplications = async () => {
   try {
-    const data = await getApplications()
-    applications.value = data
+    // Load applications with search keyword (use a large pageSize to get all matching apps)
+    const data = await getApplications(1, 50, appSearchKeyword.value)
+    applications.value = data.data
     
     // Also load clusters
     const clustersData = await getClusters()
@@ -427,6 +455,14 @@ onMounted(async () => {
 .form-input:disabled {
   background: #f5f5f5;
   cursor: not-allowed;
+}
+
+.no-result {
+  margin-top: 8px;
+  padding: 8px 12px;
+  color: #999;
+  font-size: 13px;
+  text-align: center;
 }
 
 .info-box {

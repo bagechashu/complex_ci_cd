@@ -1008,10 +1008,10 @@ const quickAddClusterInManageModal = (cluster: Cluster) => {
 
 const loadApplications = async () => {
   try {
-    const data = await getApplications()
-    applications.value = data
+    const response = await getApplications()
+    applications.value = response.data
     // Pre-load cluster mappings for all applications
-    for (const app of data) {
+    for (const app of response.data) {
       try {
         const mappings = await getClusterMappingsByApp(app.id)
         allMappingsByApp.value[app.id] = mappings

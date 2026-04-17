@@ -13,11 +13,31 @@ import request from './request'
 // ==================== 应用 ====================
 
 /**
- * 获取应用列表
+ * 获取应用列表（分页）
  */
-export const getApplications = async (): Promise<Application[]> => {
-  const response: any = await request.get('/v1/applications')
-  return response?.data || []
+export interface ApplicationListResponse {
+  page: number
+  pageSize: number
+  total: number
+  totalPages: number
+  data: Application[]
+}
+
+export const getApplications = async (page: number = 1, pageSize: number = 10, search: string = ''): Promise<ApplicationListResponse> => {
+  const params = new URLSearchParams()
+  params.append('page', page.toString())
+  params.append('pageSize', pageSize.toString())
+  if (search) {
+    params.append('search', search)
+  }
+  const response: any = await request.get(`/v1/applications?${params.toString()}`)
+  return {
+    page: response?.page || 1,
+    pageSize: response?.pageSize || 10,
+    total: response?.total || 0,
+    totalPages: response?.totalPages || 1,
+    data: response?.data || []
+  }
 }
 
 /**
