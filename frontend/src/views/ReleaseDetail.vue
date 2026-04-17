@@ -349,7 +349,7 @@ onUnmounted(() => {
 
 .events {
   background-color: #ffffff;
-  border-radius: 4px;
+  border-radius: 0;
   padding: 12px;
 }
 

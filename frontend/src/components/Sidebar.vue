@@ -177,7 +177,7 @@ const toggleCollapse = () => {
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 4px;
+  border-radius: 0;
   transition: background-color 0.2s;
   font-size: 16px;
 }
@@ -207,7 +207,7 @@ const toggleCollapse = () => {
   align-items: center;
   gap: 12px;
   padding: 12px 16px;
-  border-radius: 8px;
+  border-radius: 0;
   cursor: pointer;
   transition: all 0.2s ease;
   position: relative;
@@ -235,7 +235,7 @@ const toggleCollapse = () => {
   width: 4px;
   height: 24px;
   background-color: #2d8659;
-  border-radius: 0 2px 2px 0;
+  border-radius: 0;
 }
 
 .menu-icon {
@@ -261,7 +261,7 @@ const toggleCollapse = () => {
   background-color: rgba(0, 0, 0, 0.8);
   color: white;
   padding: 6px 12px;
-  border-radius: 4px;
+  border-radius: 0;
   font-size: 12px;
   white-space: nowrap;
   opacity: 0;
@@ -287,7 +287,7 @@ const toggleCollapse = () => {
   align-items: center;
   gap: 12px;
   padding: 12px 16px;
-  border-radius: 8px;
+  border-radius: 0;
   cursor: pointer;
   transition: all 0.2s ease;
   color: #4a4a4a;
@@ -324,7 +324,7 @@ const toggleCollapse = () => {
 
 .sidebar::-webkit-scrollbar-thumb {
   background: rgba(0, 0, 0, 0.15);
-  border-radius: 3px;
+  border-radius: 0;
 }
 
 .sidebar::-webkit-scrollbar-thumb:hover {

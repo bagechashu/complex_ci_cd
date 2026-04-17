@@ -8,7 +8,7 @@ import (
 )
 
 // CurrentSchemaVersion is the current database schema version
-const CurrentSchemaVersion = 1
+const CurrentSchemaVersion = 2
 
 // initSchemaVersion initializes the schema_version table if it doesn't exist
 func initSchemaVersion(db *sql.DB) error {
@@ -157,6 +157,92 @@ func migrateSchemaV1(db *sql.DB) error {
 	return recordSchemaVersion(db, 1, "Complete initial schema (merged from v1-v4): application, environment, cluster, workload_target, release_record, release_event, audit_log")
 }
 
+// migrateSchemaV2 adds shell server and task management tables
+func migrateSchemaV2(db *sql.DB) error {
+	schema := `
+	CREATE TABLE IF NOT EXISTS shell_server (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		name TEXT NOT NULL UNIQUE,
+		host TEXT NOT NULL,
+		port INTEGER NOT NULL,
+		username TEXT NOT NULL,
+		auth_type TEXT NOT NULL,
+		password TEXT,
+		private_key TEXT,
+		status TEXT DEFAULT 'active',
+		last_connected DATETIME,
+		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	);
+
+	CREATE TABLE IF NOT EXISTS shell_command (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		server_id INTEGER NOT NULL,
+		command TEXT NOT NULL,
+		description TEXT,
+		is_published BOOLEAN DEFAULT 0,
+		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		FOREIGN KEY (server_id) REFERENCES shell_server(id) ON DELETE CASCADE
+	);
+
+	CREATE TABLE IF NOT EXISTS shell_task (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		name TEXT NOT NULL,
+		description TEXT,
+		command_id INTEGER NOT NULL,
+		execution_method TEXT DEFAULT 'serial',
+		requires_approval BOOLEAN DEFAULT 0,
+		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		FOREIGN KEY (command_id) REFERENCES shell_command(id) ON DELETE RESTRICT
+	);
+
+	CREATE TABLE IF NOT EXISTS shell_task_server (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		task_id INTEGER NOT NULL,
+		server_id INTEGER NOT NULL,
+		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		UNIQUE(task_id, server_id),
+		FOREIGN KEY (task_id) REFERENCES shell_task(id) ON DELETE CASCADE,
+		FOREIGN KEY (server_id) REFERENCES shell_server(id) ON DELETE CASCADE
+	);
+
+	CREATE TABLE IF NOT EXISTS shell_task_execution (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		task_id INTEGER NOT NULL,
+		server_id INTEGER NOT NULL,
+		command_id INTEGER NOT NULL,
+		status TEXT DEFAULT 'pending',
+		output TEXT,
+		error_message TEXT,
+		exit_code INTEGER,
+		started_at DATETIME,
+		completed_at DATETIME,
+		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		FOREIGN KEY (task_id) REFERENCES shell_task(id) ON DELETE CASCADE,
+		FOREIGN KEY (server_id) REFERENCES shell_server(id) ON DELETE CASCADE,
+		FOREIGN KEY (command_id) REFERENCES shell_command(id) ON DELETE CASCADE
+	);
+
+	CREATE INDEX IF NOT EXISTS idx_shell_server_name ON shell_server(name);
+	CREATE INDEX IF NOT EXISTS idx_shell_command_server ON shell_command(server_id);
+	CREATE INDEX IF NOT EXISTS idx_shell_command_published ON shell_command(is_published);
+	CREATE INDEX IF NOT EXISTS idx_shell_task_command ON shell_task(command_id);
+	CREATE INDEX IF NOT EXISTS idx_shell_task_server ON shell_task_server(task_id, server_id);
+	CREATE INDEX IF NOT EXISTS idx_shell_execution_task ON shell_task_execution(task_id);
+	CREATE INDEX IF NOT EXISTS idx_shell_execution_status ON shell_task_execution(status);
+	CREATE INDEX IF NOT EXISTS idx_shell_execution_created ON shell_task_execution(created_at DESC);
+	`
+
+	if _, err := db.Exec(schema); err != nil {
+		return err
+	}
+
+	return recordSchemaVersion(db, 2, "Added shell server, shell_command, shell_task, and shell_task_execution tables")
+}
+
 // applyMigrations applies all pending migrations based on current schema version
 func applyMigrations(db *sql.DB) error {
 	log := logger.GetLogger()
@@ -177,6 +263,11 @@ func applyMigrations(db *sql.DB) error {
 				return fmt.Errorf("failed to apply schema v%d: %w", version, err)
 			}
 			log.Info("Applied schema version 1: Complete initial schema created")
+		case 2:
+			if err := migrateSchemaV2(db); err != nil {
+				return fmt.Errorf("failed to apply schema v%d: %w", version, err)
+			}
+			log.Info("Applied schema version 2: Added shell server and task management tables")
 		default:
 			return fmt.Errorf("unknown schema version: %d", version)
 		}

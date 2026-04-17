@@ -44,8 +44,14 @@ func main() {
 	releaseRepo := repository.NewSQLiteReleaseRecordRepository(sqlDB)
 	workloadTargetRepo := repository.NewWorkloadTargetRepository(sqlDB)
 	
+	// Shell-related repositories
+	shellServerRepo := repository.NewSQLiteShellServerRepository(sqlDB, cfg.EncryptionKey)
+	shellCommandRepo := repository.NewSQLiteShellCommandRepository(sqlDB)
+	shellTaskRepo := repository.NewSQLiteShellTaskRepository(sqlDB)
+	shellExecutionRepo := repository.NewSQLiteShellTaskExecutionRepository(sqlDB)
+	
 	// Setup routes
-	handlers.SetupRoutes(router, appRepo, clusterRepo, releaseRepo, workloadTargetRepo, log)
+	handlers.SetupRoutes(router, appRepo, clusterRepo, releaseRepo, workloadTargetRepo, shellServerRepo, shellCommandRepo, shellTaskRepo, shellExecutionRepo, log)
 
 	addr := fmt.Sprintf("%s:%d", cfg.ServerHost, cfg.ServerPort)
 	log.Info("Server listening", "address", addr)

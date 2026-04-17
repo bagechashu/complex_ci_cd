@@ -6,19 +6,21 @@ import (
 )
 
 type ShellServer struct {
-	ID                int       `json:"id" db:"id,primarykey"`
-	Name              string    `json:"name" db:"name,notnull,unique"`
-	Host              string    `json:"host" db:"host,notnull"`
-	Port              int       `json:"port" db:"port,notnull"`
-	Username          string    `json:"username" db:"username"`
-	AuthType          string    `json:"auth_type" db:"auth_type"` // password or key
-	Password          string    `json:"password,omitempty" db:"password"`
-	PrivateKey        string    `json:"private_key,omitempty" db:"private_key"`
-	AllowedCommands   []string  `json:"allowed_commands" db:"-"`
-	Status            string    `json:"status" db:"status"` // active, inactive, error
-	LastConnected     *time.Time `json:"last_connected" db:"last_connected"`
-	CreatedAt         time.Time `json:"created_at" db:"created_at,notnull"`
-	UpdatedAt         time.Time `json:"updated_at" db:"updated_at,notnull"`
+	ID            int        `json:"id" db:"id,primarykey"`
+	Name          string     `json:"name" db:"name,notnull,unique"`
+	Host          string     `json:"host" db:"host,notnull"`
+	Port          int        `json:"port" db:"port,notnull"`
+	Username      string     `json:"username" db:"username"`
+	AuthType      string     `json:"auth_type" db:"auth_type"` // password or key
+	Password      string     `json:"-" db:"password"`          // 隐藏敏感信息
+	PrivateKey    string     `json:"-" db:"private_key"`       // 隐藏敏感信息
+	Status        string     `json:"status" db:"status"`       // active, inactive, error
+	LastConnected *time.Time `json:"last_connected" db:"last_connected"`
+	CreatedAt     time.Time  `json:"created_at" db:"created_at,notnull"`
+	UpdatedAt     time.Time  `json:"updated_at" db:"updated_at,notnull"`
+
+	// 关联关系
+	AllowedCommands []ShellCommand `json:"allowed_commands" db:"-"` // 该服务器允许的命令
 }
 
 func (s *ShellServer) Validate() error {

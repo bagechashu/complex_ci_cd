@@ -1,338 +1,307 @@
 <template>
   <div class="execution-history-page">
     <div class="page-header">
-      <h1>📋 执行历史</h1>
-      <p class="description">查看 Shell 任务的执行历史和结果</p>
+      <h1>📊 执行历史</h1>
+      <p class="description">查看 Shell 任务执行记录和输出结果</p>
     </div>
 
-    <div class="content-wrapper">
-      <!-- Filters -->
-      <div class="filters">
-        <input
-          v-model="searchQuery"
-          type="text"
-          class="search-input"
-          placeholder="搜索任务名称或服务器..."
-        />
-
-        <select v-model="filterStatus" class="filter-select">
-          <option value="">所有状态</option>
-          <option value="success">成功</option>
-          <option value="failed">失败</option>
-          <option value="running">执行中</option>
-        </select>
-
-        <select v-model="filterTimeRange" class="filter-select">
-          <option value="">全部时间</option>
-          <option value="1h">最近 1 小时</option>
-          <option value="24h">最近 24 小时</option>
-          <option value="7d">最近 7 天</option>
-          <option value="30d">最近 30 天</option>
+    <div class="filters-bar">
+      <div class="filter-group">
+        <label>任务筛选:</label>
+        <select v-model.number="selectedTaskFilter" class="filter-select">
+          <option value="">-- 全部任务 --</option>
+          <option v-for="task in tasks" :key="task.id" :value="task.id">
+            {{ task.name }}
+          </option>
         </select>
       </div>
 
-      <!-- History List -->
-      <div class="history-container">
-        <!-- TODO: Load execution history from API -->
-        <div v-if="histories.length === 0" class="empty-state">
-          <p>暂无执行历史</p>
+      <div class="filter-group">
+        <label>状态筛选:</label>
+        <select v-model="selectedStatusFilter" class="filter-select">
+          <option value="">-- 全部状态 --</option>
+          <option value="pending">等待中</option>
+          <option value="running">执行中</option>
+          <option value="success">成功</option>
+          <option value="failed">失败</option>
+        </select>
+      </div>
+
+      <div class="filter-group">
+        <label>服务器筛选:</label>
+        <select v-model.number="selectedServerFilter" class="filter-select">
+          <option value="">-- 全部服务器 --</option>
+          <option v-for="server in servers" :key="server.id" :value="server.id">
+            {{ server.name }}
+          </option>
+        </select>
+      </div>
+
+      <n-button type="default" size="small" @click="loadExecutions" title="刷新">
+        🔄 刷新
+      </n-button>
+    </div>
+
+    <div class="executions-container">
+      <div v-if="filteredExecutions.length === 0" class="empty-state">
+        <p>暂无执行记录</p>
+      </div>
+
+      <div v-else class="executions-table">
+        <div class="table-header">
+          <div class="col-id">ID</div>
+          <div class="col-task">任务名称</div>
+          <div class="col-server">服务器</div>
+          <div class="col-status">状态</div>
+          <div class="col-time">执行时间</div>
+          <div class="col-actions">操作</div>
         </div>
 
-        <div class="history-grid">
-          <div
-            v-for="history in filteredHistories"
-            :key="history.id"
-            class="history-card"
-            :class="{ [history.status]: true }"
-          >
-            <!-- Card Header -->
-            <div class="card-header">
-              <div class="header-left">
-                <div class="status-icon">
-                  <span v-if="history.status === 'success'">✓</span>
-                  <span v-else-if="history.status === 'failed'">✕</span>
-                  <span v-else>◐</span>
-                </div>
-                <div class="header-info">
-                  <div class="task-name">{{ history.task_name }}</div>
-                  <div class="status-text">{{ statusText(history.status) }}</div>
-                </div>
-              </div>
-              <div class="header-time">
-                {{ formatTime(history.executed_at) }}
-              </div>
-            </div>
-
-            <!-- Card Body -->
-            <div class="card-body">
-              <div class="info-row">
-                <span class="label">执行方式:</span>
-                <span class="method-badge">{{ history.method }}</span>
-              </div>
-
-              <div class="info-row">
-                <span class="label">服务器:</span>
-                <span class="servers">{{ history.servers?.join(', ') || '无' }}</span>
-              </div>
-
-              <div class="info-row">
-                <span class="label">执行人:</span>
-                <span>{{ history.executed_by || '自动' }}</span>
-              </div>
-
-              <div v-if="history.reason" class="info-row">
-                <span class="label">执行理由:</span>
-                <span>{{ history.reason }}</span>
-              </div>
-
-              <div class="info-row">
-                <span class="label">耗时:</span>
-                <span>{{ formatDuration(history.duration) }}</span>
-              </div>
-
-              <!-- Command -->
-              <div class="command-section">
-                <label>执行命令:</label>
-                <div class="command-box">
-                  <pre><code>{{ history.command }}</code></pre>
-                </div>
-              </div>
-
-              <!-- Result -->
-              <div v-if="history.result" class="result-section">
-                <details>
-                  <summary>执行结果 ({{ history.status }})</summary>
-                  <div class="result-box" :class="{ [history.status]: true }">
-                    <pre><code>{{ history.result }}</code></pre>
-                  </div>
-                </details>
-              </div>
-            </div>
-
-            <!-- Card Footer -->
-            <div class="card-footer">
-              <button class="btn-small" @click="retryExecution(history.id)">
-                🔄 重新执行
-              </button>
-              <button class="btn-small" @click="viewDetails(history.id)">
-                👁 查看详情
-              </button>
-              <button class="btn-small btn-danger" @click="deleteHistory(history.id)">
-                🗑 删除
-              </button>
-            </div>
+        <div v-for="execution in filteredExecutions" :key="execution.id" class="table-row">
+          <div class="col-id">#{{ execution.id }}</div>
+          <div class="col-task">{{ execution.task_name || '-' }}</div>
+          <div class="col-server">{{ execution.server_name || '-' }}</div>
+          <div class="col-status">
+            <span class="status-badge" :class="`status-${execution.status}`">
+              {{ statusText(execution.status) }}
+            </span>
+          </div>
+          <div class="col-time">
+            {{ execution.started_at ? formatDate(execution.started_at) : '-' }}
+          </div>
+          <div class="col-actions">
+            <n-button type="default" size="small" @click="viewExecution(execution)">
+              查看详情
+            </n-button>
           </div>
         </div>
       </div>
+    </div>
 
-      <!-- Pagination -->
-      <div v-if="totalPages > 1" class="pagination">
-        <button
-          class="page-btn"
-          @click="previousPage"
-          :disabled="currentPage === 1"
-        >
-          ← 上一页
-        </button>
+    <!-- Execution Detail Modal -->
+    <div v-if="showDetailModal" class="modal-overlay" @click.self="closeDetailModal">
+      <div class="modal modal-large">
+        <div class="modal-header">
+          <div>
+            <h2>执行详情 #{{ selectedExecution?.id }}</h2>
+            <p class="detail-subtitle">{{ selectedExecution?.task_name }}</p>
+          </div>
+          <button class="close-btn" @click="closeDetailModal">✕</button>
+        </div>
 
-        <span class="page-info">
-          第 {{ currentPage }} / {{ totalPages }} 页
-        </span>
+        <div class="modal-body">
+          <div class="detail-grid">
+            <div class="detail-item">
+              <label>任务名称:</label>
+              <span>{{ selectedExecution?.task_name || '-' }}</span>
+            </div>
+            <div class="detail-item">
+              <label>服务器:</label>
+              <span>{{ selectedExecution?.server_name || '-' }}</span>
+            </div>
+            <div class="detail-item">
+              <label>命令:</label>
+              <span class="code">{{ selectedExecution?.command || '-' }}</span>
+            </div>
+            <div class="detail-item">
+              <label>状态:</label>
+              <span class="status-badge" :class="`status-${selectedExecution?.status}`">
+                {{ statusText(selectedExecution?.status) }}
+              </span>
+            </div>
+          </div>
 
-        <button
-          class="page-btn"
-          @click="nextPage"
-          :disabled="currentPage === totalPages"
-        >
-          下一页 →
-        </button>
+          <div class="detail-section">
+            <h4>执行时间</h4>
+            <div class="time-info">
+              <div>
+                <span class="time-label">开始时间:</span>
+                <span>{{ selectedExecution?.started_at ? formatDateTime(selectedExecution.started_at) : '-' }}</span>
+              </div>
+              <div>
+                <span class="time-label">结束时间:</span>
+                <span>{{ selectedExecution?.completed_at ? formatDateTime(selectedExecution.completed_at) : '未完成' }}</span>
+              </div>
+              <div v-if="selectedExecution?.started_at && selectedExecution?.completed_at">
+                <span class="time-label">耗时:</span>
+                <span>{{ calculateDuration(selectedExecution.started_at, selectedExecution.completed_at) }}</span>
+              </div>
+            </div>
+          </div>
+
+          <div v-if="selectedExecution?.exit_code !== null && selectedExecution?.exit_code !== undefined" class="detail-section">
+            <h4>退出码</h4>
+            <div class="exit-code" :class="selectedExecution.exit_code === 0 ? 'success' : 'error'">
+              {{ selectedExecution.exit_code }}
+            </div>
+          </div>
+
+          <div v-if="selectedExecution?.output" class="detail-section">
+            <h4>执行输出</h4>
+            <pre class="output-box"><code>{{ selectedExecution.output }}</code></pre>
+          </div>
+
+          <div v-if="selectedExecution?.error_message" class="detail-section">
+            <h4>错误信息</h4>
+            <div class="error-box">
+              <pre><code>{{ selectedExecution.error_message }}</code></pre>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <n-button type="default" @click="closeDetailModal">
+            关闭
+          </n-button>
+        </div>
       </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
-import { getExecutionHistories } from '@/api/metadata'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { NButton } from 'naive-ui'
+import type { ShellTaskExecution, ShellTask, ShellServer } from '@/types/api'
+import {
+  listShellExecutions,
+  getShellExecution,
+  listShellTasks,
+  listShellServers
+} from '@/api/shell'
 
-interface ExecutionHistory {
-  id: number
-  task_name: string
-  method: 'ansible' | 'salt'
-  servers?: string[]
-  command: string
-  status: 'success' | 'failed' | 'running'
-  executed_at: string
-  executed_by?: string
-  reason?: string
-  duration?: number
-  result?: string
-}
+const executions = ref<ShellTaskExecution[]>([])
+const tasks = ref<ShellTask[]>([])
+const servers = ref<ShellServer[]>([])
 
-// State
-const searchQuery = ref('')
-const filterStatus = ref('')
-const filterTimeRange = ref('')
-const currentPage = ref(1)
-const pageSize = ref(10)
+const selectedTaskFilter = ref<number | ''>('')
+const selectedStatusFilter = ref('')
+const selectedServerFilter = ref<number | ''>('')
+const showDetailModal = ref(false)
+const selectedExecution = ref<ShellTaskExecution | null>(null)
 
-const histories = ref<ExecutionHistory[]>([])
+let refreshInterval: ReturnType<typeof setInterval> | null = null
 
-// Computed
-const filteredHistories = computed(() => {
-  let filtered = histories.value
-
-  // Search filter
-  if (searchQuery.value) {
-    const query = searchQuery.value.toLowerCase()
-    filtered = filtered.filter(h =>
-      h.task_name.toLowerCase().includes(query) ||
-      h.servers?.some(s => s.toLowerCase().includes(query))
-    )
-  }
-
-  // Status filter
-  if (filterStatus.value) {
-    filtered = filtered.filter(h => h.status === filterStatus.value)
-  }
-
-  // Time range filter
-  if (filterTimeRange.value) {
-    const now = new Date()
-    let cutoffTime = new Date()
-
-    switch (filterTimeRange.value) {
-      case '1h':
-        cutoffTime.setHours(cutoffTime.getHours() - 1)
-        break
-      case '24h':
-        cutoffTime.setDate(cutoffTime.getDate() - 1)
-        break
-      case '7d':
-        cutoffTime.setDate(cutoffTime.getDate() - 7)
-        break
-      case '30d':
-        cutoffTime.setDate(cutoffTime.getDate() - 30)
-        break
+const filteredExecutions = computed(() => {
+  return executions.value.filter(exec => {
+    if (selectedTaskFilter.value && exec.task_id !== selectedTaskFilter.value) {
+      return false
     }
-
-    filtered = filtered.filter(h => new Date(h.executed_at) > cutoffTime)
-  }
-
-  return filtered
-})
-
-const paginatedHistories = computed(() => {
-  const start = (currentPage.value - 1) * pageSize.value
-  const end = start + pageSize.value
-  return filteredHistories.value.slice(start, end)
-})
-
-const totalPages = computed(() => {
-  return Math.ceil(filteredHistories.value.length / pageSize.value)
-})
-
-// Functions
-const statusText = (status: string): string => {
-  const map: Record<string, string> = {
-    success: '成功',
-    failed: '失败',
-    running: '执行中'
-  }
-  return map[status] || status
-}
-
-const formatTime = (dateStr: string): string => {
-  try {
-    const date = new Date(dateStr)
-    return date.toLocaleString('zh-CN', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit'
-    })
-  } catch {
-    return dateStr
-  }
-}
-
-const formatDuration = (seconds?: number): string => {
-  if (!seconds) return '--'
-  if (seconds < 60) return `${seconds}秒`
-  if (seconds < 3600) return `${Math.floor(seconds / 60)}分${seconds % 60}秒`
-  return `${Math.floor(seconds / 3600)}小时${Math.floor((seconds % 3600) / 60)}分`
-}
-
-const retryExecution = async (historyId: number) => {
-  try {
-    // Retry execution would call the execute endpoint with the same task
-    console.log('Retrying execution:', historyId)
-    alert('重试逻辑需要根据任务类型实现')
-  } catch (error) {
-    console.error('Failed to retry execution:', error)
-    alert('重试执行失败')
-  }
-}
-
-const viewDetails = (historyId: number) => {
-  // TODO: Navigate to detailed view
-  console.log('TODO: View execution details', historyId)
-}
-
-const deleteHistory = async (historyId: number) => {
-  if (confirm('确定删除此执行记录吗？')) {
-    try {
-      // Would require a delete API endpoint
-      console.log('Deleting history:', historyId)
-      const index = histories.value.findIndex(h => h.id === historyId)
-      if (index > -1) {
-        histories.value.splice(index, 1)
-      }
-    } catch (error) {
-      console.error('Failed to delete history:', error)
-      alert('删除失败')
+    if (selectedStatusFilter.value && exec.status !== selectedStatusFilter.value) {
+      return false
     }
-  }
-}
+    if (selectedServerFilter.value && exec.server_id !== selectedServerFilter.value) {
+      return false
+    }
+    return true
+  })
+})
 
-const previousPage = () => {
-  if (currentPage.value > 1) {
-    currentPage.value--
-  }
-}
-
-const nextPage = () => {
-  if (currentPage.value < totalPages.value) {
-    currentPage.value++
-  }
-}
-
-const loadExecutionHistories = async () => {
-  try {
-    const data = await getExecutionHistories()
-    histories.value = data
-  } catch (error) {
-    console.error('Failed to load execution histories:', error)
-  }
-}
-
-// Lifecycle
 onMounted(async () => {
-  await loadExecutionHistories()
+  await loadAllData()
+  // 自动刷新，每 5 秒
+  refreshInterval = setInterval(async () => {
+    await loadExecutions()
+  }, 5000)
 })
+
+onUnmounted(() => {
+  if (refreshInterval) {
+    clearInterval(refreshInterval)
+  }
+})
+
+async function loadAllData() {
+  try {
+    const [execRes, tasksRes, serversRes] = await Promise.all([
+      listShellExecutions(1, 100),
+      listShellTasks(1, 100),
+      listShellServers(1, 100)
+    ])
+    executions.value = execRes.data
+    tasks.value = tasksRes.data
+    servers.value = serversRes.data
+  } catch (error) {
+    console.error('Failed to load data:', error)
+  }
+}
+
+async function loadExecutions() {
+  try {
+    const res = await listShellExecutions(1, 100)
+    executions.value = res.data
+  } catch (error) {
+    console.error('Failed to load executions:', error)
+  }
+}
+
+async function viewExecution(execution: ShellTaskExecution) {
+  try {
+    selectedExecution.value = await getShellExecution(execution.id)
+    showDetailModal.value = true
+  } catch (error) {
+    console.error('Failed to load execution details:', error)
+    alert('加载详情失败')
+  }
+}
+
+function closeDetailModal() {
+  showDetailModal.value = false
+  selectedExecution.value = null
+}
+
+function statusText(status?: string): string {
+  const statusMap: Record<string, string> = {
+    pending: '等待中',
+    running: '执行中',
+    success: '成功',
+    failed: '失败'
+  }
+  return statusMap[status || ''] || status || '-'
+}
+
+function formatDate(dateString: string | null | undefined): string {
+  if (!dateString) return '-'
+  const date = new Date(dateString)
+  return date.toLocaleDateString('zh-CN')
+}
+
+function formatDateTime(dateString: string | null | undefined): string {
+  if (!dateString) return '-'
+  const date = new Date(dateString)
+  return date.toLocaleString('zh-CN')
+}
+
+function calculateDuration(startStr: string, endStr: string): string {
+  try {
+    const start = new Date(startStr).getTime()
+    const end = new Date(endStr).getTime()
+    const seconds = Math.floor((end - start) / 1000)
+
+    if (seconds < 60) return `${seconds}秒`
+    const minutes = Math.floor(seconds / 60)
+    if (minutes < 60) return `${minutes}分${seconds % 60}秒`
+    const hours = Math.floor(minutes / 60)
+    return `${hours}小时${minutes % 60}分`
+  } catch {
+    return '-'
+  }
+}
 </script>
 
 <style scoped>
 .execution-history-page {
-  padding: 24px;
-  min-height: 100vh;
-  background: #f5f5f5;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  gap: 20px;
 }
 
 .page-header {
   margin-bottom: 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
 }
 
 .page-header h1 {
@@ -341,325 +310,330 @@ onMounted(async () => {
   color: #1a1a1a;
 }
 
-.description {
+.page-header .description {
   margin: 0;
   color: #666;
   font-size: 14px;
 }
 
-.content-wrapper {
-  max-width: 1400px;
-  margin: 0 auto;
-}
-
-/* Filters */
-.filters {
-  display: grid;
-  grid-template-columns: 1fr 200px 200px;
+.filters-bar {
+  display: flex;
   gap: 12px;
-  margin-bottom: 24px;
+  align-items: center;
+  flex-wrap: wrap;
+  padding: 16px;
+  background: white;
+  border-radius: 0;
+  border: 1px solid #e0e0e0;
 }
 
-.search-input,
-.filter-select {
-  padding: 10px 12px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
+.filter-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.filter-group label {
+  font-weight: 500;
+  color: #666;
   font-size: 14px;
-  background: white;
 }
 
-.search-input:focus,
-.filter-select:focus {
-  outline: none;
-  border-color: #1890ff;
-  box-shadow: 0 0 0 3px rgba(24, 144, 255, 0.1);
+.filter-select {
+  padding: 6px 10px;
+  border: 1px solid #e0e0e0;
+  border-radius: 0;
+  font-size: 14px;
+  min-width: 150px;
 }
 
-/* History Container */
-.history-container {
+
+
+.executions-container {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
   background: white;
-  border-radius: 8px;
-  padding: 24px;
+  border-radius: 0;
+  border: 1px solid #e0e0e0;
 }
 
 .empty-state {
-  text-align: center;
-  padding: 60px 20px;
-  color: #999;
-}
-
-.history-grid {
-  display: grid;
-  gap: 16px;
-}
-
-.history-card {
-  border: 1px solid #e0e0e0;
-  border-radius: 6px;
-  background: white;
-  border-left: 4px solid #999;
-  transition: all 0.2s;
-}
-
-.history-card:hover {
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-.history-card.success {
-  border-left-color: #52c41a;
-}
-
-.history-card.failed {
-  border-left-color: #ff4d4f;
-}
-
-.history-card.running {
-  border-left-color: #1890ff;
-}
-
-.card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 12px 16px;
-  border-bottom: 1px solid #f0f0f0;
-}
-
-.header-left {
-  display: flex;
-  gap: 12px;
-  align-items: center;
-  flex: 1;
-}
-
-.status-icon {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-weight: bold;
-  font-size: 18px;
-  color: white;
-}
-
-.history-card.success .status-icon {
-  background: #52c41a;
-}
-
-.history-card.failed .status-icon {
-  background: #ff4d4f;
-}
-
-.history-card.running .status-icon {
-  background: #1890ff;
-}
-
-.header-info {
-  flex: 1;
-}
-
-.task-name {
-  font-weight: 600;
-  font-size: 14px;
-  color: #1a1a1a;
-}
-
-.status-text {
-  font-size: 12px;
+  height: 100%;
   color: #999;
+  font-size: 16px;
 }
 
-.header-time {
-  text-align: right;
-  font-size: 12px;
-  color: #999;
+.executions-table {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
 }
 
-.card-body {
-  padding: 16px;
-}
-
-.info-row {
+.table-header {
   display: grid;
-  grid-template-columns: 100px 1fr;
+  grid-template-columns: 60px 1fr 1fr 100px 150px 100px;
   gap: 12px;
-  margin-bottom: 12px;
+  padding: 12px 16px;
+  background-color: #f5f5f5;
+  border-bottom: 2px solid #e0e0e0;
+  font-weight: 600;
   font-size: 13px;
-}
-
-.label {
-  font-weight: 600;
   color: #666;
+  flex-shrink: 0;
 }
 
-.method-badge {
-  background: #f0f0f0;
-  padding: 2px 8px;
-  border-radius: 3px;
-  display: inline-block;
-  width: fit-content;
+.table-row {
+  display: grid;
+  grid-template-columns: 60px 1fr 1fr 100px 150px 100px;
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid #f0f0f0;
+  align-items: center;
+  font-size: 13px;
+  transition: background-color 0.2s;
 }
 
-.servers {
-  color: #1a1a1a;
-  word-break: break-all;
+.table-row:hover {
+  background-color: #fafafa;
 }
 
-.command-section {
-  margin: 16px 0;
-}
-
-.command-section label {
-  font-weight: 600;
-  color: #666;
-  font-size: 12px;
-  display: block;
-  margin-bottom: 8px;
-}
-
-.command-box {
-  background: #f5f5f5;
-  border: 1px solid #e0e0e0;
-  border-radius: 4px;
-  padding: 12px;
-  overflow-x: auto;
-}
-
-.command-box pre {
-  margin: 0;
-  font-size: 12px;
-  line-height: 1.4;
-}
-
-.command-box code {
+.col-id {
+  color: #999;
   font-family: 'Courier New', monospace;
-  color: #d32f2f;
-}
-
-.result-section {
-  margin: 16px 0;
-}
-
-.result-section summary {
-  font-weight: 600;
-  color: #666;
-  cursor: pointer;
   font-size: 12px;
-  padding: 8px;
-  background: #f9f9f9;
-  border-radius: 3px;
 }
 
-.result-section summary:hover {
-  background: #f0f0f0;
+.col-task,
+.col-server {
+  color: #333;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.result-box {
-  background: #f5f5f5;
-  border: 1px solid #e0e0e0;
-  border-radius: 4px;
-  padding: 12px;
-  margin-top: 8px;
-  max-height: 300px;
+.col-status {
+  display: flex;
+  justify-content: center;
+}
+
+.status-badge {
+  padding: 3px 8px;
+  border-radius: 0;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.status-pending {
+  background-color: #e0e0e0;
+  color: #666;
+}
+
+.status-running {
+  background-color: #fff3cd;
+  color: #856404;
+}
+
+.status-success {
+  background-color: #d4edda;
+  color: #155724;
+}
+
+.status-failed {
+  background-color: #f8d7da;
+  color: #721c24;
+}
+
+.col-time {
+  color: #666;
+  font-size: 12px;
+}
+
+.col-actions {
+  display: flex;
+  justify-content: center;
+}
+
+
+
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal {
+  background: white;
+  border-radius: 0;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  max-width: 600px;
+  width: 90%;
+  max-height: 80vh;
   overflow-y: auto;
 }
 
-.result-box.success {
-  background: #f6ffed;
-  border-color: #b7eb8f;
+.modal-large {
+  max-width: 800px;
 }
 
-.result-box.failed {
-  background: #fff1f0;
-  border-color: #ffccc7;
-}
-
-.result-box pre {
-  margin: 0;
-  font-size: 11px;
-  line-height: 1.4;
-  color: #1a1a1a;
-}
-
-.result-box code {
-  font-family: 'Courier New', monospace;
-}
-
-.card-footer {
+.modal-header {
   display: flex;
-  gap: 8px;
-  padding: 12px 16px;
-  border-top: 1px solid #f0f0f0;
-  background: #fafafa;
-  border-bottom-left-radius: 6px;
-  border-bottom-right-radius: 6px;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 20px;
+  border-bottom: 1px solid #e0e0e0;
 }
 
-.btn-small {
-  padding: 4px 8px;
-  background: #1890ff;
-  color: white;
+.modal-header h2 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.detail-subtitle {
+  margin: 4px 0 0 0;
+  font-size: 12px;
+  color: #666;
+}
+
+.close-btn {
+  background: none;
   border: none;
-  border-radius: 3px;
+  font-size: 24px;
   cursor: pointer;
+  color: #999;
+}
+
+.modal-body {
+  padding: 20px;
+}
+
+.detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.detail-item {
+  display: flex;
+  flex-direction: column;
+}
+
+.detail-item label {
+  font-weight: 600;
+  color: #666;
+  font-size: 12px;
+  margin-bottom: 4px;
+}
+
+.detail-item span {
+  color: #333;
+  font-size: 14px;
+}
+
+.detail-item .code {
+  font-family: 'Courier New', monospace;
+  background-color: #f5f5f5;
+  padding: 4px 8px;
+  border-radius: 0;
   font-size: 12px;
 }
 
-.btn-small:hover {
-  background: #40a9ff;
-}
-
-.btn-small.btn-danger {
-  background: #ff4d4f;
-}
-
-.btn-small.btn-danger:hover {
-  background: #ff7875;
-}
-
-/* Pagination */
-.pagination {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 12px;
-  margin-top: 24px;
+.detail-section {
+  margin-bottom: 20px;
   padding: 16px;
-  background: white;
-  border-radius: 8px;
+  background-color: #fafafa;
+  border-radius: 0;
+  border: 1px solid #f0f0f0;
 }
 
-.page-btn {
-  padding: 8px 16px;
-  background: #1890ff;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-}
-
-.page-btn:hover:not(:disabled) {
-  background: #40a9ff;
-}
-
-.page-btn:disabled {
-  background: #d9d9d9;
-  cursor: not-allowed;
-}
-
-.page-info {
+.detail-section h4 {
+  margin: 0 0 12px 0;
   font-size: 14px;
-  color: #666;
-  min-width: 100px;
-  text-align: center;
+  color: #333;
 }
 
-@media (max-width: 1200px) {
-  .filters {
-    grid-template-columns: 1fr;
-  }
+.time-info {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  font-size: 13px;
+}
+
+.time-label {
+  color: #666;
+  font-weight: 500;
+  display: block;
+  margin-bottom: 4px;
+}
+
+.exit-code {
+  padding: 8px 12px;
+  border-radius: 0;
+  font-family: 'Courier New', monospace;
+  font-size: 14px;
+  font-weight: 600;
+  background-color: white;
+  border: 1px solid #e0e0e0;
+  display: inline-block;
+}
+
+.exit-code.success {
+  background-color: #d4edda;
+  color: #155724;
+  border-color: #c3e6cb;
+}
+
+.exit-code.error {
+  background-color: #f8d7da;
+  color: #721c24;
+  border-color: #f5c6cb;
+}
+
+.output-box,
+.error-box {
+  background-color: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 0;
+  padding: 12px;
+  overflow-x: auto;
+  max-height: 300px;
+  font-size: 12px;
+}
+
+.output-box code,
+.error-box code {
+  font-family: 'Courier New', monospace;
+  color: #333;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+.error-box {
+  background-color: #fff5f5;
+}
+
+.error-box code {
+  color: #d32f2f;
+}
+
+.modal-footer {
+  padding: 16px;
+  border-top: 1px solid #e0e0e0;
+  display: flex;
+  justify-content: flex-end;
 }
 </style>

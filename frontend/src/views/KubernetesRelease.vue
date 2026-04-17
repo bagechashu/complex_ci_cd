@@ -1,17 +1,8 @@
 <template>
   <div class="k8s-release-page">
-    <div class="page-header">
-      <h1>🚀 K8s 发布</h1>
-      <p class="description">管理应用与集群的部署映射，发布新版本</p>
-      <button class="btn-primary" @click="openCreateApplicationModal">
-        + 添加应用
-      </button>
-    </div>
-
     <!-- Error Message -->
     <div v-if="errorMessage" class="error-banner">
       <span>⚠️ {{ errorMessage }}</span>
-      <button class="close-banner-btn" @click="errorMessage = null">×</button>
     </div>
 
     <!-- Loading Indicator -->
@@ -26,7 +17,14 @@
       <!-- Left Panel: Applications List -->
       <div class="list-panel">
         <div class="list-header">
-          <h2>应用列表</h2>
+          <div class="list-header-top">
+            <h2>应用列表</h2>
+            <div class="header-menu">
+              <n-dropdown trigger="click" :options="headerMenuOptions" @select="handleHeaderMenuSelect">
+                <n-button text type="primary" class="menu-btn">⋮</n-button>
+              </n-dropdown>
+            </div>
+          </div>
           <input
             v-model="searchQuery"
             type="text"
@@ -114,9 +112,9 @@
           <div class="detail-section">
             <div class="section-header">
               <h3>应用信息</h3>
-              <button class="btn-secondary" @click="openEditApplicationModal">
+              <n-button @click="openEditApplicationModal">
                 编辑应用
-              </button>
+              </n-button>
             </div>
 
             <div class="info-grid">
@@ -143,9 +141,9 @@
           <div class="detail-section">
             <div class="section-header">
               <h3>集群部署配置</h3>
-              <button class="btn-primary-small" @click="openManageClusterModal">
+              <n-button type="primary" size="small" @click="openManageClusterModal">
                 ⚙️ 管理集群关联
-              </button>
+              </n-button>
             </div>
 
             <!-- Summary -->
@@ -174,24 +172,25 @@
                     <span class="env-badge">{{ mapping.environment }}</span>
                   </div>
                   <div class="mapping-actions">
-                    <button
-                      class="btn-small"
+                    <n-button
+                      size="small"
                       @click="openReleaseModal(mapping)"
                     >
                       📤 发布
-                    </button>
-                    <button
-                      class="btn-small"
+                    </n-button>
+                    <n-button
+                      size="small"
                       @click="openEditClusterMappingModal(mapping)"
                     >
                       ✏️ 编辑
-                    </button>
-                    <button
-                      class="btn-small btn-danger"
+                    </n-button>
+                    <n-button
+                      size="small"
+                      type="error"
                       @click="deleteClusterMapping(mapping.id)"
                     >
                       🗑️
-                    </button>
+                    </n-button>
                   </div>
                 </div>
 
@@ -232,7 +231,7 @@
       <div class="modal" @click.stop>
         <div class="modal-header">
           <h2>{{ editingApplicationId ? '编辑应用' : '新建应用' }}</h2>
-          <button class="close-btn" @click="closeApplicationModal">×</button>
+          <n-button text type="error" @click="closeApplicationModal">×</n-button>
         </div>
 
         <div class="modal-body">
@@ -288,8 +287,8 @@
         </div>
 
         <div class="modal-footer">
-          <button class="btn-secondary" @click="closeApplicationModal">取消</button>
-          <button class="btn-primary" @click="saveApplication">保存</button>
+          <n-button type="default" @click="closeApplicationModal">取消</n-button>
+          <n-button type="primary" @click="saveApplication">保存</n-button>
         </div>
       </div>
     </div>
@@ -299,7 +298,7 @@
       <div class="modal" @click.stop>
         <div class="modal-header">
           <h2>{{ editingMappingId ? '编辑集群配置' : '添加集群配置' }}</h2>
-          <button class="close-btn" @click="closeClusterMappingModal">×</button>
+          <n-button text type="error" @click="closeClusterMappingModal">×</n-button>
         </div>
 
         <div class="modal-body">
@@ -354,8 +353,8 @@
         </div>
 
         <div class="modal-footer">
-          <button class="btn-secondary" @click="closeClusterMappingModal">取消</button>
-          <button class="btn-primary" @click="saveClusterMapping">保存</button>
+          <n-button type="default" @click="closeClusterMappingModal">取消</n-button>
+          <n-button type="primary" @click="saveClusterMapping">保存</n-button>
         </div>
       </div>
     </div>
@@ -365,7 +364,7 @@
       <div class="modal" @click.stop>
         <div class="modal-header">
           <h2>发布新版本</h2>
-          <button class="close-btn" @click="closeReleaseModal">×</button>
+          <n-button text type="error" @click="closeReleaseModal">×</n-button>
         </div>
 
         <div class="modal-body">
@@ -409,8 +408,8 @@
         </div>
 
         <div class="modal-footer">
-          <button class="btn-secondary" @click="closeReleaseModal">取消</button>
-          <button class="btn-success" @click="confirmRelease">确认发布</button>
+          <n-button type="default" @click="closeReleaseModal">取消</n-button>
+          <n-button type="primary" @click="confirmRelease">确认发布</n-button>
         </div>
       </div>
     </div>
@@ -421,7 +420,7 @@
         <div class="modal-header">
           <h2 v-if="!showEditFormInManageModal">管理集群关联 - {{ selectedApplication?.name }}</h2>
           <h2 v-else>编辑集群配置</h2>
-          <button class="close-btn" @click="closeManageClusterModal">×</button>
+          <n-button text type="error" @click="closeManageClusterModal">×</n-button>
         </div>
 
         <div class="modal-body">
@@ -447,20 +446,22 @@
                   </div>
 
                   <div class="cluster-card-footer">
-                    <button
+                    <n-button
                       v-if="!isClusterAlreadyMapped(cluster.id)"
-                      class="btn-link"
+                      text
+                      type="primary"
                       @click="quickAddClusterInManageModal(cluster)"
                     >
                       + 添加
-                    </button>
-                    <button
+                    </n-button>
+                    <n-button
                       v-else
-                      class="btn-link btn-success"
+                      text
+                      type="success"
                       @click="startEditInManageModal(getMappingForCluster(cluster.id)!)"
                     >
                       ✓ 已配置
-                    </button>
+                    </n-button>
                   </div>
                 </div>
               </div>
@@ -505,18 +506,20 @@
                   </div>
 
                   <div class="mapping-manage-footer">
-                    <button
-                      class="btn-link btn-edit"
+                    <n-button
+                      text
+                      type="primary"
                       @click="startEditInManageModal(mapping)"
                     >
                       编辑
-                    </button>
-                    <button
-                      class="btn-link btn-danger"
+                    </n-button>
+                    <n-button
+                      text
+                      type="error"
                       @click="deleteClusterMapping(mapping.id)"
                     >
                       删除
-                    </button>
+                    </n-button>
                   </div>
                 </div>
               </div>
@@ -525,9 +528,9 @@
 
           <!-- Edit Form View -->
           <div v-else>
-            <button class="btn-back" @click="cancelEditInManageModal">
+            <n-button text @click="cancelEditInManageModal">
               ← 返回集群列表
-            </button>
+            </n-button>
 
             <div class="edit-form-container">
               <div class="form-group">
@@ -584,9 +587,9 @@
         </div>
 
         <div class="modal-footer">
-          <button v-if="!showEditFormInManageModal" class="btn-secondary" @click="closeManageClusterModal">关闭</button>
-          <button v-else class="btn-secondary" @click="cancelEditInManageModal">取消</button>
-          <button v-if="showEditFormInManageModal" class="btn-primary" @click="saveClusterMappingInManageModal">保存</button>
+          <n-button v-if="!showEditFormInManageModal" type="default" @click="closeManageClusterModal">关闭</n-button>
+          <n-button v-else type="default" @click="cancelEditInManageModal">取消</n-button>
+          <n-button v-if="showEditFormInManageModal" type="primary" @click="saveClusterMappingInManageModal">保存</n-button>
         </div>
       </div>
     </div>
@@ -595,6 +598,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
+import { NButton, NDropdown } from 'naive-ui'
 import { getApplications, getClusters, createRelease, getEnvironments } from '@/api/metadata'
 import {
   getClusterMappingsByApp,
@@ -666,6 +670,20 @@ const errorMessage = ref<string | null>(null)
 
 // Sorting
 const sortOrder = ref<'asc' | 'desc'>('asc')
+
+// Header Menu Options
+const headerMenuOptions = computed(() => [
+  {
+    label: '+ 添加应用',
+    key: 'add-application'
+  }
+])
+
+const handleHeaderMenuSelect = (key: string) => {
+  if (key === 'add-application') {
+    openCreateApplicationModal()
+  }
+}
 
 // Computed
 const filteredApplications = computed(() => {
@@ -1089,40 +1107,6 @@ onMounted(async () => {
   flex-direction: column;
 }
 
-.page-header {
-  margin-bottom: 24px;
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-}
-
-.page-header h1 {
-  margin: 0 0 8px 0;
-  font-size: 28px;
-  color: #1a1a1a;
-}
-
-.description {
-  margin: 0;
-  color: #666;
-  font-size: 14px;
-}
-
-.btn-primary {
-  padding: 10px 16px;
-  background: #1890ff;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-weight: 600;
-  transition: background 0.2s;
-}
-
-.btn-primary:hover {
-  background: #40a9ff;
-}
-
 .content-layout {
   display: grid;
   grid-template-columns: 300px 1fr;
@@ -1136,7 +1120,7 @@ onMounted(async () => {
   display: flex;
   flex-direction: column;
   background: white;
-  border-radius: 8px;
+  border-radius: 0;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   overflow: hidden;
 }
@@ -1149,16 +1133,37 @@ onMounted(async () => {
   gap: 12px;
 }
 
+.list-header-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
 .list-header h2 {
   margin: 0;
   font-size: 16px;
+}
+
+.header-menu {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.menu-btn {
+  font-size: 20px !important;
+  padding: 4px 8px !important;
+  min-width: auto !important;
+  font-weight: bold !important;
+  letter-spacing: 2px !important;
 }
 
 .search-input {
   width: 100%;
   padding: 8px 12px;
   border: 1px solid #ddd;
-  border-radius: 4px;
+  border-radius: 0;
   font-size: 14px;
 }
 
@@ -1172,7 +1177,7 @@ onMounted(async () => {
   padding: 6px 12px;
   border: 1px solid #ddd;
   background: white;
-  border-radius: 4px;
+  border-radius: 0;
   font-size: 13px;
   cursor: pointer;
   transition: all 0.2s;
@@ -1262,7 +1267,7 @@ onMounted(async () => {
 .badge {
   background: #f0f0f0;
   padding: 2px 8px;
-  border-radius: 3px;
+  border-radius: 0;
   color: #666;
 }
 
@@ -1285,7 +1290,7 @@ onMounted(async () => {
   padding: 6px 12px;
   border: 1px solid #ddd;
   background: white;
-  border-radius: 4px;
+  border-radius: 0;
   cursor: pointer;
   font-size: 12px;
   transition: all 0.2s;
@@ -1311,7 +1316,7 @@ onMounted(async () => {
 /* Detail Panel */
 .detail-panel {
   background: white;
-  border-radius: 8px;
+  border-radius: 0;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   overflow-y: auto;
   padding: 24px;
@@ -1334,7 +1339,7 @@ onMounted(async () => {
 .detail-section {
   padding: 16px;
   background: #f9f9f9;
-  border-radius: 6px;
+  border-radius: 0;
   border: 1px solid #f0f0f0;
 }
 
@@ -1350,20 +1355,7 @@ onMounted(async () => {
   font-size: 16px;
 }
 
-.btn-secondary {
-  padding: 6px 12px;
-  background: white;
-  color: #1a1a1a;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 12px;
-  transition: background 0.2s;
-}
 
-.btn-secondary:hover {
-  background: #f5f5f5;
-}
 
 .info-grid {
   display: grid;
@@ -1391,7 +1383,7 @@ onMounted(async () => {
   font-family: 'Courier New', monospace;
   background: white;
   padding: 2px 6px;
-  border-radius: 3px;
+  border-radius: 0;
 }
 
 .mappings-list {
@@ -1404,7 +1396,7 @@ onMounted(async () => {
   padding: 12px;
   background: white;
   border: 1px solid #e0e0e0;
-  border-radius: 4px;
+  border-radius: 0;
 }
 
 .mapping-header {
@@ -1424,7 +1416,7 @@ onMounted(async () => {
   background: #e6f7ff;
   color: #1890ff;
   padding: 2px 8px;
-  border-radius: 3px;
+  border-radius: 0;
   font-size: 12px;
   font-weight: 600;
 }
@@ -1434,27 +1426,7 @@ onMounted(async () => {
   gap: 6px;
 }
 
-.btn-small {
-  padding: 4px 8px;
-  background: #1890ff;
-  color: white;
-  border: none;
-  border-radius: 3px;
-  cursor: pointer;
-  font-size: 12px;
-}
 
-.btn-small:hover {
-  background: #40a9ff;
-}
-
-.btn-small.btn-danger {
-  background: #ff4d4f;
-}
-
-.btn-small.btn-danger:hover {
-  background: #ff7875;
-}
 
 .mapping-details {
   font-size: 12px;
@@ -1464,7 +1436,7 @@ onMounted(async () => {
   margin-bottom: 6px;
   padding: 6px;
   background: white;
-  border-radius: 3px;
+  border-radius: 0;
 }
 
 .detail-line strong {
@@ -1474,7 +1446,7 @@ onMounted(async () => {
 .detail-line code {
   background: #f5f5f5;
   padding: 2px 6px;
-  border-radius: 3px;
+  border-radius: 0;
   color: #d32f2f;
 }
 
@@ -1500,7 +1472,7 @@ onMounted(async () => {
 
 .modal {
   background: white;
-  border-radius: 8px;
+  border-radius: 0;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
   max-width: 500px;
   width: 90%;
@@ -1556,7 +1528,7 @@ onMounted(async () => {
   width: 100%;
   padding: 10px 12px;
   border: 1px solid #ddd;
-  border-radius: 4px;
+  border-radius: 0;
   font-size: 14px;
 }
 
@@ -1575,7 +1547,7 @@ onMounted(async () => {
 .info-box {
   background: #f0f8ff;
   border: 1px solid #b3e5fc;
-  border-radius: 4px;
+  border-radius: 0;
   padding: 12px;
   margin-bottom: 16px;
   font-size: 14px;
@@ -1588,77 +1560,12 @@ onMounted(async () => {
 .info-box code {
   background: white;
   padding: 2px 6px;
-  border-radius: 3px;
+  border-radius: 0;
   font-family: 'Courier New', monospace;
   color: #d32f2f;
 }
 
-.btn-success {
-  padding: 10px 24px;
-  background: #52c41a;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-weight: 600;
-}
 
-.btn-success:hover {
-  background: #85ce61;
-}
-
-.btn-primary-small {
-  padding: 6px 12px;
-  background: #1890ff;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 12px;
-  font-weight: 600;
-  transition: background 0.2s;
-}
-
-.btn-primary-small:hover {
-  background: #40a9ff;
-}
-
-.btn-link {
-  background: none;
-  border: none;
-  color: #1890ff;
-  cursor: pointer;
-  padding: 0;
-  font-size: 12px;
-  text-decoration: none;
-  transition: color 0.2s;
-}
-
-.btn-link:hover {
-  color: #40a9ff;
-}
-
-.btn-link.btn-success {
-  color: #52c41a;
-  background: none;
-  padding: 0;
-}
-
-.btn-link.btn-success:hover {
-  color: #85ce61;
-}
-
-.btn-link.btn-edit {
-  color: #1890ff;
-}
-
-.btn-link.btn-danger {
-  color: #ff4d4f;
-}
-
-.btn-link.btn-danger:hover {
-  color: #ff7875;
-}
 
 .modal-large {
   max-width: 800px;
@@ -1667,7 +1574,7 @@ onMounted(async () => {
 .cluster-summary {
   background: #f0f8ff;
   border: 1px solid #b3e5fc;
-  border-radius: 4px;
+  border-radius: 0;
   padding: 12px;
   margin-bottom: 16px;
 }
@@ -1687,7 +1594,7 @@ onMounted(async () => {
   background: #e6f7ff;
   color: #1890ff;
   padding: 4px 12px;
-  border-radius: 4px;
+  border-radius: 0;
   font-size: 12px;
   font-weight: 600;
 }
@@ -1711,7 +1618,7 @@ onMounted(async () => {
 
 .cluster-card {
   border: 1px solid #ddd;
-  border-radius: 4px;
+  border-radius: 0;
   padding: 12px;
   background: white;
   transition: border-color 0.2s, box-shadow 0.2s;
@@ -1780,7 +1687,7 @@ onMounted(async () => {
 
 .mapping-manage-item {
   border: 1px solid #ddd;
-  border-radius: 4px;
+  border-radius: 0;
   padding: 12px;
   background: white;
 }
@@ -1807,7 +1714,7 @@ onMounted(async () => {
   margin-bottom: 10px;
   padding: 8px;
   background: #f9f9f9;
-  border-radius: 3px;
+  border-radius: 0;
   font-size: 12px;
 }
 
@@ -1830,7 +1737,7 @@ onMounted(async () => {
 .config-row code {
   background: white;
   padding: 2px 6px;
-  border-radius: 2px;
+  border-radius: 0;
   color: #d32f2f;
   font-family: 'Courier New', monospace;
   word-break: break-all;
@@ -1849,7 +1756,7 @@ onMounted(async () => {
   color: #999;
   font-size: 14px;
   background: #f5f5f5;
-  border-radius: 4px;
+  border-radius: 0;
 }
 
 .empty-state p {
@@ -1880,17 +1787,7 @@ onMounted(async () => {
   font-weight: 600;
 }
 
-.close-banner-btn {
-  background: none;
-  border: none;
-  font-size: 20px;
-  cursor: pointer;
-  color: #ff7875;
-}
 
-.close-banner-btn:hover {
-  color: #d32f2f;
-}
 
 .loading-overlay {
   position: fixed;
@@ -1912,7 +1809,7 @@ onMounted(async () => {
   gap: 12px;
   background: white;
   padding: 32px;
-  border-radius: 8px;
+  border-radius: 0;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
 }
 
@@ -1921,7 +1818,7 @@ onMounted(async () => {
   height: 40px;
   border: 4px solid #f0f0f0;
   border-top-color: #1890ff;
-  border-radius: 50%;
+  border-radius: 0;
   animation: spin 1s linear infinite;
 }
 
@@ -1952,7 +1849,7 @@ onMounted(async () => {
   margin-bottom: 16px;
   background: #f5f5f5;
   border: 1px solid #ddd;
-  border-radius: 4px;
+  border-radius: 0;
   cursor: pointer;
   font-size: 14px;
   color: #1890ff;

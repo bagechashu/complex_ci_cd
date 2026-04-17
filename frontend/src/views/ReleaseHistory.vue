@@ -337,7 +337,7 @@ onMounted(() => {
 
 .events {
   background-color: #ffffff;
-  border-radius: 4px;
+  border-radius: 0;
   padding: 12px;
   margin-top: 12px;
   max-height: 300px;

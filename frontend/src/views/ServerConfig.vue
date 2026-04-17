@@ -3,9 +3,9 @@
     <div class="page-header">
       <h1>🖥️ 服务器配置</h1>
       <p class="description">管理 Shell 任务执行的目标服务器和可执行命令</p>
-      <button class="btn-primary" @click="openCreateServerModal">
+      <n-button type="primary" @click="openCreateServerModal">
         + 添加服务器
-      </button>
+      </n-button>
     </div>
 
     <div class="content-layout">
@@ -35,28 +35,22 @@
           >
             <div class="list-item-header">
               <div class="server-name">{{ server.name }}</div>
-              <div class="server-actions">
-                <button
-                  class="icon-btn"
-                  @click.stop="deleteServer(server.id)"
-                  title="删除"
-                >
-                  🗑️
-                </button>
+              <div class="status-badge" :class="`status-${server.status}`">
+                {{ server.status }}
               </div>
             </div>
             <div class="server-info">
-              <span class="ip-badge">{{ server.ip_address }}</span>
-              <span class="method-badge">{{ server.connection_method }}</span>
+              <span>{{ server.host }}:{{ server.port }}</span>
+              <span class="auth-type">{{ server.auth_type }}</span>
             </div>
           </div>
         </div>
       </div>
 
-      <!-- Right Panel: Server Details -->
+      <!-- Right Panel: Server Details and Commands -->
       <div class="detail-panel">
         <div v-if="!selectedServer" class="empty-detail">
-          <p>请选择一个服务器查看详情</p>
+          <p>请选择一个服务器查看详情和管理命令</p>
         </div>
 
         <div v-else class="detail-content">
@@ -64,9 +58,14 @@
           <div class="detail-section">
             <div class="section-header">
               <h3>服务器信息</h3>
-              <button class="btn-secondary" @click="openEditServerModal">
-                编辑服务器
-              </button>
+              <div class="header-actions">
+                <n-button @click="openEditServerModal">
+                  编辑
+                </n-button>
+                <n-button type="error" @click="deleteServer(selectedServer.id)">
+                  删除
+                </n-button>
+              </div>
             </div>
 
             <div class="info-grid">
@@ -75,188 +74,225 @@
                 <span>{{ selectedServer.name }}</span>
               </div>
               <div class="info-item">
-                <label>IP 地址:</label>
-                <span class="code">{{ selectedServer.ip_address }}</span>
+                <label>主机地址:</label>
+                <span class="code">{{ selectedServer.host }}:{{ selectedServer.port }}</span>
               </div>
               <div class="info-item">
-                <label>连接方式:</label>
-                <span>{{ selectedServer.connection_method }}</span>
+                <label>用户名:</label>
+                <span>{{ selectedServer.username }}</span>
               </div>
               <div class="info-item">
-                <label>SSH 端口:</label>
-                <span>{{ selectedServer.ssh_port || 22 }}</span>
+                <label>认证方式:</label>
+                <span>{{ selectedServer.auth_type === 'password' ? '密码' : '私钥' }}</span>
+              </div>
+              <div class="info-item">
+                <label>状态:</label>
+                <span class="status-badge" :class="`status-${selectedServer.status}`">
+                  {{ selectedServer.status }}
+                </span>
+              </div>
+              <div class="info-item">
+                <label>最后连接:</label>
+                <span>{{ selectedServer.last_connected ? formatDate(selectedServer.last_connected) : '未连接' }}</span>
               </div>
             </div>
           </div>
 
-          <!-- Credentials -->
+          <!-- Commands Management -->
           <div class="detail-section">
-            <h3>连接凭证</h3>
-            <div class="credential-box">
-              <div class="info-line">
-                <strong>用户名:</strong> {{ selectedServer.username }}
-              </div>
-              <div v-if="selectedServer.password" class="info-line">
-                <strong>密码:</strong> ••••••••••••
-              </div>
-              <div v-if="selectedServer.private_key" class="info-line">
-                <strong>私钥:</strong> (已配置)
-              </div>
-              <div v-if="selectedServer.connection_params" class="info-line">
-                <strong>其他参数:</strong>
-                <code>{{ selectedServer.connection_params }}</code>
-              </div>
-            </div>
-          </div>
-
-          <!-- Allowed Commands -->
-          <div class="detail-section">
-            <h3>允许执行的命令</h3>
-
-            <div v-if="!selectedServer.allowed_commands || selectedServer.allowed_commands.length === 0" class="empty-state">
-              <p>暂无限制（允许所有命令）</p>
+            <div class="section-header">
+              <h3>允许执行的命令</h3>
+              <n-button type="primary" @click="openCreateCommandModal">
+                + 添加命令
+              </n-button>
             </div>
 
-            <div class="commands-list">
-              <div
-                v-for="(cmd, index) in selectedServer.allowed_commands"
-                :key="index"
-                class="command-item"
-              >
-                <span>{{ cmd }}</span>
+            <div v-if="commands.length === 0" class="empty-commands">
+              <p>该服务器暂无命令配置</p>
+            </div>
+
+            <div v-else class="commands-list">
+              <div v-for="cmd in commands" :key="cmd.id" class="command-item">
+                <div class="command-header">
+                  <div class="command-info">
+                    <div class="command-text">{{ cmd.command }}</div>
+                    <div class="command-desc">{{ cmd.description || '（无描述）' }}</div>
+                  </div>
+                  <div class="command-actions">
+                    <n-button
+                      v-if="!cmd.is_published"
+                      type="primary"
+                      @click="publishCommand(cmd.id)"
+                    >
+                      发布
+                    </n-button>
+                    <n-button
+                      v-else
+                      type="warning"
+                      @click="unpublishCommand(cmd.id)"
+                    >
+                      收回
+                    </n-button>
+                    <n-button
+                      type="error"
+                      @click="deleteCommand(cmd.id)"
+                    >
+                      删除
+                    </n-button>
+                  </div>
+                </div>
+                <div class="command-status">
+                  <span v-if="cmd.is_published" class="published-badge">
+                    ✓ 已发布
+                  </span>
+                  <span v-else class="unpublished-badge">
+                    ○ 未发布
+                  </span>
+                </div>
               </div>
             </div>
-          </div>
-
-          <!-- Usage Info -->
-          <div class="detail-section">
-            <h3>服务器状态</h3>
-            <p class="help-text">
-              最后连接: TODO
-              <br/>
-              关联任务: 0
-            </p>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- Create/Edit Server Modal -->
-    <div v-if="showServerModal" class="modal-overlay" @click="closeServerModal">
-      <div class="modal" @click.stop>
+    <!-- Server Modal -->
+    <div v-if="showServerModal" class="modal-overlay" @click.self="closeServerModal">
+      <div class="modal">
         <div class="modal-header">
-          <h2>{{ editingServerId ? '编辑服务器' : '新建服务器' }}</h2>
-          <button class="close-btn" @click="closeServerModal">×</button>
+          <h2>{{ editingServerId ? '编辑服务器' : '添加服务器' }}</h2>
+          <n-button text type="error" @click="closeServerModal">✕</n-button>
         </div>
 
         <div class="modal-body">
-          <div class="form-group">
-            <label>服务器名称 *</label>
-            <input
-              v-model="serverForm.name"
-              type="text"
-              class="form-input"
-              placeholder="例如: prod-server-1 或 应用服务器-A"
-            />
-          </div>
-
-          <div class="form-group">
-            <label>IP 地址 *</label>
-            <input
-              v-model="serverForm.ip_address"
-              type="text"
-              class="form-input"
-              placeholder="例如: 192.168.1.10 或 server.example.com"
-            />
-          </div>
-
-          <div class="form-group">
-            <label>SSH 端口</label>
-            <input
-              v-model.number="serverForm.ssh_port"
-              type="number"
-              class="form-input"
-              placeholder="默认: 22"
-            />
-          </div>
-
-          <div class="form-group">
-            <label>连接方式 *</label>
-            <select v-model="serverForm.connection_method" class="form-input">
-              <option value="ssh">SSH</option>
-              <option value="ansible-inventory">Ansible Inventory</option>
-              <option value="salt-minion">Salt Minion</option>
-            </select>
-          </div>
-
-          <div class="form-group">
-            <label>用户名 *</label>
-            <input
-              v-model="serverForm.username"
-              type="text"
-              class="form-input"
-              placeholder="例如: root 或 ubuntu"
-            />
-          </div>
-
-          <div class="form-group">
-            <label>认证方式</label>
-            <div class="radio-group">
-              <label class="radio-item">
-                <input type="radio" v-model="serverForm.auth_type" value="password" />
-                <span>密码</span>
-              </label>
-              <label class="radio-item">
-                <input type="radio" v-model="serverForm.auth_type" value="key" />
-                <span>密钥</span>
-              </label>
+          <form @submit.prevent="saveServer">
+            <div class="form-group">
+              <label>服务器名称 *</label>
+              <input
+                v-model="serverForm.name"
+                type="text"
+                required
+                class="form-input"
+                placeholder="例如: prod-server-01"
+              />
             </div>
-          </div>
 
-          <div v-if="serverForm.auth_type === 'password'" class="form-group">
-            <label>密码 *</label>
-            <input
-              v-model="serverForm.password"
-              type="password"
-              class="form-input"
-              placeholder="输入服务器密码"
-            />
-          </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>主机地址 *</label>
+                <input
+                  v-model="serverForm.host"
+                  type="text"
+                  required
+                  class="form-input"
+                  placeholder="例如: 192.168.1.10"
+                />
+              </div>
+              <div class="form-group">
+                <label>SSH 端口 *</label>
+                <input
+                  v-model.number="serverForm.port"
+                  type="number"
+                  required
+                  class="form-input"
+                  placeholder="22"
+                />
+              </div>
+            </div>
 
-          <div v-if="serverForm.auth_type === 'key'" class="form-group">
-            <label>私钥内容 *</label>
-            <textarea
-              v-model="serverForm.private_key"
-              class="form-input form-textarea"
-              rows="6"
-              placeholder="粘贴 SSH 私钥内容（BEGIN/END markers）"
-            ></textarea>
-          </div>
+            <div class="form-group">
+              <label>用户名 *</label>
+              <input
+                v-model="serverForm.username"
+                type="text"
+                required
+                class="form-input"
+                placeholder="例如: root"
+              />
+            </div>
 
-          <div class="form-group">
-            <label>允许的命令（可选）</label>
-            <textarea
-              v-model="serverForm.allowed_commands_text"
-              class="form-input form-textarea"
-              rows="4"
-              placeholder="输入允许执行的命令，每行一个。留空表示允许所有命令。&#10;例如:&#10;systemctl restart.*&#10;/opt/apps/.*/deploy.sh"
-            ></textarea>
-          </div>
+            <div class="form-group">
+              <label>认证方式 *</label>
+              <select v-model="serverForm.auth_type" class="form-select" required>
+                <option value="password">密码</option>
+                <option value="key">私钥</option>
+              </select>
+            </div>
 
-          <div class="form-group">
-            <label>其他连接参数</label>
-            <textarea
-              v-model="serverForm.connection_params"
-              class="form-input form-textarea"
-              rows="2"
-              placeholder="例如: timeout=30,retries=3"
-            ></textarea>
-          </div>
+            <div class="form-group">
+              <label>
+                {{ serverForm.auth_type === 'password' ? '密码' : '私钥文本' }}
+                {{ editingServerId ? '（留空保持不变）' : '' }} *
+              </label>
+              <textarea
+                v-model="serverForm.password"
+                :placeholder="
+                  serverForm.auth_type === 'password'
+                    ? '输入 SSH 密码'
+                    : '输入私钥内容（包括 -----BEGIN PRIVATE KEY----- 等行）'
+                "
+                class="form-textarea"
+                :required="!editingServerId"
+              ></textarea>
+            </div>
+
+            <div class="form-actions">
+              <n-button type="default" @click="closeServerModal">
+                取消
+              </n-button>
+              <n-button type="primary" html-type="submit">
+                {{ editingServerId ? '更新' : '创建' }}
+              </n-button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- Command Modal -->
+    <div v-if="showCommandModal" class="modal-overlay" @click.self="closeCommandModal">
+      <div class="modal">
+        <div class="modal-header">
+          <h2>添加命令</h2>
+          <n-button text type="error" @click="closeCommandModal">✕</n-button>
         </div>
 
-        <div class="modal-footer">
-          <button class="btn-secondary" @click="closeServerModal">取消</button>
-          <button class="btn-primary" @click="saveServer">保存</button>
+        <div class="modal-body">
+          <form @submit.prevent="saveCommand">
+            <div class="form-group">
+              <label>命令 *</label>
+              <input
+                v-model="commandForm.command"
+                type="text"
+                required
+                class="form-input"
+                placeholder="例如: systemctl restart nginx"
+              />
+            </div>
+
+            <div class="form-group">
+              <label>描述</label>
+              <textarea
+                v-model="commandForm.description"
+                class="form-textarea"
+                placeholder="为此命令添加说明（可选）"
+                rows="4"
+              ></textarea>
+            </div>
+
+            <p class="form-tip">
+              💡 提示：命令创建后初始状态为"未发布"，需要点击"发布"按钮后才允许在 Shell 任务中执行。
+            </p>
+
+            <div class="form-actions">
+              <n-button type="default" @click="closeCommandModal">
+                取消
+              </n-button>
+              <n-button type="primary" html-type="submit">
+                创建命令
+              </n-button>
+            </div>
+          </form>
         </div>
       </div>
     </div>
@@ -265,166 +301,210 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { getShellServers, createShellServer, updateShellServer, deleteShellServer as apiDeleteShellServer } from '@/api/metadata'
+import type { ShellServer, ShellCommand } from '@/types/api'
+import { NButton } from 'naive-ui'
+import {
+  listShellServers,
+  createShellServer,
+  updateShellServer,
+  deleteShellServer,
+  listShellCommands,
+  createShellCommand,
+  publishShellCommand,
+  unpublishShellCommand,
+  deleteShellCommand
+} from '@/api/shell'
 
-interface Server {
-  id: number | string
-  name: string
-  ip_address: string
-  ssh_port?: number
-  connection_method: string
-  username: string
-  auth_type: 'password' | 'key'
-  password?: string
-  private_key?: string
-  connection_params?: string
-  allowed_commands?: string[]
-}
+const servers = ref<ShellServer[]>([])
+const commands = ref<ShellCommand[]>([])
+const selectedServerId = ref<number | null>(null)
+const selectedServer = computed(() =>
+  servers.value.find(s => s.id === selectedServerId.value)
+)
 
-// State
 const searchQuery = ref('')
-const selectedServerId = ref<number | string | null>(null)
-
-const servers = ref<Server[]>([])
-
-// Server Modal
-const showServerModal = ref(false)
-const editingServerId = ref<number | string | null>(null)
-const serverForm = ref<any>({
-  ssh_port: 22,
-  connection_method: 'ssh',
-  auth_type: 'password'
-})
-
-// Computed
-const filteredServers = computed(() => {
-  return servers.value.filter(server =>
-    server.name.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
-    server.ip_address.toLowerCase().includes(searchQuery.value.toLowerCase())
+const filteredServers = computed(() =>
+  servers.value.filter(s =>
+    s.name.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
+    s.host.includes(searchQuery.value)
   )
+)
+
+const showServerModal = ref(false)
+const showCommandModal = ref(false)
+const editingServerId = ref<number | null>(null)
+const serverForm = ref({
+  name: '',
+  host: '',
+  port: 22,
+  username: '',
+  auth_type: 'password' as 'password' | 'key',
+  password: ''
+})
+const commandForm = ref({
+  command: '',
+  description: ''
 })
 
-const selectedServer = computed(() => {
-  return servers.value.find(s => s.id === selectedServerId.value)
+onMounted(async () => {
+  await loadServers()
 })
 
-// Functions
-const selectServer = (server: Server) => {
-  selectedServerId.value = server.id
-}
-
-const openCreateServerModal = () => {
-  editingServerId.value = null
-  serverForm.value = {
-    ssh_port: 22,
-    connection_method: 'ssh',
-    auth_type: 'password',
-    allowed_commands_text: ''
-  }
-  showServerModal.value = true
-}
-
-const openEditServerModal = () => {
-  if (selectedServer.value) {
-    editingServerId.value = selectedServer.value.id
-    serverForm.value = {
-      ...selectedServer.value,
-      allowed_commands_text: (selectedServer.value.allowed_commands || []).join('\n')
-    }
-    showServerModal.value = true
-  }
-}
-
-const closeServerModal = () => {
-  showServerModal.value = false
-  editingServerId.value = null
-}
-
-const saveServer = async () => {
-  if (!serverForm.value.name?.trim()) {
-    alert('请输入服务器名称')
-    return
-  }
-  if (!serverForm.value.ip_address?.trim()) {
-    alert('请输入 IP 地址')
-    return
-  }
-  if (!serverForm.value.username?.trim()) {
-    alert('请输入用户名')
-    return
-  }
-
-  if (serverForm.value.auth_type === 'password') {
-    if (!serverForm.value.password?.trim()) {
-      alert('请输入密码')
-      return
-    }
-  } else if (serverForm.value.auth_type === 'key') {
-    if (!serverForm.value.private_key?.trim()) {
-      alert('请输入私钥内容')
-      return
-    }
-  }
-
-  // Parse allowed commands
-  const allowedCommands = serverForm.value.allowed_commands_text
-    ?.split('\n')
-    .map((cmd: string) => cmd.trim())
-    .filter((cmd: string) => cmd) || []
-
+async function loadServers() {
   try {
-    const payload = {
-      ...serverForm.value,
-      allowed_commands: allowedCommands
-    }
-    
-    if (editingServerId.value) {
-      await updateShellServer(editingServerId.value as number, payload)
-    } else {
-      await createShellServer(payload)
-    }
-    await loadServers()
-    closeServerModal()
-  } catch (error) {
-    console.error('Failed to save server:', error)
-    alert('保存服务器失败')
-  }
-}
-
-const deleteServer = async (serverId: number | string) => {
-  if (confirm('确定删除此服务器吗？')) {
-    try {
-      await apiDeleteShellServer(serverId as number)
-      await loadServers()
-      selectedServerId.value = null
-    } catch (error) {
-      console.error('Failed to delete server:', error)
-      alert('删除服务器失败')
-    }
-  }
-}
-
-const loadServers = async () => {
-  try {
-    const data = await getShellServers()
-    servers.value = data
+    const res = await listShellServers(1, 100)
+    servers.value = res.data
   } catch (error) {
     console.error('Failed to load servers:', error)
   }
 }
 
-// Lifecycle
-onMounted(async () => {
-  await loadServers()
-})
+async function loadCommands(serverId: number) {
+  try {
+    const res = await listShellCommands(1, 100, serverId)
+    commands.value = res.data
+  } catch (error) {
+    console.error('Failed to load commands:', error)
+    commands.value = []
+  }
+}
+
+async function selectServer(server: ShellServer) {
+  selectedServerId.value = server.id
+  await loadCommands(server.id)
+}
+
+function openCreateServerModal() {
+  editingServerId.value = null
+  serverForm.value = {
+    name: '',
+    host: '',
+    port: 22,
+    username: '',
+    auth_type: 'password',
+    password: ''
+  }
+  showServerModal.value = true
+}
+
+function openEditServerModal() {
+  if (!selectedServer.value) return
+  editingServerId.value = selectedServer.value.id
+  serverForm.value = {
+    name: selectedServer.value.name,
+    host: selectedServer.value.host,
+    port: selectedServer.value.port,
+    username: selectedServer.value.username,
+    auth_type: selectedServer.value.auth_type,
+    password: ''
+  }
+  showServerModal.value = true
+}
+
+function closeServerModal() {
+  showServerModal.value = false
+  editingServerId.value = null
+}
+
+async function saveServer() {
+  try {
+    if (editingServerId.value) {
+      await updateShellServer(editingServerId.value, serverForm.value)
+    } else {
+      await createShellServer({
+        ...serverForm.value,
+        status: 'inactive' as const,
+        last_connected: null
+      })
+    }
+    await loadServers()
+    closeServerModal()
+  } catch (error) {
+    alert('操作失败: ' + (error instanceof Error ? error.message : String(error)))
+  }
+}
+
+async function deleteServer(id: number) {
+  if (!confirm('确认删除该服务器？')) return
+  try {
+    await deleteShellServer(id)
+    await loadServers()
+    selectedServerId.value = null
+  } catch (error) {
+    alert('删除失败: ' + (error instanceof Error ? error.message : String(error)))
+  }
+}
+
+function openCreateCommandModal() {
+  commandForm.value = { command: '', description: '' }
+  showCommandModal.value = true
+}
+
+function closeCommandModal() {
+  showCommandModal.value = false
+}
+
+async function saveCommand() {
+  if (!selectedServerId.value) return
+  try {
+    await createShellCommand({
+      server_id: selectedServerId.value,
+      ...commandForm.value,
+      is_published: false
+    })
+    await loadCommands(selectedServerId.value)
+    closeCommandModal()
+  } catch (error) {
+    alert('操作失败: ' + (error instanceof Error ? error.message : String(error)))
+  }
+}
+
+async function publishCommand(id: number) {
+  try {
+    await publishShellCommand(id)
+    if (selectedServerId.value) {
+      await loadCommands(selectedServerId.value)
+    }
+  } catch (error) {
+    alert('操作失败: ' + (error instanceof Error ? error.message : String(error)))
+  }
+}
+
+async function unpublishCommand(id: number) {
+  try {
+    await unpublishShellCommand(id)
+    if (selectedServerId.value) {
+      await loadCommands(selectedServerId.value)
+    }
+  } catch (error) {
+    alert('操作失败: ' + (error instanceof Error ? error.message : String(error)))
+  }
+}
+
+async function deleteCommand(id: number) {
+  if (!confirm('确认删除该命令？')) return
+  try {
+    await deleteShellCommand(id)
+    if (selectedServerId.value) {
+      await loadCommands(selectedServerId.value)
+    }
+  } catch (error) {
+    alert('删除失败: ' + (error instanceof Error ? error.message : String(error)))
+  }
+}
+
+function formatDate(dateString: string | null): string {
+  if (!dateString) return '-'
+  return new Date(dateString).toLocaleString('zh-CN')
+}
 </script>
 
 <style scoped>
 .server-config-page {
-  padding: 24px;
-  height: 100vh;
   display: flex;
   flex-direction: column;
+  height: 100%;
+  gap: 20px;
 }
 
 .page-header {
@@ -440,50 +520,46 @@ onMounted(async () => {
   color: #1a1a1a;
 }
 
-.description {
+.page-header .description {
   margin: 0;
   color: #666;
   font-size: 14px;
 }
 
-.btn-primary {
-  padding: 10px 16px;
-  background: #1890ff;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-weight: 600;
-}
-
-.btn-primary:hover {
-  background: #40a9ff;
-}
-
 .content-layout {
-  display: grid;
-  grid-template-columns: 300px 1fr;
-  gap: 24px;
+  display: flex;
+  gap: 20px;
   flex: 1;
   overflow: hidden;
 }
 
-/* List Panel */
-.list-panel {
+.list-panel,
+.detail-panel {
+  border: 1px solid #e0e0e0;
+  border-radius: 0;
+  background: white;
   display: flex;
   flex-direction: column;
-  background: white;
-  border-radius: 8px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.list-panel {
+  width: 300px;
   overflow: hidden;
 }
 
-.list-header {
-  padding: 16px;
-  border-bottom: 1px solid #eee;
+.detail-panel {
+  flex: 1;
+  overflow: hidden;
 }
 
-.list-header h2 {
+.list-header,
+.section-header {
+  padding: 16px;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.list-header h2,
+.section-header h3 {
   margin: 0 0 12px 0;
   font-size: 16px;
 }
@@ -491,8 +567,8 @@ onMounted(async () => {
 .search-input {
   width: 100%;
   padding: 8px 12px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
+  border: 1px solid #e0e0e0;
+  border-radius: 0;
   font-size: 14px;
 }
 
@@ -502,25 +578,27 @@ onMounted(async () => {
 }
 
 .empty-state {
-  padding: 32px 16px;
+  padding: 40px 20px;
   text-align: center;
   color: #999;
 }
 
 .list-item {
-  padding: 12px;
+  padding: 12px 16px;
   border-bottom: 1px solid #f0f0f0;
   cursor: pointer;
-  transition: background 0.2s;
+  transition: all 0.2s;
 }
 
-.list-item:hover {
-  background: #f9f9f9;
+.list-item:hover,
+.list-item.active {
+  background-color: #f5f5f5;
 }
 
 .list-item.active {
-  background: #e6f7ff;
-  border-left: 3px solid #1890ff;
+  background-color: #e8f4f8;
+  border-left: 3px solid #667eea;
+  padding-left: 13px;
 }
 
 .list-item-header {
@@ -531,58 +609,49 @@ onMounted(async () => {
 }
 
 .server-name {
-  font-weight: 600;
-  color: #1a1a1a;
+  font-weight: 500;
+  color: #333;
 }
 
-.server-actions {
-  display: flex;
-  gap: 4px;
+.status-badge {
+  padding: 2px 8px;
+  border-radius: 0;
+  font-size: 12px;
+  text-transform: uppercase;
 }
 
-.icon-btn {
-  background: none;
-  border: none;
-  cursor: pointer;
-  font-size: 16px;
-  padding: 4px;
-  opacity: 0.6;
-  transition: opacity 0.2s;
+.status-active {
+  background-color: #d4edda;
+  color: #155724;
 }
 
-.icon-btn:hover {
-  opacity: 1;
+.status-inactive {
+  background-color: #f8d7da;
+  color: #721c24;
+}
+
+.status-error {
+  background-color: #f8d7da;
+  color: #721c24;
 }
 
 .server-info {
   display: flex;
   gap: 8px;
   font-size: 12px;
-}
-
-.ip-badge {
-  background: #f0f0f0;
-  padding: 2px 8px;
-  border-radius: 3px;
   color: #666;
-  font-family: 'Courier New', monospace;
 }
 
-.method-badge {
-  background: #e6f7ff;
-  color: #1890ff;
-  padding: 2px 8px;
-  border-radius: 3px;
-  font-weight: 600;
+.auth-type {
+  background-color: #f0f0f0;
+  padding: 2px 6px;
+  border-radius: 0;
 }
 
-/* Detail Panel */
-.detail-panel {
-  background: white;
-  border-radius: 8px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+.detail-content {
+  flex: 1;
   overflow-y: auto;
-  padding: 24px;
+  padding: 20px;
 }
 
 .empty-detail {
@@ -593,53 +662,39 @@ onMounted(async () => {
   color: #999;
 }
 
-.detail-content {
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
-}
-
 .detail-section {
-  padding: 16px;
-  background: #f9f9f9;
-  border-radius: 6px;
-  border: 1px solid #f0f0f0;
+  margin-bottom: 30px;
+  padding-bottom: 30px;
+  border-bottom: 1px solid #e0e0e0;
 }
 
-.detail-section h3 {
-  margin: 0 0 16px 0;
-  font-size: 16px;
+.detail-section:last-child {
+  border-bottom: none;
 }
 
 .section-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 16px;
+  padding: 0;
+  margin: 0 0 16px 0;
+  border: none;
 }
 
 .section-header h3 {
   margin: 0;
+  font-size: 16px;
 }
 
-.btn-secondary {
-  padding: 6px 12px;
-  background: white;
-  color: #1a1a1a;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 12px;
-}
-
-.btn-secondary:hover {
-  background: #f5f5f5;
+.header-actions {
+  display: flex;
+  gap: 8px;
 }
 
 .info-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
 }
 
 .info-item {
@@ -648,79 +703,135 @@ onMounted(async () => {
 }
 
 .info-item label {
-  font-weight: 600;
-  color: #666;
   font-size: 12px;
+  color: #666;
+  margin-bottom: 4px;
 }
 
 .info-item span {
-  margin-top: 4px;
-  color: #1a1a1a;
+  font-size: 14px;
+  color: #333;
+  font-weight: 500;
 }
 
-.code {
+.info-item .code {
   font-family: 'Courier New', monospace;
-  background: white;
-  padding: 2px 6px;
-  border-radius: 3px;
+  background-color: #f5f5f5;
+  padding: 4px 8px;
+  border-radius: 0;
 }
 
-.credential-box {
-  background: white;
-  border: 1px solid #e0e0e0;
-  border-radius: 4px;
-  padding: 12px;
-}
-
-.info-line {
-  margin-bottom: 8px;
-  font-size: 12px;
-}
-
-.info-line strong {
-  color: #666;
-  min-width: 100px;
-  display: inline-block;
-}
-
-.info-line code {
-  background: #f0f0f0;
-  padding: 2px 6px;
-  border-radius: 3px;
-  font-family: 'Courier New', monospace;
-  color: #d32f2f;
+.empty-commands {
+  padding: 20px;
+  text-align: center;
+  color: #999;
 }
 
 .commands-list {
   display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+  flex-direction: column;
+  gap: 12px;
 }
 
 .command-item {
-  background: white;
   border: 1px solid #e0e0e0;
-  border-radius: 4px;
-  padding: 6px 12px;
-  font-size: 12px;
+  border-radius: 0;
+  padding: 12px;
+  background-color: #fafafa;
+}
+
+.command-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.command-info {
+  flex: 1;
+}
+
+.command-text {
   font-family: 'Courier New', monospace;
+  font-size: 13px;
+  color: #333;
+  background-color: white;
+  padding: 6px 8px;
+  border-radius: 0;
+  border: 1px solid #e0e0e0;
+  margin-bottom: 4px;
 }
 
-.help-text {
+.command-desc {
   font-size: 12px;
-  color: #999;
-  margin: 0;
-  line-height: 1.6;
+  color: #666;
 }
 
-/* Modal */
+.command-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.btn-publish,
+.btn-unpublish,
+.btn-delete {
+  padding: 4px 8px;
+  font-size: 12px;
+  border: none;
+  border-radius: 0;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-publish {
+  background-color: #d4edda;
+  color: #155724;
+}
+
+.btn-publish:hover {
+  background-color: #c3e6cb;
+}
+
+.btn-unpublish {
+  background-color: #fff3cd;
+  color: #856404;
+}
+
+.btn-unpublish:hover {
+  background-color: #ffeaa7;
+}
+
+.btn-delete {
+  background-color: #f8d7da;
+  color: #721c24;
+}
+
+.btn-delete:hover {
+  background-color: #f5c6cb;
+}
+
+.command-status {
+  font-size: 12px;
+}
+
+.published-badge {
+  color: #155724;
+  font-weight: 500;
+}
+
+.unpublished-badge {
+  color: #856404;
+  font-weight: 500;
+}
+
 .modal-overlay {
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background-color: rgba(0, 0, 0, 0.5);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -729,7 +840,7 @@ onMounted(async () => {
 
 .modal {
   background: white;
-  border-radius: 8px;
+  border-radius: 0;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
   max-width: 500px;
   width: 90%;
@@ -738,11 +849,11 @@ onMounted(async () => {
 }
 
 .modal-header {
-  padding: 16px;
-  border-bottom: 1px solid #eee;
   display: flex;
   justify-content: space-between;
   align-items: center;
+  padding: 20px;
+  border-bottom: 1px solid #e0e0e0;
 }
 
 .modal-header h2 {
@@ -759,15 +870,7 @@ onMounted(async () => {
 }
 
 .modal-body {
-  padding: 24px;
-}
-
-.modal-footer {
-  padding: 16px;
-  border-top: 1px solid #eee;
-  display: flex;
-  gap: 12px;
-  justify-content: flex-end;
+  padding: 20px;
 }
 
 .form-group {
@@ -776,57 +879,58 @@ onMounted(async () => {
 
 .form-group label {
   display: block;
-  margin-bottom: 8px;
-  font-weight: 600;
+  margin-bottom: 6px;
+  font-weight: 500;
+  font-size: 14px;
+  color: #333;
 }
 
 .form-input,
+.form-select,
 .form-textarea {
   width: 100%;
-  padding: 10px 12px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
+  padding: 8px 12px;
+  border: 1px solid #e0e0e0;
+  border-radius: 0;
   font-size: 14px;
+  font-family: inherit;
 }
 
 .form-input:focus,
+.form-select:focus,
 .form-textarea:focus {
   outline: none;
-  border-color: #1890ff;
-  box-shadow: 0 0 0 3px rgba(24, 144, 255, 0.1);
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
 }
 
 .form-textarea {
   resize: vertical;
-  font-family: 'Courier New', monospace;
+  min-height: 80px;
 }
 
-.radio-group {
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.form-tip {
+  background-color: #e7f3ff;
+  border-left: 3px solid #667eea;
+  padding: 12px;
+  border-radius: 0;
+  font-size: 13px;
+  color: #666;
+  margin: 16px 0;
+}
+
+.form-actions {
   display: flex;
-  gap: 16px;
+  gap: 12px;
+  justify-content: flex-end;
+  margin-top: 20px;
 }
 
-.radio-item,
-.checkbox-item {
-  display: flex;
-  align-items: center;
-  cursor: pointer;
-}
 
-.radio-item input,
-.checkbox-item input {
-  margin-right: 8px;
-  cursor: pointer;
-}
-
-.radio-item span,
-.checkbox-item span {
-  font-size: 14px;
-}
-
-@media (max-width: 1200px) {
-  .content-layout {
-    grid-template-columns: 1fr;
-  }
-}
 </style>

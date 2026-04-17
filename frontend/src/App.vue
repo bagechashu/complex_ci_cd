@@ -8,7 +8,7 @@
       <div class="layout">
         <!-- Header -->
         <div class="layout-header">
-          <h1>📦 发布控制系统</h1>
+          <h1>{{ pageTitle }}</h1>
         </div>
 
         <!-- Content Area -->
@@ -35,14 +35,20 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { onMounted, computed } from 'vue'
+import { useRoute } from 'vue-router'
 import { useUiStore } from '@/stores/uiStore'
 import { useAppStore } from '@/stores/appStore'
 import Sidebar from '@/components/Sidebar.vue'
 import { themeOverrides } from '@/theme'
 
+const route = useRoute()
 const uiStore = useUiStore()
 const appStore = useAppStore()
+
+const pageTitle = computed(() => {
+  return route.meta.title ? `${route.meta.title}` : '发布控制系统'
+})
 
 // 初始化应用数据
 onMounted(async () => {
@@ -111,7 +117,7 @@ onMounted(async () => {
 
 .message {
   padding: 12px 16px;
-  border-radius: 4px;
+  border-radius: 0;
   font-size: 14px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
   animation: slideIn 0.3s ease-out;

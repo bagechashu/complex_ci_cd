@@ -135,3 +135,73 @@ export interface ApplicationListResponse {
   totalPages: number
   data: Application[]
 }
+
+// ============ Shell Server Types ============
+export interface ShellServer {
+  id: number
+  name: string
+  host: string
+  port: number
+  username: string
+  auth_type: 'password' | 'key'
+  password?: string // 前端不显示
+  private_key?: string // 前端不显示
+  status: 'active' | 'inactive' | 'error'
+  last_connected?: string | null
+  created_at: string
+  updated_at: string
+  allowed_commands?: ShellCommand[]
+}
+
+export interface ShellCommand {
+  id: number
+  server_id: number
+  command: string
+  description?: string
+  is_published: boolean
+  created_at: string
+  updated_at: string
+  server_name?: string // 用于前端显示
+}
+
+export interface ShellTask {
+  id: number
+  name: string
+  description?: string
+  server_ids: number[]
+  command_id: number
+  execution_method: 'serial' | 'parallel'
+  requires_approval: boolean
+  created_at: string
+  updated_at: string
+  command?: string // 用于前端显示
+  command_description?: string
+  executions?: ShellTaskExecution[]
+}
+
+export interface ShellTaskExecution {
+  id: number
+  task_id: number
+  server_id: number
+  command_id: number
+  status: 'pending' | 'running' | 'success' | 'failed'
+  output?: string
+  error_message?: string
+  exit_code?: number | null
+  started_at?: string | null
+  completed_at?: string | null
+  created_at: string
+  updated_at: string
+  task_name?: string
+  server_name?: string
+  command?: string
+}
+
+// 分页响应
+export interface PaginatedResponse<T> {
+  page: number
+  pageSize: number
+  total: number
+  totalPages: number
+  data: T[]
+}

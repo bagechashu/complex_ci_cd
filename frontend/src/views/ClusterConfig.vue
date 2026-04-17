@@ -1,18 +1,17 @@
 <template>
   <div class="cluster-config-page">
-    <div class="page-header">
-      <h1>⚙️ 集群配置</h1>
-      <p class="description">管理 K8s 集群信息和镜像仓库配置</p>
-      <button class="btn-primary" @click="openCreateClusterModal">
-        + 添加集群
-      </button>
-    </div>
-
     <div class="content-layout">
       <!-- Left Panel: Clusters List -->
       <div class="list-panel">
         <div class="list-header">
-          <h2>集群列表</h2>
+          <div class="list-header-top">
+            <h2>集群列表</h2>
+            <div class="header-menu">
+              <n-dropdown trigger="click" :options="headerMenuOptions" @select="handleHeaderMenuSelect">
+                <n-button text type="primary" class="menu-btn">⋮</n-button>
+              </n-dropdown>
+            </div>
+          </div>
           <input
             v-model="searchQuery"
             type="text"
@@ -64,9 +63,9 @@
           <div class="detail-section">
             <div class="section-header">
               <h3>集群信息</h3>
-              <button class="btn-secondary" @click="openEditClusterModal">
+              <n-button @click="openEditClusterModal">
                 编辑集群
-              </button>
+              </n-button>
             </div>
 
             <div class="info-grid">
@@ -209,8 +208,8 @@
         </div>
 
         <div class="modal-footer">
-          <button class="btn-secondary" @click="closeClusterModal">取消</button>
-          <button class="btn-primary" @click="saveCluster">保存</button>
+          <n-button type="default" @click="closeClusterModal">取消</n-button>
+          <n-button type="primary" @click="saveCluster">保存</n-button>
         </div>
       </div>
     </div>
@@ -219,6 +218,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
+import { NButton, NDropdown } from 'naive-ui'
 import type { Application, Cluster } from '@/types/api'
 import { getClusters, createCluster, updateCluster, deleteCluster as apiDeleteCluster, getApplicationsByCluster } from '@/api/metadata'
 
@@ -249,6 +249,14 @@ const selectedCluster = computed(() => {
   return clusters.value.find(c => c.id === selectedClusterId.value)
 })
 
+// Header Menu Options
+const headerMenuOptions = computed(() => [
+  {
+    label: '+ 添加集群',
+    key: 'add-cluster'
+  }
+])
+
 // Functions
 const selectCluster = (cluster: Cluster) => {
   selectedClusterId.value = cluster.id
@@ -271,6 +279,12 @@ const openCreateClusterModal = () => {
   editingClusterId.value = null
   clusterForm.value = { type: 'kubernetes' }
   showClusterModal.value = true
+}
+
+const handleHeaderMenuSelect = (key: string) => {
+  if (key === 'add-cluster') {
+    openCreateClusterModal()
+  }
 }
 
 const openEditClusterModal = () => {
@@ -370,39 +384,6 @@ onMounted(async () => {
   flex-direction: column;
 }
 
-.page-header {
-  margin-bottom: 24px;
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-}
-
-.page-header h1 {
-  margin: 0 0 8px 0;
-  font-size: 28px;
-  color: #1a1a1a;
-}
-
-.description {
-  margin: 0;
-  color: #666;
-  font-size: 14px;
-}
-
-.btn-primary {
-  padding: 10px 16px;
-  background: #1890ff;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-weight: 600;
-}
-
-.btn-primary:hover {
-  background: #40a9ff;
-}
-
 .content-layout {
   display: grid;
   grid-template-columns: 300px 1fr;
@@ -416,7 +397,7 @@ onMounted(async () => {
   display: flex;
   flex-direction: column;
   background: white;
-  border-radius: 8px;
+  border-radius: 0;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   overflow: hidden;
 }
@@ -424,18 +405,42 @@ onMounted(async () => {
 .list-header {
   padding: 16px;
   border-bottom: 1px solid #eee;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.list-header-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
 }
 
 .list-header h2 {
-  margin: 0 0 12px 0;
+  margin: 0;
   font-size: 16px;
+}
+
+.header-menu {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.menu-btn {
+  font-size: 20px !important;
+  padding: 4px 8px !important;
+  min-width: auto !important;
+  font-weight: bold !important;
+  letter-spacing: 2px !important;
 }
 
 .search-input {
   width: 100%;
   padding: 8px 12px;
   border: 1px solid #ddd;
-  border-radius: 4px;
+  border-radius: 0;
   font-size: 14px;
 }
 
@@ -507,7 +512,7 @@ onMounted(async () => {
   background: #e6f7ff;
   color: #1890ff;
   padding: 2px 8px;
-  border-radius: 3px;
+  border-radius: 0;
   font-weight: 600;
 }
 
@@ -515,13 +520,13 @@ onMounted(async () => {
   background: #f0f0f0;
   color: #666;
   padding: 2px 8px;
-  border-radius: 3px;
+  border-radius: 0;
 }
 
 /* Detail Panel */
 .detail-panel {
   background: white;
-  border-radius: 8px;
+  border-radius: 0;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   overflow-y: auto;
   padding: 24px;
@@ -544,7 +549,7 @@ onMounted(async () => {
 .detail-section {
   padding: 16px;
   background: #f9f9f9;
-  border-radius: 6px;
+  border-radius: 0;
   border: 1px solid #f0f0f0;
 }
 
@@ -564,19 +569,7 @@ onMounted(async () => {
   margin: 0;
 }
 
-.btn-secondary {
-  padding: 6px 12px;
-  background: white;
-  color: #1a1a1a;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 12px;
-}
 
-.btn-secondary:hover {
-  background: #f5f5f5;
-}
 
 .info-grid {
   display: grid;
@@ -604,13 +597,13 @@ onMounted(async () => {
   font-family: 'Courier New', monospace;
   background: white;
   padding: 2px 6px;
-  border-radius: 3px;
+  border-radius: 0;
 }
 
 .kubeconfig-display {
   background: white;
   border: 1px solid #e0e0e0;
-  border-radius: 4px;
+  border-radius: 0;
   padding: 12px;
   max-height: 300px;
   overflow-y: auto;
@@ -644,7 +637,7 @@ onMounted(async () => {
 
 .modal {
   background: white;
-  border-radius: 8px;
+  border-radius: 0;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
   max-width: 600px;
   width: 90%;
@@ -700,7 +693,7 @@ onMounted(async () => {
   width: 100%;
   padding: 10px 12px;
   border: 1px solid #ddd;
-  border-radius: 4px;
+  border-radius: 0;
   font-size: 14px;
 }
 
@@ -719,7 +712,7 @@ onMounted(async () => {
 /* Status Badge */
 .status-badge {
   padding: 4px 12px;
-  border-radius: 4px;
+  border-radius: 0;
   font-weight: 600;
   display: inline-block;
   font-size: 14px;
@@ -747,7 +740,7 @@ onMounted(async () => {
 .security-notice {
   background: #fef5e7;
   border: 1px solid #f9e79f;
-  border-radius: 4px;
+  border-radius: 0;
   padding: 12px;
 }
 
@@ -795,7 +788,7 @@ onMounted(async () => {
   padding: 12px;
   background: white;
   border: 1px solid #f0f0f0;
-  border-radius: 4px;
+  border-radius: 0;
   transition: all 0.2s ease;
 }
 
