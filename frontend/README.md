@@ -136,13 +136,13 @@ frontend/
 - applications: Application[]
 - environments: Environment[]
 - clusters: Cluster[]
-- deploymentTargets: DeploymentTarget[]
+- workloadTargets: WorkloadTarget[]
 
 Actions:
 - fetchApplications()
 - fetchEnvironments()
 - fetchClusters()
-- fetchDeploymentTargets()
+- fetchWorkloadTargets()
 - initializeMetadata() // 初始化所有元数据
 ```
 
@@ -198,8 +198,8 @@ POST   /api/v1/releases/{id}/rollback
 GET    /api/v1/applications
 GET    /api/v1/environments
 GET    /api/v1/clusters
-GET    /api/v1/deployment-targets
-GET    /api/v1/deployment-targets/app/{appId}/env/{envId}
+GET    /api/v1/workload-targets
+GET    /api/v1/workload-targets/app/{appId}/env/{envId}
 ```
 
 ### 请求/响应拦截

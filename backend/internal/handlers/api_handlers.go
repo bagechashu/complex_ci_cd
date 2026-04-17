@@ -256,8 +256,8 @@ func CreateReleaseHandler(repo repository.ReleaseRecordRepository) http.HandlerF
 	}
 }
 
-// Deployment Target Handlers (App-Cluster Configs)
-func ListDeploymentTargetsHandler(repo *repository.DeploymentTargetRepository) http.HandlerFunc {
+// workload Target Handlers (App-Cluster Configs)
+func ListWorkloadTargetsHandler(repo *repository.WorkloadTargetRepository) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		limit := 100
 		offset := 0
@@ -276,7 +276,7 @@ func ListDeploymentTargetsHandler(repo *repository.DeploymentTargetRepository) h
 	}
 }
 
-func ListDeploymentTargetsByAppHandler(repo *repository.DeploymentTargetRepository, clusterRepo repository.ClusterRepository) http.HandlerFunc {
+func ListWorkloadTargetsByAppHandler(repo *repository.WorkloadTargetRepository, clusterRepo repository.ClusterRepository) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		appID := r.PathValue("app_id")
 		if appID == "" {
@@ -292,7 +292,7 @@ func ListDeploymentTargetsByAppHandler(repo *repository.DeploymentTargetReposito
 			return
 		}
 
-		// Get deployment targets by app using the GetByApp method
+		// Get workload targets by app using the GetByApp method
 		targets, err := repo.GetByApp(appIDInt)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -320,7 +320,7 @@ func ListDeploymentTargetsByAppHandler(repo *repository.DeploymentTargetReposito
 	}
 }
 
-func GetDeploymentTargetHandler(repo *repository.DeploymentTargetRepository) http.HandlerFunc {
+func GetWorkloadTargetHandler(repo *repository.WorkloadTargetRepository) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		idStr := r.PathValue("id")
 		if idStr == "" {
@@ -346,9 +346,9 @@ func GetDeploymentTargetHandler(repo *repository.DeploymentTargetRepository) htt
 	}
 }
 
-func CreateDeploymentTargetHandler(repo *repository.DeploymentTargetRepository) http.HandlerFunc {
+func CreateWorkloadTargetHandler(repo *repository.WorkloadTargetRepository) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var target models.DeploymentTarget
+		var target models.WorkloadTarget
 		err := json.NewDecoder(r.Body).Decode(&target)
 		if err != nil {
 			http.Error(w, "invalid request body", http.StatusBadRequest)
@@ -372,8 +372,8 @@ func CreateDeploymentTargetHandler(repo *repository.DeploymentTargetRepository) 
 			http.Error(w, "k8s_namespace is required", http.StatusBadRequest)
 			return
 		}
-		if target.K8sDeployment == "" {
-			http.Error(w, "k8s_deployment is required", http.StatusBadRequest)
+		if target.K8sWorkload == "" {
+			http.Error(w, "k8s_workload is required", http.StatusBadRequest)
 			return
 		}
 		if target.WorkloadType == "" {
@@ -389,7 +389,7 @@ func CreateDeploymentTargetHandler(repo *repository.DeploymentTargetRepository) 
 		if err != nil {
 			// Return 409 Conflict for duplicate unique constraint errors
 			if strings.Contains(err.Error(), "UNIQUE constraint failed") {
-				http.Error(w, fmt.Sprintf("duplicate deployment target: %v", err), http.StatusConflict)
+				http.Error(w, fmt.Sprintf("duplicate workload target: %v", err), http.StatusConflict)
 				return
 			}
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -402,7 +402,7 @@ func CreateDeploymentTargetHandler(repo *repository.DeploymentTargetRepository) 
 	}
 }
 
-func UpdateDeploymentTargetHandler(repo *repository.DeploymentTargetRepository) http.HandlerFunc {
+func UpdateWorkloadTargetHandler(repo *repository.WorkloadTargetRepository) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		idStr := r.PathValue("id")
 		if idStr == "" {
@@ -425,7 +425,7 @@ func UpdateDeploymentTargetHandler(repo *repository.DeploymentTargetRepository) 
 		}
 
 		// Decode request body
-		var updates models.DeploymentTarget
+		var updates models.WorkloadTarget
 		err = json.NewDecoder(r.Body).Decode(&updates)
 		if err != nil {
 			http.Error(w, "invalid request body", http.StatusBadRequest)
@@ -436,8 +436,8 @@ func UpdateDeploymentTargetHandler(repo *repository.DeploymentTargetRepository) 
 		if updates.K8sNamespace != "" {
 			existing.K8sNamespace = updates.K8sNamespace
 		}
-		if updates.K8sDeployment != "" {
-			existing.K8sDeployment = updates.K8sDeployment
+		if updates.K8sWorkload != "" {
+			existing.K8sWorkload = updates.K8sWorkload
 		}
 		if updates.ContainerName != nil && *updates.ContainerName != "" {
 			existing.ContainerName = updates.ContainerName
@@ -466,7 +466,7 @@ func UpdateDeploymentTargetHandler(repo *repository.DeploymentTargetRepository) 
 	}
 }
 
-func DeleteDeploymentTargetHandler(repo *repository.DeploymentTargetRepository) http.HandlerFunc {
+func DeleteWorkloadTargetHandler(repo *repository.WorkloadTargetRepository) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		idStr := r.PathValue("id")
 		if idStr == "" {
@@ -571,14 +571,8 @@ func UpdateClusterHandler(repo repository.ClusterRepository) http.HandlerFunc {
 		if updates.Labels != nil && *updates.Labels != "" {
 			existing.Labels = updates.Labels
 		}
-		if updates.KubeconfigPath != nil && *updates.KubeconfigPath != "" {
-			existing.KubeconfigPath = updates.KubeconfigPath
-		}
 		if updates.Kubeconfig != nil && *updates.Kubeconfig != "" {
 			existing.Kubeconfig = updates.Kubeconfig
-		}
-		if updates.KubeconfigEncrypted != nil && *updates.KubeconfigEncrypted != "" {
-			existing.KubeconfigEncrypted = updates.KubeconfigEncrypted
 		}
 		if updates.AnsibleHosts != nil && *updates.AnsibleHosts != "" {
 			existing.AnsibleHosts = updates.AnsibleHosts

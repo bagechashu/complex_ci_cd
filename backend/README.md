@@ -195,15 +195,15 @@ CREATE TABLE cluster (
 );
 ```
 
-### deployment_target - 部署目标 (核心映射表)
+### workload_target - 部署目标 (核心映射表)
 ```sql
-CREATE TABLE deployment_target (
+CREATE TABLE workload_target (
     id INTEGER PRIMARY KEY,
     app_id INTEGER,
     env_id INTEGER,
     cluster_id INTEGER,
     k8s_namespace TEXT,
-    k8s_deployment TEXT,
+    k8s_workload TEXT,
     container_name TEXT,
     registry_domain TEXT,
     image_repo TEXT,
@@ -274,7 +274,7 @@ CREATE TABLE release_record (
 │     API 处理层 (handlers)        │
 │  ├── releaseHandler             │
 │  ├── applicationHandler         │
-│  └── deployment_targetHandler   │
+│  └── workload_targetHandler   │
 └──────────────┬──────────────────┘
                │
 ┌──────────────▼───────────────────┐
@@ -288,7 +288,7 @@ CREATE TABLE release_record (
 │     数据访问层 (repository)        │
 │  ├── ApplicationRepository       │
 │  ├── EnvironmentRepository       │
-│  ├── DeploymentTargetRepository  │
+│  ├── WorkloadTargetRepository  │
 │  └── ReleaseRecordRepository     │
 └──────────────┬───────────────────┘
                │
@@ -297,7 +297,7 @@ CREATE TABLE release_record (
 │  ├── Application table           │
 │  ├── Environment table           │
 │  ├── Cluster table               │
-│  ├── DeploymentTarget table      │
+│  ├── WorkloadTarget table      │
 │  ├── ReleaseRecord table         │
 │  └── ReleaseEvent table          │
 └────────────────────────────────────┘
@@ -329,7 +329,7 @@ type MySaltDeployer struct {
     log *logger.Logger
 }
 
-func (d *MySaltDeployer) Deploy(ctx context.Context, info *models.DeploymentInfo, image string) error {
+func (d *MySaltDeployer) Deploy(ctx context.Context, info *models.WorkloadInfo, image string) error {
     // 实现部署逻辑
     return nil
 }
@@ -420,7 +420,7 @@ curl http://localhost:8080/api/v1/releases/1
 ## 常见问题
 
 ### Q: 如何连接真实的 Kubernetes 集群?
-A: 在 deployment_target 表中配置集群信息，并将 kubeconfig 文件加密后存储到 cluster 表。
+A: 在 workload_target 表中配置集群信息，并将 kubeconfig 文件加密后存储到 cluster 表。
 
 ### Q: 数据库支持并发吗?
 A: SQLite 通过 WAL (Write-Ahead Logging) 模式支持基本并发，适合中小规模应用。

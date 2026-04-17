@@ -8,7 +8,7 @@ import type {
   Application,
   Environment,
   Cluster,
-  DeploymentTarget
+  WorkloadTarget
 } from '@/types/api'
 import { metadataAPI } from '@/api/metadata'
 
@@ -17,12 +17,12 @@ export const useAppStore = defineStore('app', () => {
   const applications = ref<Application[]>([])
   const environments = ref<Environment[]>([])
   const clusters = ref<Cluster[]>([])
-  const deploymentTargets = ref<DeploymentTarget[]>([])
+  const workloadTargets = ref<WorkloadTarget[]>([])
 
   const applicationsLoading = ref(false)
   const environmentsLoading = ref(false)
   const clustersLoading = ref(false)
-  const deploymentTargetsLoading = ref(false)
+  const workloadTargetsLoading = ref(false)
 
   const error = ref<string | null>(null)
 
@@ -44,7 +44,7 @@ export const useAppStore = defineStore('app', () => {
    */
   const getAvailableClusters = computed(
     () => (appId: number, envId: number) => {
-      return deploymentTargets.value
+      return workloadTargets.value
         .filter(dt => dt.app_id === appId && dt.env_id === envId)
         .map(dt => getClusterById.value(dt.cluster_id))
         .filter((c): c is Cluster => c !== undefined)
@@ -56,7 +56,8 @@ export const useAppStore = defineStore('app', () => {
     applicationsLoading.value = true
     error.value = null
     try {
-      applications.value = await metadataAPI.getApplications()
+      const response = await metadataAPI.getApplications()
+      applications.value = response.data
     } catch (err) {
       error.value = err instanceof Error ? err.message : '获取应用列表失败'
     } finally {
@@ -90,15 +91,15 @@ export const useAppStore = defineStore('app', () => {
     }
   }
 
-  const fetchDeploymentTargets = async () => {
-    deploymentTargetsLoading.value = true
+  const fetchWorkloadTargets = async () => {
+    workloadTargetsLoading.value = true
     error.value = null
     try {
-      deploymentTargets.value = await metadataAPI.getDeploymentTargets()
+      workloadTargets.value = await metadataAPI.getWorkloadTargets()
     } catch (err) {
       error.value = err instanceof Error ? err.message : '获取部署目标失败'
     } finally {
-      deploymentTargetsLoading.value = false
+      workloadTargetsLoading.value = false
     }
   }
 
@@ -111,7 +112,7 @@ export const useAppStore = defineStore('app', () => {
         fetchApplications(),
         fetchEnvironments(),
         fetchClusters(),
-        fetchDeploymentTargets()
+        fetchWorkloadTargets()
       ])
     } catch (err) {
       error.value = err instanceof Error ? err.message : '初始化元数据失败'
@@ -123,11 +124,11 @@ export const useAppStore = defineStore('app', () => {
     applications,
     environments,
     clusters,
-    deploymentTargets,
+    workloadTargets,
     applicationsLoading,
     environmentsLoading,
     clustersLoading,
-    deploymentTargetsLoading,
+    workloadTargetsLoading,
     error,
 
     // Getters
@@ -140,7 +141,7 @@ export const useAppStore = defineStore('app', () => {
     fetchApplications,
     fetchEnvironments,
     fetchClusters,
-    fetchDeploymentTargets,
+    fetchWorkloadTargets,
     initializeMetadata
   }
 })

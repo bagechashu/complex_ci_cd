@@ -2,6 +2,15 @@
  * api.ts - API 的请求和响应类型定义
  */
 
+// 发布状态枚举
+export type ReleaseStatus =
+  | 'pending'
+  | 'validating'
+  | 'deploying'
+  | 'success'
+  | 'failed'
+  | 'rolled_back'
+
 // 发布请求
 export interface ReleaseRequest {
   app_id: number
@@ -54,7 +63,7 @@ export interface Application {
   git_repo?: string | null
   repo?: string | null
   build_type?: string | null
-  description?: string
+  description?: string | null
   created_at?: string
   updated_at?: string
 }
@@ -75,43 +84,39 @@ export interface Cluster {
   type?: string // kubernetes | salt | ansible
   environment?: string
   registry_prefix?: string
+  kubeconfig?: string // K8s kubeconfig content (encrypted in database)
+  labels?: string // Cluster labels
+  ansible_hosts?: string // For ansible/salt deployers
   k8s_connection_status?: string // "connected" | "disconnected" | "unknown"
   created_at?: string
   updated_at?: string
 }
 
-// 应用与集群的映射（聚合视图 - 包含关联表及其关联的应用/集群信息）
-export interface ClusterMapping {
-  id: number
-  app_id: number
-  env_id?: number
-  cluster_id: number | string
-  cluster_name?: string
-  environment?: string
-  registry_prefix?: string
-  k8s_namespace?: string
-  k8s_deployment?: string
-  workload_type?: string
-  workload_name?: string
-  container_name?: string
-  current_image?: string
-  created_at?: string
-  updated_at?: string
-}
-
-// 部署目标
-export interface DeploymentTarget {
+// WorkloadTarget - Application to Cluster mapping with K8s workload configuration
+// Represents deployment target (Deployment/StatefulSet/DaemonSet)
+export interface WorkloadTarget {
   id: number
   app_id: number
   env_id: number
   cluster_id: number
-  k8s_namespace: string | null
-  k8s_deployment: string | null
-  container_name: string | null
-  registry_domain: string | null
-  image_repo: string | null
+  k8s_namespace: string
+  k8s_workload: string
+  container_name?: string | null
+  registry_domain?: string | null
+  image_repo?: string | null
+  workload_type: string // Deployment, StatefulSet, DaemonSet, etc.
+  workload_name: string
+  // Enriched fields from related tables (not stored in workload_target table)
+  cluster_name?: string
+  environment?: string
+  registry_prefix?: string
   created_at: string
   updated_at: string
+}
+
+// ClusterMapping - aggregated view of workload target with additional context
+export interface ClusterMapping extends WorkloadTarget {
+  current_image?: string
 }
 
 // 通用错误响应
@@ -122,11 +127,11 @@ export interface ErrorResponse {
   }
 }
 
-// 发布状态枚举
-export type ReleaseStatus =
-  | 'pending'
-  | 'validating'
-  | 'deploying'
-  | 'success'
-  | 'failed'
-  | 'rolled_back'
+// Application list response with pagination
+export interface ApplicationListResponse {
+  page: number
+  pageSize: number
+  total: number
+  totalPages: number
+  data: Application[]
+}

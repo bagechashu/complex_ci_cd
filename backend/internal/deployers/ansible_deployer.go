@@ -8,7 +8,7 @@ import (
 	"built-and-deploy/pkg/logger"
 )
 
-// AnsibleDeployer implements deployment strategy for Ansible
+// AnsibleDeployer implements workload strategy for Ansible
 type AnsibleDeployer struct {
 	BaseDeployer
 	log *logger.Logger
@@ -23,28 +23,28 @@ func NewAnsibleDeployer(log *logger.Logger) *AnsibleDeployer {
 }
 
 // Deploy deploys an application using Ansible
-func (d *AnsibleDeployer) Deploy(ctx context.Context, info *models.DeploymentInfo, image string) error {
+func (d *AnsibleDeployer) Deploy(ctx context.Context, info *models.WorkloadInfo, image string) error {
 	d.log.Info("Deploying %s to %s using Ansible with image %s",
 		info.App.Name, info.Cluster.Name, image)
 
 	// Steps to implement:
 	// 1. Prepare Ansible environment and inventory
-	// 2. Generate deployment playbook with image variable
+	// 2. Generate workload playbook with image variable
 	// 3. Execute ansible-playbook command or use ansible library
 	// 4. Monitor playbook execution progress
 	// 5. Collect and log output from task execution
-	// 6. Verify successful deployment
+	// 6. Verify successful workload
 	// 7. Handle failures and cleanup
 
 	if info.App == nil || info.Target == nil || info.Cluster == nil {
-		return fmt.Errorf("invalid deployment info: missing required fields")
+		return fmt.Errorf("invalid workload info: missing required fields")
 	}
 
 	if image == "" {
 		return fmt.Errorf("image cannot be empty")
 	}
 
-	d.log.Info("Ansible deployment would execute: cluster=%s, app=%s, image=%s",
+	d.log.Info("Ansible workload would execute: cluster=%s, app=%s, image=%s",
 		info.Cluster.Name, info.App.Name, image)
 
 	// Note: Full implementation requires:
@@ -56,21 +56,20 @@ func (d *AnsibleDeployer) Deploy(ctx context.Context, info *models.DeploymentInf
 	return nil
 }
 
-// Validate validates the Ansible deployment configuration
-func (d *AnsibleDeployer) Validate(ctx context.Context, info *models.DeploymentInfo) error {
-	d.log.Info("Validating Ansible deployment configuration for %s on %s", info.App.Name, info.Cluster.Name)
+// Validate validates the Ansible workload configuration
+func (d *AnsibleDeployer) Validate(ctx context.Context, info *models.WorkloadInfo) error {
+	d.log.Info("Validating Ansible workload configuration for %s on %s", info.App.Name, info.Cluster.Name)
 
 	// Basic validation
 	if info == nil || info.App == nil || info.Target == nil || info.Cluster == nil {
-		return fmt.Errorf("invalid deployment info: missing required fields")
+		return fmt.Errorf("invalid workload info: missing required fields")
 	}
 
-	if (info.Cluster.KubeconfigPath == nil || *info.Cluster.KubeconfigPath == "") && 
-	   (info.Cluster.KubeconfigEncrypted == nil || *info.Cluster.KubeconfigEncrypted == "") {
-		return fmt.Errorf("ansible inventory or connection details not configured")
+	if info.Cluster.AnsibleHosts == nil || *info.Cluster.AnsibleHosts == "" {
+		return fmt.Errorf("ansible hosts/inventory not configured")
 	}
 
-	d.log.Info("Validation checks passed for Ansible deployment on cluster %s", info.Cluster.Name)
+	d.log.Info("Validation checks passed for Ansible workload on cluster %s", info.Cluster.Name)
 
 	// Note: Full validation would:
 	// - Check SSH connectivity to target hosts
@@ -80,13 +79,13 @@ func (d *AnsibleDeployer) Validate(ctx context.Context, info *models.DeploymentI
 	return nil
 }
 
-// Rollback rollbacks the deployment using Ansible
-func (d *AnsibleDeployer) Rollback(ctx context.Context, info *models.DeploymentInfo, previousImage string) error {
+// Rollback rollbacks the workload using Ansible
+func (d *AnsibleDeployer) Rollback(ctx context.Context, info *models.WorkloadInfo, previousImage string) error {
 	d.log.Info("Rolling back %s to image %s on cluster %s using Ansible",
 		info.App.Name, previousImage, info.Cluster.Name)
 
 	if info == nil || info.App == nil || info.Target == nil {
-		return fmt.Errorf("invalid deployment info")
+		return fmt.Errorf("invalid workload info")
 	}
 
 	if previousImage == "" {
@@ -100,12 +99,12 @@ func (d *AnsibleDeployer) Rollback(ctx context.Context, info *models.DeploymentI
 	return nil
 }
 
-// GetStatus returns the deployment status
-func (d *AnsibleDeployer) GetStatus(ctx context.Context, info *models.DeploymentInfo) (string, error) {
-	d.log.Info("Getting Ansible deployment status for %s on cluster %s", info.App.Name, info.Cluster.Name)
+// GetStatus returns the workload status
+func (d *AnsibleDeployer) GetStatus(ctx context.Context, info *models.WorkloadInfo) (string, error) {
+	d.log.Info("Getting Ansible workload status for %s on cluster %s", info.App.Name, info.Cluster.Name)
 
 	if info == nil || info.Target == nil {
-		return "", fmt.Errorf("invalid deployment info")
+		return "", fmt.Errorf("invalid workload info")
 	}
 
 	// Possible status values:
@@ -115,7 +114,7 @@ func (d *AnsibleDeployer) GetStatus(ctx context.Context, info *models.Deployment
 	// failed - playbook execution failed
 
 	status := "pending"
-	d.log.Info("Current status for Ansible deployment: %s", status)
+	d.log.Info("Current status for Ansible workload: %s", status)
 
 	// Note: Actual implementation would track playbook execution status
 	// Could store job IDs in a file or database for tracking
@@ -123,14 +122,14 @@ func (d *AnsibleDeployer) GetStatus(ctx context.Context, info *models.Deployment
 }
 
 // HealthCheck checks the health of deployed application
-func (d *AnsibleDeployer) HealthCheck(ctx context.Context, info *models.DeploymentInfo) (bool, error) {
+func (d *AnsibleDeployer) HealthCheck(ctx context.Context, info *models.WorkloadInfo) (bool, error) {
 	d.log.Info("Checking health for %s on cluster %s", info.App.Name, info.Cluster.Name)
 
 	if info == nil || info.Target == nil {
-		return false, fmt.Errorf("invalid deployment info")
+		return false, fmt.Errorf("invalid workload info")
 	}
 
-	d.log.Info("Health check for Ansible deployment")
+	d.log.Info("Health check for Ansible workload")
 
 	// Note: Would execute health check tasks or probes via Ansible
 	// Could test:

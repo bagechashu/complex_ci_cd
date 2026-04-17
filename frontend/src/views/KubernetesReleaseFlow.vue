@@ -70,7 +70,7 @@
               <strong>Namespace:</strong> {{ selectedClusterMapping.k8s_namespace }}
             </div>
             <div class="info-item">
-              <strong>Deployment:</strong> {{ selectedClusterMapping.k8s_deployment_or_statefulset }}
+              <strong>Workload:</strong> {{ selectedClusterMapping.k8s_workload }}
             </div>
             <div class="info-item">
               <strong>Container:</strong> {{ selectedClusterMapping.container_name }}
@@ -119,7 +119,7 @@
               <strong>Namespace:</strong> {{ selectedClusterMapping?.k8s_namespace }}
             </div>
             <div class="review-item">
-              <strong>Deployment:</strong> {{ selectedClusterMapping?.k8s_deployment_or_statefulset }}
+              <strong>Workload:</strong> {{ selectedClusterMapping?.k8s_workload }}
             </div>
             <div class="review-item">
               <strong>完整镜像 URI:</strong>
@@ -177,32 +177,11 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
+import type { ClusterMapping, Application, Cluster } from '@/types/api'
 import { getApplications, getClusters, createRelease } from '@/api/metadata'
 import { getClusterMappingsByApp } from '@/api/cluster-mapping'
 
-interface Application {
-  id: number
-  name: string
-  image_name: string
-  git_repo: string
-  build_type: string
-}
-
-interface Cluster {
-  id: string | number
-  name: string
-  type: string
-  labels: string
-  registry_prefix?: string
-}
-
-interface ClusterMapping {
-  id: number
-  cluster_id: number
-  k8s_namespace: string
-  k8s_deployment_or_statefulset: string
-  container_name: string
-}
+// Use ClusterMapping from api types instead of defining locally
 
 // State
 const steps = ['选择应用', '选择集群', '选择镜像', '确认发布', '发布结果']

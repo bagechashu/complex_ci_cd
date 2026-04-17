@@ -26,12 +26,12 @@
   - Salt: 配置管理
   - Ansible: 自动化工具
 
-### 4. 部署目标 (DeploymentTarget) **[核心]**
+### 4. 部署目标 (WorkloadTarget) **[核心]**
 - **定义**: 应用到环境到集群的三维映射关系
 - **唯一性**: (app_id, env_id, cluster_id) 构成唯一键
 - **属性**:
   - K8s 命名空间 (namespace)
-  - K8s 部署 (deployment)
+  - K8s 部署 (workload)
   - 容器名称 (container_name) → 防止误更新 sidecar
   - 镜像仓库域名 (registry_domain)
   - 镜像名称 (image_repo)
@@ -40,7 +40,7 @@
 ```
 api-service + production + cluster-prod-1
 → namespace: production
-→ deployment: api-service
+→ workload: api-service
 → container_name: api-service
 → registry_domain: harbor.example.com
 → image_repo: company/api-service
@@ -92,7 +92,7 @@ api-service + production + cluster-prod-1
 │  │ ApplicationRepository                          │  │
 │  │ EnvironmentRepository                          │  │
 │  │ ClusterRepository                              │  │
-│  │ DeploymentTargetRepository (★ 核心)            │  │
+│  │ WorkloadTargetRepository (★ 核心)            │  │
 │  │ ReleaseRecordRepository                        │  │
 │  └─────────────────────────────────────────────────┘  │
 │  数据库抽象、CRUD 操作、查询封装                       │
@@ -119,7 +119,7 @@ api-service + production + cluster-prod-1
 │            数据库层 (SQLite + WAL)                    │
 │  ┌─────────────────────────────────────────────────┐ │
 │  │ application | environment | cluster             │ │
-│  │ deployment_target | release_record              │ │
+│  │ workload_target | release_record              │ │
 │  │ release_event     | audit_log                   │ │
 │  └─────────────────────────────────────────────────┘ │
 └─────────────────────────────────────────────────────┘
@@ -157,10 +157,10 @@ api-service + production + cluster-prod-1
              │    - 检查 kubeconfig、namespace、镜像等
              │
              ├─→ 3. 更新状态: "deploying"
-             │    - 获取 DeploymentTarget
+             │    - 获取 WorkloadTarget
              │    - 获取 Deployer (factory)
              │    - 调用 Deployer.Deploy()
-             │      - 更新 K8s Deployment 镜像
+             │      - 更新 K8s workload 镜像
              │      - 监控 Pod 状态
              │
              ├─→ 4. HealthCheck
@@ -217,9 +217,9 @@ api-service + production + cluster-prod-1
          │        │                │
          │   deploying ← (validation success)
          │        │
-         │        ├─→ (deployment failed) → failed
+         │        ├─→ (workload failed) → failed
          │        │
-         │        └─→ (deployment success) → success
+         │        └─→ (workload success) → success
          │
          └────────────────────────┘
                                   ↑
@@ -264,7 +264,7 @@ CREATE INDEX idx_release_created ON release_record(created_at DESC);
 CREATE INDEX idx_event_release ON release_event(release_id);
 
 -- 部署目标查询优化
-CREATE INDEX idx_deployment_target ON deployment_target(app_id, env_id, cluster_id);
+CREATE INDEX idx_workload_target ON workload_target(app_id, env_id, cluster_id);
 
 -- 审计日志优化
 CREATE INDEX idx_audit_log_created ON audit_log(created_at DESC);
@@ -279,11 +279,11 @@ CREATE INDEX idx_audit_log_created ON audit_log(created_at DESC);
 ```go
 // 定义接口
 type DeployStrategy interface {
-    Deploy(ctx context.Context, info *models.DeploymentInfo, image string) error
-    Validate(ctx context.Context, info *models.DeploymentInfo) error
-    Rollback(ctx context.Context, info *models.DeploymentInfo, previousImage string) error
-    GetStatus(ctx context.Context, info *models.DeploymentInfo) (string, error)
-    HealthCheck(ctx context.Context, info *models.DeploymentInfo) (bool, error)
+    Deploy(ctx context.Context, info *models.WorkloadInfo, image string) error
+    Validate(ctx context.Context, info *models.WorkloadInfo) error
+    Rollback(ctx context.Context, info *models.WorkloadInfo, previousImage string) error
+    GetStatus(ctx context.Context, info *models.WorkloadInfo) (string, error)
+    HealthCheck(ctx context.Context, info *models.WorkloadInfo) (bool, error)
     Type() string
 }
 

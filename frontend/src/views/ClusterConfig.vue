@@ -219,17 +219,8 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
+import type { Application, Cluster } from '@/types/api'
 import { getClusters, createCluster, updateCluster, deleteCluster as apiDeleteCluster, getApplicationsByCluster } from '@/api/metadata'
-import type { Application } from '@/types/api'
-
-interface Cluster {
-  id: number | string
-  name: string
-  environment: string
-  type: string
-  registry_prefix: string
-  k8s_connection_status?: string
-}
 
 // State
 const searchQuery = ref('')
@@ -250,7 +241,7 @@ const clusterForm = ref<Partial<Cluster>>({
 const filteredClusters = computed(() => {
   return clusters.value.filter(cluster =>
     cluster.name.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
-    cluster.environment.toLowerCase().includes(searchQuery.value.toLowerCase())
+    (cluster.environment?.toLowerCase() ?? '').includes(searchQuery.value.toLowerCase())
   )
 })
 

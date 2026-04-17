@@ -90,7 +90,7 @@
           <!-- K8s Cluster Mappings -->
           <div class="section">
             <h3>K8s 集群部署配置</h3>
-            <p class="section-desc">指定该应用在各个 K8s 集群中部署的 Namespace 和 Deployment</p>
+            <p class="section-desc">指定该应用在各个 K8s 集群中部署的 Namespace 和 Workload</p>
 
             <!-- TODO: Load and display cluster mappings -->
             <div v-if="clusterMappings.length > 0" class="mappings-list">
@@ -109,7 +109,7 @@
                     <strong>Namespace:</strong> {{ mapping.k8s_namespace || '未配置' }}
                   </div>
                   <div>
-                    <strong>Deployment:</strong> {{ mapping.k8s_deployment_or_statefulset || '未配置' }}
+                    <strong>Workload:</strong> {{ mapping.k8s_workload || '未配置' }}
                   </div>
                   <div>
                     <strong>Container:</strong> {{ mapping.container_name || '未配置' }}
@@ -141,28 +141,8 @@
 
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
+import type { Application, ClusterMapping } from '@/types/api'
 import { getApplications } from '@/api/metadata'
-
-interface Application {
-  id: number
-  name: string
-  image_name: string
-  git_repo: string
-  build_type: string
-  description: string
-  created_at: string
-  updated_at: string
-}
-
-interface ClusterMapping {
-  id: number
-  cluster_id: number
-  cluster_name: string
-  k8s_namespace: string
-  k8s_deployment_or_statefulset: string
-  container_name: string
-  description?: string
-}
 
 // State
 const applications = ref<Application[]>([])
@@ -223,7 +203,7 @@ const goToNextPage = () => {
 const selectApp = async (appId: number) => {
   selectedAppId.value = appId
   try {
-    const response = await fetch(`/api/v1/deployment-targets/app/${appId}`)
+    const response = await fetch(`/api/v1/workload-targets/app/${appId}`)
     const result = await response.json()
     clusterMappings.value = result.data || []
   } catch (error) {
@@ -244,7 +224,7 @@ const editMapping = (mapping: ClusterMapping) => {
 const deleteMapping = async (mappingId: number) => {
   if (confirm('确认删除此映射吗？')) {
     try {
-      const response = await fetch(`/api/v1/deployment-targets/${mappingId}`, {
+      const response = await fetch(`/api/v1/workload-targets/${mappingId}`, {
         method: 'DELETE'
       })
       if (response.ok) {

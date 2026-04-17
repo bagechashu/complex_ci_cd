@@ -3,13 +3,12 @@ package database
 import (
 	"database/sql"
 	"fmt"
-	"strings"
 
 	"built-and-deploy/pkg/logger"
 )
 
 // CurrentSchemaVersion is the current database schema version
-const CurrentSchemaVersion = 4
+const CurrentSchemaVersion = 1
 
 // initSchemaVersion initializes the schema_version table if it doesn't exist
 func initSchemaVersion(db *sql.DB) error {
@@ -44,7 +43,7 @@ func recordSchemaVersion(db *sql.DB, version int, description string) error {
 	return err
 }
 
-// migrateSchemaV1 creates the initial schema (version 1)
+// migrateSchemaV1 creates the complete initial schema (merged from v1-v4)
 func migrateSchemaV1(db *sql.DB) error {
 	schema := `
 	CREATE TABLE IF NOT EXISTS application (
@@ -70,24 +69,28 @@ func migrateSchemaV1(db *sql.DB) error {
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		name TEXT NOT NULL UNIQUE,
 		type TEXT NOT NULL,
+		environment TEXT DEFAULT '',
+		registry_prefix TEXT DEFAULT '',
 		labels TEXT,
-		kubeconfig_path TEXT,
-		kubeconfig_encrypted TEXT,
+		kubeconfig TEXT,
+		k8s_connection_status TEXT DEFAULT 'unknown',
 		ansible_hosts TEXT,
 		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 		updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 	);
 
-	CREATE TABLE IF NOT EXISTS deployment_target (
+	CREATE TABLE IF NOT EXISTS workload_target (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		app_id INTEGER NOT NULL,
 		env_id INTEGER NOT NULL,
 		cluster_id INTEGER NOT NULL,
 		k8s_namespace TEXT,
-		k8s_deployment TEXT,
+		k8s_workload TEXT,
 		container_name TEXT,
 		registry_domain TEXT,
 		image_repo TEXT,
+		workload_type TEXT DEFAULT 'Deployment',
+		workload_name TEXT,
 		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 		updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 		UNIQUE(app_id, env_id, cluster_id),
@@ -143,7 +146,7 @@ func migrateSchemaV1(db *sql.DB) error {
 	CREATE INDEX IF NOT EXISTS idx_release_status ON release_record(status);
 	CREATE INDEX IF NOT EXISTS idx_release_created ON release_record(created_at DESC);
 	CREATE INDEX IF NOT EXISTS idx_event_release ON release_event(release_id);
-	CREATE INDEX IF NOT EXISTS idx_deployment_target ON deployment_target(app_id, env_id, cluster_id);
+	CREATE INDEX IF NOT EXISTS idx_workload_target ON workload_target(app_id, env_id, cluster_id);
 	CREATE INDEX IF NOT EXISTS idx_audit_log_created ON audit_log(created_at DESC);
 	`
 
@@ -151,54 +154,7 @@ func migrateSchemaV1(db *sql.DB) error {
 		return err
 	}
 
-	return recordSchemaVersion(db, 1, "Initial schema with application, environment, cluster, deployment_target, release_record, release_event, audit_log")
-}
-
-// migrateSchemaV2 adds new fields to cluster table for environment and registry support
-func migrateSchemaV2(db *sql.DB) error {
-	schema := `
-	ALTER TABLE cluster ADD COLUMN environment TEXT DEFAULT '';
-	ALTER TABLE cluster ADD COLUMN registry_prefix TEXT DEFAULT '';
-	ALTER TABLE cluster ADD COLUMN kubeconfig TEXT;
-	`
-	if _, err := db.Exec(schema); err != nil {
-		return err
-	}
-	return recordSchemaVersion(db, 2, "Added environment, registry_prefix, and kubeconfig fields to cluster table")
-}
-
-// migrateSchemaV3 adds workload_type and workload_name fields to deployment_target table
-func migrateSchemaV3(db *sql.DB) error {
-	// SQLite requires separate ALTER TABLE statements
-	alterStmts := []string{
-		"ALTER TABLE deployment_target ADD COLUMN workload_type TEXT DEFAULT 'Deployment'",
-		"ALTER TABLE deployment_target ADD COLUMN workload_name TEXT",
-	}
-	
-	for _, stmt := range alterStmts {
-		if _, err := db.Exec(stmt); err != nil {
-			// Ignore "column already exists" errors for idempotency
-			if !strings.Contains(err.Error(), "already exists") {
-				return err
-			}
-		}
-	}
-	
-	return recordSchemaVersion(db, 3, "Added workload_type and workload_name fields to deployment_target table")
-}
-
-// migrateSchemaV4 adds k8s_connection_status field to cluster table
-func migrateSchemaV4(db *sql.DB) error {
-	stmt := "ALTER TABLE cluster ADD COLUMN k8s_connection_status TEXT DEFAULT 'unknown'"
-	
-	if _, err := db.Exec(stmt); err != nil {
-		// Ignore "column already exists" errors for idempotency
-		if !strings.Contains(err.Error(), "already exists") {
-			return err
-		}
-	}
-	
-	return recordSchemaVersion(db, 4, "Added k8s_connection_status field to cluster table for tracking Kubernetes connectivity")
+	return recordSchemaVersion(db, 1, "Complete initial schema (merged from v1-v4): application, environment, cluster, workload_target, release_record, release_event, audit_log")
 }
 
 // applyMigrations applies all pending migrations based on current schema version
@@ -220,22 +176,7 @@ func applyMigrations(db *sql.DB) error {
 			if err := migrateSchemaV1(db); err != nil {
 				return fmt.Errorf("failed to apply schema v%d: %w", version, err)
 			}
-			log.Info("Applied schema version 1: Initial schema created")
-		case 2:
-			if err := migrateSchemaV2(db); err != nil {
-				return fmt.Errorf("failed to apply schema v%d: %w", version, err)
-			}
-			log.Info("Applied schema version 2: Added environment, registry_prefix, and kubeconfig fields to cluster table")
-		case 3:
-			if err := migrateSchemaV3(db); err != nil {
-				return fmt.Errorf("failed to apply schema v%d: %w", version, err)
-			}
-			log.Info("Applied schema version 3: Added workload_type and workload_name fields to deployment_target table")
-		case 4:
-			if err := migrateSchemaV4(db); err != nil {
-				return fmt.Errorf("failed to apply schema v%d: %w", version, err)
-			}
-			log.Info("Applied schema version 4: Added k8s_connection_status field to cluster table")
+			log.Info("Applied schema version 1: Complete initial schema created")
 		default:
 			return fmt.Errorf("unknown schema version: %d", version)
 		}

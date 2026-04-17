@@ -1,10 +1,22 @@
 -- Initial sample data for Release Control System
 
--- 1. Insert sample applications
+-- 1. Insert sample applications (15 records)
 INSERT OR IGNORE INTO application (name, image_name, git_repo, build_type, created_at, updated_at) VALUES 
 ('api-service', 'api-service', 'git@github.com:company/api-service.git', 'docker', datetime('now'), datetime('now')),
 ('web-ui', 'web-ui', 'git@github.com:company/web-ui.git', 'docker', datetime('now'), datetime('now')),
-('data-processor', 'data-processor', 'git@github.com:company/data-processor.git', 'docker', datetime('now'), datetime('now'));
+('data-processor', 'data-processor', 'git@github.com:company/data-processor.git', 'docker', datetime('now'), datetime('now')),
+('auth-service', 'auth-service', 'git@github.com:company/auth-service.git', 'docker', datetime('now'), datetime('now')),
+('notification-service', 'notification-service', 'git@github.com:company/notification-service.git', 'docker', datetime('now'), datetime('now')),
+('payment-gateway', 'payment-gateway', 'git@github.com:company/payment-gateway.git', 'docker', datetime('now'), datetime('now')),
+('analytics-engine', 'analytics-engine', 'git@github.com:company/analytics-engine.git', 'docker', datetime('now'), datetime('now')),
+('cache-service', 'cache-service', 'git@github.com:company/cache-service.git', 'docker', datetime('now'), datetime('now')),
+('search-service', 'search-service', 'git@github.com:company/search-service.git', 'docker', datetime('now'), datetime('now')),
+('report-generator', 'report-generator', 'git@github.com:company/report-generator.git', 'docker', datetime('now'), datetime('now')),
+('logging-service', 'logging-service', 'git@github.com:company/logging-service.git', 'docker', datetime('now'), datetime('now')),
+('metric-collector', 'metric-collector', 'git@github.com:company/metric-collector.git', 'docker', datetime('now'), datetime('now')),
+('storage-service', 'storage-service', 'git@github.com:company/storage-service.git', 'docker', datetime('now'), datetime('now')),
+('migration-service', 'migration-service', 'git@github.com:company/migration-service.git', 'docker', datetime('now'), datetime('now')),
+('backup-manager', 'backup-manager', 'git@github.com:company/backup-manager.git', 'docker', datetime('now'), datetime('now'));
 
 -- 2. Insert sample environments
 INSERT OR IGNORE INTO environment (name, rank, created_at, updated_at) VALUES 
@@ -19,8 +31,8 @@ INSERT OR IGNORE INTO cluster (name, type, environment, registry_prefix, created
 ('k8s-prod-cn1', 'kubernetes', 'production', 'docker.io/company', datetime('now'), datetime('now')),
 ('k8s-prod-cn2', 'kubernetes', 'production', 'docker.io/company', datetime('now'), datetime('now'));
 
--- 4. Insert deployment targets (app-env-cluster mappings)
-INSERT OR IGNORE INTO deployment_target (app_id, env_id, cluster_id, k8s_namespace, k8s_deployment, container_name, workload_type, workload_name, created_at, updated_at) VALUES 
+-- 4. Insert workload targets (app-env-cluster mappings)
+INSERT OR IGNORE INTO workload_target (app_id, env_id, cluster_id, k8s_namespace, k8s_workload, container_name, workload_type, workload_name, created_at, updated_at) VALUES 
 -- api-service
 ((SELECT id FROM application WHERE name='api-service'), (SELECT id FROM environment WHERE name='development'), (SELECT id FROM cluster WHERE name='k8s-dev'), 'development', 'api-service', 'api', 'Deployment', 'api-service-deployment', datetime('now'), datetime('now')),
 ((SELECT id FROM application WHERE name='api-service'), (SELECT id FROM environment WHERE name='staging'), (SELECT id FROM cluster WHERE name='k8s-staging'), 'staging', 'api-service', 'api', 'Deployment', 'api-service-deployment', datetime('now'), datetime('now')),
@@ -35,38 +47,54 @@ INSERT OR IGNORE INTO deployment_target (app_id, env_id, cluster_id, k8s_namespa
 ((SELECT id FROM application WHERE name='data-processor'), (SELECT id FROM environment WHERE name='staging'), (SELECT id FROM cluster WHERE name='k8s-staging'), 'staging', 'data-processor', 'processor', 'StatefulSet', 'data-processor-statefulset', datetime('now'), datetime('now')),
 ((SELECT id FROM application WHERE name='data-processor'), (SELECT id FROM environment WHERE name='production'), (SELECT id FROM cluster WHERE name='k8s-prod-cn1'), 'production', 'data-processor', 'processor-prod', 'StatefulSet', 'data-processor-prod', datetime('now'), datetime('now'));
 
--- 5. Insert sample release records
+-- 5. Insert sample release records (15 records)
 INSERT OR IGNORE INTO release_record (app_id, env_id, cluster_id, image, status, previous_image, triggered_by, started_at, completed_at, created_at, updated_at) VALUES 
-((SELECT id FROM application WHERE name='api-service'), (SELECT id FROM environment WHERE name='development'), (SELECT id FROM cluster WHERE name='k8s-dev'), 'api-service:v1.2.3', 'success', 'api-service:v1.2.2', 'user@example.com', datetime('now', '-3 days'), datetime('now', '-3 days', '+5 minutes'), datetime('now'), datetime('now')),
-((SELECT id FROM application WHERE name='api-service'), (SELECT id FROM environment WHERE name='staging'), (SELECT id FROM cluster WHERE name='k8s-staging'), 'api-service:v1.2.3', 'success', 'api-service:v1.2.2', 'CI/CD Pipeline', datetime('now', '-2 days'), datetime('now', '-2 days', '+5 minutes'), datetime('now'), datetime('now')),
-((SELECT id FROM application WHERE name='api-service'), (SELECT id FROM environment WHERE name='production'), (SELECT id FROM cluster WHERE name='k8s-prod-cn1'), 'api-service:v1.2.3', 'deploying', 'api-service:v1.2.1', 'admin@example.com', datetime('now', '-1 days'), NULL, datetime('now'), datetime('now')),
-((SELECT id FROM application WHERE name='web-ui'), (SELECT id FROM environment WHERE name='development'), (SELECT id FROM cluster WHERE name='k8s-dev'), 'web-ui:v2.1.0', 'success', 'web-ui:v2.0.9', 'developer@example.com', datetime('now', '-2 days'), datetime('now', '-2 days', '+5 minutes'), datetime('now'), datetime('now')),
-((SELECT id FROM application WHERE name='web-ui'), (SELECT id FROM environment WHERE name='production'), (SELECT id FROM cluster WHERE name='k8s-prod-cn1'), 'web-ui:v2.1.0', 'failed', 'web-ui:v2.0.8', 'CI/CD Pipeline', datetime('now', '-1 days'), datetime('now', '-1 days', '+10 minutes'), datetime('now'), datetime('now')),
-((SELECT id FROM application WHERE name='data-processor'), (SELECT id FROM environment WHERE name='production'), (SELECT id FROM cluster WHERE name='k8s-prod-cn1'), 'data-processor:v3.5.0', 'success', 'data-processor:v3.4.9', 'scheduler@system', datetime('now', '-3 hours'), datetime('now', '-3 hours', '+8 minutes'), datetime('now'), datetime('now'));
+((SELECT id FROM application WHERE name='api-service'), (SELECT id FROM environment WHERE name='development'), (SELECT id FROM cluster WHERE name='k8s-dev'), 'api-service:v1.2.3', 'success', 'api-service:v1.2.2', 'user@example.com', datetime('now', '-15 days'), datetime('now', '-15 days', '+5 minutes'), datetime('now', '-15 days'), datetime('now', '-15 days')),
+((SELECT id FROM application WHERE name='api-service'), (SELECT id FROM environment WHERE name='staging'), (SELECT id FROM cluster WHERE name='k8s-staging'), 'api-service:v1.2.3', 'success', 'api-service:v1.2.2', 'CI/CD Pipeline', datetime('now', '-14 days'), datetime('now', '-14 days', '+5 minutes'), datetime('now', '-14 days'), datetime('now', '-14 days')),
+((SELECT id FROM application WHERE name='api-service'), (SELECT id FROM environment WHERE name='production'), (SELECT id FROM cluster WHERE name='k8s-prod-cn1'), 'api-service:v1.2.3', 'deploying', 'api-service:v1.2.1', 'admin@example.com', datetime('now', '-13 days'), NULL, datetime('now', '-13 days'), datetime('now', '-13 days')),
+((SELECT id FROM application WHERE name='web-ui'), (SELECT id FROM environment WHERE name='development'), (SELECT id FROM cluster WHERE name='k8s-dev'), 'web-ui:v2.1.0', 'success', 'web-ui:v2.0.9', 'developer@example.com', datetime('now', '-12 days'), datetime('now', '-12 days', '+5 minutes'), datetime('now', '-12 days'), datetime('now', '-12 days')),
+((SELECT id FROM application WHERE name='web-ui'), (SELECT id FROM environment WHERE name='production'), (SELECT id FROM cluster WHERE name='k8s-prod-cn1'), 'web-ui:v2.1.0', 'failed', 'web-ui:v2.0.8', 'CI/CD Pipeline', datetime('now', '-11 days'), datetime('now', '-11 days', '+10 minutes'), datetime('now', '-11 days'), datetime('now', '-11 days')),
+((SELECT id FROM application WHERE name='data-processor'), (SELECT id FROM environment WHERE name='production'), (SELECT id FROM cluster WHERE name='k8s-prod-cn1'), 'data-processor:v3.5.0', 'success', 'data-processor:v3.4.9', 'scheduler@system', datetime('now', '-10 days'), datetime('now', '-10 days', '+8 minutes'), datetime('now', '-10 days'), datetime('now', '-10 days')),
+((SELECT id FROM application WHERE name='auth-service'), (SELECT id FROM environment WHERE name='development'), (SELECT id FROM cluster WHERE name='k8s-dev'), 'auth-service:v1.0.5', 'success', 'auth-service:v1.0.4', 'developer@example.com', datetime('now', '-9 days'), datetime('now', '-9 days', '+3 minutes'), datetime('now', '-9 days'), datetime('now', '-9 days')),
+((SELECT id FROM application WHERE name='auth-service'), (SELECT id FROM environment WHERE name='staging'), (SELECT id FROM cluster WHERE name='k8s-staging'), 'auth-service:v1.0.5', 'success', 'auth-service:v1.0.4', 'CI/CD Pipeline', datetime('now', '-8 days'), datetime('now', '-8 days', '+4 minutes'), datetime('now', '-8 days'), datetime('now', '-8 days')),
+((SELECT id FROM application WHERE name='notification-service'), (SELECT id FROM environment WHERE name='development'), (SELECT id FROM cluster WHERE name='k8s-dev'), 'notification-service:v2.3.1', 'success', 'notification-service:v2.3.0', 'user@example.com', datetime('now', '-7 days'), datetime('now', '-7 days', '+6 minutes'), datetime('now', '-7 days'), datetime('now', '-7 days')),
+((SELECT id FROM application WHERE name='payment-gateway'), (SELECT id FROM environment WHERE name='production'), (SELECT id FROM cluster WHERE name='k8s-prod-cn1'), 'payment-gateway:v1.5.0', 'success', 'payment-gateway:v1.4.9', 'admin@example.com', datetime('now', '-6 days'), datetime('now', '-6 days', '+7 minutes'), datetime('now', '-6 days'), datetime('now', '-6 days')),
+((SELECT id FROM application WHERE name='analytics-engine'), (SELECT id FROM environment WHERE name='staging'), (SELECT id FROM cluster WHERE name='k8s-staging'), 'analytics-engine:v3.2.1', 'success', 'analytics-engine:v3.2.0', 'developer@example.com', datetime('now', '-5 days'), datetime('now', '-5 days', '+5 minutes'), datetime('now', '-5 days'), datetime('now', '-5 days')),
+((SELECT id FROM application WHERE name='cache-service'), (SELECT id FROM environment WHERE name='development'), (SELECT id FROM cluster WHERE name='k8s-dev'), 'cache-service:v1.1.0', 'success', 'cache-service:v1.0.9', 'user@example.com', datetime('now', '-4 days'), datetime('now', '-4 days', '+4 minutes'), datetime('now', '-4 days'), datetime('now', '-4 days')),
+((SELECT id FROM application WHERE name='search-service'), (SELECT id FROM environment WHERE name='production'), (SELECT id FROM cluster WHERE name='k8s-prod-cn2'), 'search-service:v2.0.0', 'success', 'search-service:v1.9.9', 'CI/CD Pipeline', datetime('now', '-3 days'), datetime('now', '-3 days', '+9 minutes'), datetime('now', '-3 days'), datetime('now', '-3 days')),
+((SELECT id FROM application WHERE name='report-generator'), (SELECT id FROM environment WHERE name='staging'), (SELECT id FROM cluster WHERE name='k8s-staging'), 'report-generator:v1.8.2', 'failed', 'report-generator:v1.8.1', 'developer@example.com', datetime('now', '-2 days'), datetime('now', '-2 days', '+12 minutes'), datetime('now', '-2 days'), datetime('now', '-2 days')),
+((SELECT id FROM application WHERE name='logging-service'), (SELECT id FROM environment WHERE name='production'), (SELECT id FROM cluster WHERE name='k8s-prod-cn1'), 'logging-service:v2.1.0', 'success', 'logging-service:v2.0.9', 'scheduler@system', datetime('now', '-1 days'), datetime('now', '-1 days', '+6 minutes'), datetime('now', '-1 days'), datetime('now', '-1 days'));
 
 -- 6. Insert release events
 INSERT INTO release_event (release_id, type, message, created_at) 
-SELECT id, 'started', 'Release deployment initialized', datetime(started_at, '+1 minute') FROM release_record WHERE status IN ('success', 'deploying', 'failed') LIMIT 5;
+SELECT id, 'started', 'Release workload initialized', datetime(started_at, '+1 minute') FROM release_record WHERE status IN ('success', 'deploying', 'failed') LIMIT 15;
 
 INSERT INTO release_event (release_id, type, message, created_at) 
-SELECT id, 'deploying', 'Pulling image from registry', datetime(started_at, '+2 minutes') FROM release_record WHERE status IN ('success', 'deploying', 'failed') LIMIT 5;
+SELECT id, 'deploying', 'Pulling image from registry', datetime(started_at, '+2 minutes') FROM release_record WHERE status IN ('success', 'deploying', 'failed') LIMIT 15;
 
 INSERT INTO release_event (release_id, type, message, created_at) 
-SELECT id, 'deploying', 'Applying Kubernetes manifests', datetime(started_at, '+3 minutes') FROM release_record WHERE status IN ('success', 'deploying') LIMIT 4;
+SELECT id, 'deploying', 'Applying Kubernetes manifests', datetime(started_at, '+3 minutes') FROM release_record WHERE status IN ('success', 'deploying') LIMIT 14;
 
 INSERT INTO release_event (release_id, type, message, created_at) 
-SELECT id, 'success', 'Deployment completed successfully', datetime(started_at, '+5 minutes') FROM release_record WHERE status = 'success' LIMIT 4;
+SELECT id, 'success', 'Workload completed successfully', datetime(started_at, '+5 minutes') FROM release_record WHERE status = 'success' LIMIT 13;
 
 INSERT INTO release_event (release_id, type, message, created_at) 
-SELECT id, 'failed', 'Image pull failed', datetime(started_at, '+2 minutes') FROM release_record WHERE status = 'failed' LIMIT 1;
+SELECT id, 'failed', 'Image pull failed', datetime(started_at, '+2 minutes') FROM release_record WHERE status = 'failed' LIMIT 2;
 
 -- 7. Insert audit logs
 INSERT OR IGNORE INTO audit_log (user_id, operation, resource_type, resource_id, created_at) VALUES 
-('admin@example.com', 'CREATE', 'application', (SELECT id FROM application WHERE name='api-service'), datetime('now', '-3 days')),
-('admin@example.com', 'CREATE', 'environment', (SELECT id FROM environment WHERE name='production'), datetime('now', '-2.5 days')),
-('developer@example.com', 'DEPLOY', 'release', 1, datetime('now', '-2 days')),
-('CI/CD Pipeline', 'AUTO_DEPLOY', 'release', 2, datetime('now', '-1.5 days')),
-('admin@example.com', 'UPDATE', 'deployment_target', 1, datetime('now', '-1 days')),
-('developer@example.com', 'VIEW', 'release_history', 1, datetime('now', '-12 hours')),
-('admin@example.com', 'DELETE', 'application', 0, datetime('now', '-6 hours')),
-('scheduler@system', 'AUTO_DEPLOY', 'release', 6, datetime('now', '-3 hours'));
+('admin@example.com', 'CREATE', 'application', (SELECT id FROM application WHERE name='api-service'), datetime('now', '-15 days')),
+('admin@example.com', 'CREATE', 'environment', (SELECT id FROM environment WHERE name='production'), datetime('now', '-14 days')),
+('developer@example.com', 'DEPLOY', 'release', 1, datetime('now', '-13 days')),
+('CI/CD Pipeline', 'AUTO_DEPLOY', 'release', 2, datetime('now', '-12 days')),
+('admin@example.com', 'UPDATE', 'workload_target', 1, datetime('now', '-11 days')),
+('developer@example.com', 'VIEW', 'release_history', 1, datetime('now', '-10 days')),
+('admin@example.com', 'DELETE', 'application', 0, datetime('now', '-9 days')),
+('scheduler@system', 'AUTO_DEPLOY', 'release', 6, datetime('now', '-8 days')),
+('developer@example.com', 'CREATE', 'workload_target', 5, datetime('now', '-7 days')),
+('admin@example.com', 'UPDATE', 'cluster', 1, datetime('now', '-6 days')),
+('user@example.com', 'DEPLOY', 'release', 7, datetime('now', '-5 days')),
+('CI/CD Pipeline', 'AUTO_DEPLOY', 'release', 10, datetime('now', '-4 days')),
+('developer@example.com', 'VIEW', 'workload_history', 2, datetime('now', '-3 days')),
+('admin@example.com', 'CREATE', 'application', 5, datetime('now', '-2 days')),
+('scheduler@system', 'AUTO_DEPLOY', 'release', 15, datetime('now', '-1 days'));

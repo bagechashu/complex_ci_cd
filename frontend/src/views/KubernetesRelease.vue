@@ -35,18 +35,11 @@
           />
           <div class="sort-controls">
             <button
-              :class="{ active: sortBy === 'name' }"
-              @click="sortBy = 'name'"
+              :class="{ active: true }"
+              disabled
               title="按名称排序"
             >
               名称
-            </button>
-            <button
-              :class="{ active: sortBy === 'config-count' }"
-              @click="sortBy = 'config-count'"
-              title="按集群数排序"
-            >
-              集群数
             </button>
             <button
               :class="{ 'order-btn': true, active: true }"
@@ -84,11 +77,29 @@
             </div>
             <div class="app-info">
               <span class="badge">{{ app.image_name }}</span>
-              <span class="config-count">
-                {{ (allMappingsByApp[app.id] || []).length }} 集群
-              </span>
             </div>
           </div>
+        </div>
+
+        <!-- Pagination -->
+        <div v-if="totalPages > 1" class="pagination-controls">
+          <button
+            :disabled="currentPage === 1"
+            class="pagination-btn"
+            @click="previousPage"
+          >
+            ← 上一页
+          </button>
+          <span class="pagination-info">
+            第 {{ currentPage }} / {{ totalPages }} 页 (共 {{ totalApplications }} 个应用)
+          </span>
+          <button
+            :disabled="currentPage === totalPages"
+            class="pagination-btn"
+            @click="nextPage"
+          >
+            下一页 →
+          </button>
         </div>
       </div>
 
@@ -327,7 +338,7 @@
               v-model="clusterMappingForm.workload_name"
               type="text"
               class="form-input"
-              placeholder="例如: api-service-deployment"
+              placeholder="例如: api-service"
             />
           </div>
 
@@ -555,7 +566,7 @@
                   v-model="clusterMappingForm.workload_name"
                   type="text"
                   class="form-input"
-                  placeholder="例如: api-service-deployment"
+                  placeholder="例如: api-service"
                 />
               </div>
 
@@ -583,7 +594,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { getApplications, getClusters, createRelease, getEnvironments } from '@/api/metadata'
 import {
   getClusterMappingsByApp,
@@ -601,8 +612,14 @@ const applications = ref<Application[]>([])
 const clusters = ref<Cluster[]>([])
 const environments = ref<Environment[]>([])
 const clusterMappings = ref<ClusterMapping[]>([])
-// Store all mappings by app_id for list display
+// Store all mappings by app_id for lazy loading (only load on demand)
 const allMappingsByApp = ref<{ [appId: number]: ClusterMapping[] }>({})
+
+// Pagination state
+const currentPage = ref(1)
+const pageSize = ref(10)
+const totalApplications = ref(0)
+const totalPages = ref(1)
 
 // Build environment name to id mapping
 const environmentMap = computed(() => {
@@ -648,7 +665,6 @@ const loadingMappings = ref(false)
 const errorMessage = ref<string | null>(null)
 
 // Sorting
-const sortBy = ref<'name' | 'config-count'>('name')
 const sortOrder = ref<'asc' | 'desc'>('asc')
 
 // Computed
@@ -659,19 +675,9 @@ const filteredApplications = computed(() => {
     app.image_name.toLowerCase().includes(searchQuery.value.toLowerCase())
   )
 
-  // Sort
+  // Sort by name
   filtered.sort((a, b) => {
-    let compareVal = 0
-    
-    if (sortBy.value === 'name') {
-      compareVal = a.name.localeCompare(b.name)
-    } else if (sortBy.value === 'config-count') {
-      // Get count of mapped clusters for each app from pre-loaded data
-      const aCount = (allMappingsByApp.value[a.id] || []).length
-      const bCount = (allMappingsByApp.value[b.id] || []).length
-      compareVal = aCount - bCount
-    }
-
+    const compareVal = a.name.localeCompare(b.name)
     return sortOrder.value === 'asc' ? compareVal : -compareVal
   })
 
@@ -1006,23 +1012,30 @@ const quickAddClusterInManageModal = (cluster: Cluster) => {
   showEditFormInManageModal.value = true
 }
 
-const loadApplications = async () => {
+const loadApplications = async (page: number = 1) => {
   try {
-    const response = await getApplications()
+    const response = await getApplications(page, pageSize.value, searchQuery.value)
     applications.value = response.data
-    // Pre-load cluster mappings for all applications
-    for (const app of response.data) {
-      try {
-        const mappings = await getClusterMappingsByApp(app.id)
-        allMappingsByApp.value[app.id] = mappings
-      } catch (error) {
-        console.error(`Failed to load mappings for app ${app.id}:`, error)
-        allMappingsByApp.value[app.id] = []
-      }
-    }
+    currentPage.value = response.page
+    totalApplications.value = response.total
+    totalPages.value = response.totalPages
+    // IMPORTANT: Do NOT pre-load cluster mappings here
+    // They will be loaded on-demand when user clicks to view details
   } catch (error) {
     console.error('Failed to load applications:', error)
     alert('加载应用列表失败')
+  }
+}
+
+const nextPage = async () => {
+  if (currentPage.value < totalPages.value) {
+    await loadApplications(currentPage.value + 1)
+  }
+}
+
+const previousPage = async () => {
+  if (currentPage.value > 1) {
+    await loadApplications(currentPage.value - 1)
   }
 }
 
@@ -1045,6 +1058,12 @@ const loadEnvironments = async () => {
     // Environments are optional, so we don't show an error
   }
 }
+
+// Watch for search query changes - reset to first page
+watch(searchQuery, async () => {
+  currentPage.value = 1
+  await loadApplications(1)
+})
 
 // Lifecycle
 onMounted(async () => {
@@ -1249,6 +1268,44 @@ onMounted(async () => {
 
 .config-count {
   color: #999;
+}
+
+/* Pagination */
+.pagination-controls {
+  padding: 12px 16px;
+  border-top: 1px solid #eee;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  background: #fafafa;
+}
+
+.pagination-btn {
+  padding: 6px 12px;
+  border: 1px solid #ddd;
+  background: white;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: all 0.2s;
+}
+
+.pagination-btn:hover:not(:disabled) {
+  border-color: #1890ff;
+  color: #1890ff;
+}
+
+.pagination-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.pagination-info {
+  font-size: 12px;
+  color: #666;
+  text-align: center;
+  flex: 1;
 }
 
 /* Detail Panel */

@@ -40,12 +40,12 @@ func main() {
 	
 	// Create repositories
 	appRepo := repository.NewSQLiteApplicationRepository(sqlDB)
-	clusterRepo := repository.NewSQLiteClusterRepository(sqlDB)
+	clusterRepo := repository.NewSQLiteClusterRepository(sqlDB, cfg.EncryptionKey)
 	releaseRepo := repository.NewSQLiteReleaseRecordRepository(sqlDB)
-	deploymentTargetRepo := repository.NewDeploymentTargetRepository(sqlDB)
+	workloadTargetRepo := repository.NewWorkloadTargetRepository(sqlDB)
 	
 	// Setup routes
-	handlers.SetupRoutes(router, appRepo, clusterRepo, releaseRepo, deploymentTargetRepo, log)
+	handlers.SetupRoutes(router, appRepo, clusterRepo, releaseRepo, workloadTargetRepo, log)
 
 	addr := fmt.Sprintf("%s:%d", cfg.ServerHost, cfg.ServerPort)
 	log.Info("Server listening", "address", addr)

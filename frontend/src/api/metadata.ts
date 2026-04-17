@@ -6,22 +6,12 @@ import type {
   Application,
   Environment,
   Cluster,
-  DeploymentTarget
+  WorkloadTarget,
+  ApplicationListResponse
 } from '@/types/api'
 import request from './request'
 
 // ==================== 应用 ====================
-
-/**
- * 获取应用列表（分页）
- */
-export interface ApplicationListResponse {
-  page: number
-  pageSize: number
-  total: number
-  totalPages: number
-  data: Application[]
-}
 
 export const getApplications = async (page: number = 1, pageSize: number = 10, search: string = ''): Promise<ApplicationListResponse> => {
   const params = new URLSearchParams()
@@ -107,8 +97,8 @@ export const deleteCluster = (clusterId: number): Promise<void> => {
 /**
  * 获取所有部署目标
  */
-export const getDeploymentTargets = async (): Promise<DeploymentTarget[]> => {
-  const response: any = await request.get('/v1/deployment-targets')
+export const getWorkloadTargets = async (): Promise<WorkloadTarget[]> => {
+  const response: any = await request.get('/v1/workload-targets')
   return response?.data || []
 }
 
@@ -120,9 +110,9 @@ export const getDeploymentTargets = async (): Promise<DeploymentTarget[]> => {
 export const getClustersByAppAndEnv = (
   appId: number,
   envId: number
-): Promise<DeploymentTarget[]> => {
+): Promise<WorkloadTarget[]> => {
   return request.get(
-    `/v1/deployment-targets/app/${appId}/env/${envId}`
+    `/v1/workload-targets/app/${appId}/env/${envId}`
   )
 }
 
@@ -134,7 +124,7 @@ export const getApplicationsByCluster = async (
   clusterId: number | string
 ): Promise<Application[]> => {
   try {
-    const allTargets = await getDeploymentTargets()
+    const allTargets = await getWorkloadTargets()
     const appIds = new Set<number>()
     
     // 从部署目标中提取与该集群关联的应用 ID
@@ -150,10 +140,10 @@ export const getApplicationsByCluster = async (
     }
     
     // 获取所有应用
-    const allApps = await getApplications()
+    const allAppsResponse = await getApplications()
     
     // 过滤出在集群中的应用
-    return allApps.filter(app => appIds.has(app.id))
+    return allAppsResponse.data.filter(app => appIds.has(app.id))
   } catch (error) {
     console.error('Failed to fetch applications for cluster:', error)
     return []
@@ -325,7 +315,7 @@ export const metadataAPI = {
   createCluster,
   updateCluster,
   deleteCluster,
-  getDeploymentTargets,
+  getWorkloadTargets,
   getClustersByAppAndEnv,
   getShellServers,
   getShellServer,

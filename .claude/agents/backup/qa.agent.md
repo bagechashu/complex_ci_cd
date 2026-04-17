@@ -136,7 +136,7 @@ tools: Read, Grep, Glob, Bash, Create, Edit
    INSERT INTO cluster VALUES
      (1, 'test-cluster', 'kubernetes', '...kubeconfig...');
    
-   INSERT INTO deployment_target VALUES
+   INSERT INTO workload_target VALUES
      (1, 1, 1, 1, 'test', 'test-app-1', 'app', 'harbor.test', 'test/app1'),
      (1, 2, 1, 1, 'test', 'test-app-1', 'app', 'harbor.test', 'test/app1'),
      (2, 1, 1, 1, 'test', 'test-app-2', 'app', 'harbor.test', 'test/app2');
@@ -148,7 +148,7 @@ tools: Read, Grep, Glob, Bash, Create, Edit
    
    验证项:
    ✅ 集群连通性 OK
-   ✅ 测试应用 deployment 已创建
+   ✅ 测试应用 workload 已创建
    ✅ Harbor 镜像可拉取
    ✅ 网络隔离 (test 环境与生产隔离)
    ```
@@ -208,7 +208,7 @@ tools: Read, Grep, Glob, Bash, Create, Edit
      GET /api/v1/release → 200 (列表)
      POST /api/v1/release → 202 (新建)
      GET /api/v1/release/{id} → 200 (详情)
-     GET /api/v1/deployment-target → 200 (配置)
+     GET /api/v1/workload-target → 200 (配置)
    ```
 
 2. **记录缺陷**
@@ -392,7 +392,7 @@ tools: Read, Grep, Glob, Bash, Create, Edit
      → 后端返回环境列表
    
    2. 用户选择应用和版本
-     → FE 调用 /api/v1/deployment-target
+     → FE 调用 /api/v1/workload-target
      → 后端返回部署配置
    
    3. 用户点击发布

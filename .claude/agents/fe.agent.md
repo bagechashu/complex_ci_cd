@@ -44,7 +44,7 @@ API 层 (Services) - HTTP 请求封装
 | ReleaseFlow | 发布选择 + 进度展示 (核心) | P0 |
 | ReleaseHistory | 发布历史列表 + 回滚 | P0 |
 | ReleaseDetail | 发布详情 + 事件日志 | P1 |
-| DeploymentTargetList | 部署配置管理 (可选) | P2 |
+| WorkloadTargetList | 部署配置管理 (可选) | P2 |
 
 ---
 
@@ -115,7 +115,7 @@ interface ReleaseRecord {
 interface ReleaseEvent {
   id: number
   release_id: number
-  event_type: string // deployment_started / pod_updated / error / etc
+  event_type: string // workload_started / pod_updated / error / etc
   event_message: string
   created_at: string
 }
@@ -211,7 +211,7 @@ const startPolling = (releaseId: number) => {
 
 const calculateProgress = (events: ReleaseEvent[]): number => {
   // 根据事件类型计算进度百分比
-  // deployment_started: 25%
+  // workload_started: 25%
   // pod_updated: 50%
   // pod_ready: 75%
   // rollout_complete: 100%
@@ -321,7 +321,7 @@ src/
 ├── api/                    # API 服务封装
 │   ├── index.ts
 │   ├── release.ts
-│   └── deployment.ts
+│   └── workload.ts
 ├── types/                  # TypeScript 类型定义
 │   ├── api.ts
 │   ├── model.ts

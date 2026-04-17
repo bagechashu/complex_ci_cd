@@ -11,28 +11,28 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// MockDeploymentTargetRepository 模拟的部署目标仓库接口
-type MockDeploymentTargetRepository struct {
+// MockWorkloadTargetRepository 模拟的部署目标仓库接口
+type MockWorkloadTargetRepository struct {
 	getByAppFunc func(appID int) (interface{}, error)
 	listFunc     func(limit, offset int) (interface{}, error)
 }
 
-func (m *MockDeploymentTargetRepository) GetByApp(appID int) (interface{}, error) {
+func (m *MockWorkloadTargetRepository) GetByApp(appID int) (interface{}, error) {
 	if m.getByAppFunc != nil {
 		return m.getByAppFunc(appID)
 	}
 	return []interface{}{}, nil
 }
 
-func (m *MockDeploymentTargetRepository) List(limit, offset int) (interface{}, error) {
+func (m *MockWorkloadTargetRepository) List(limit, offset int) (interface{}, error) {
 	if m.listFunc != nil {
 		return m.listFunc(limit, offset)
 	}
 	return []interface{}{}, nil
 }
 
-// TestGetDeploymentTargetsByAppHandler 测试获取应用的部署目标处理器
-func TestGetDeploymentTargetsByAppHandler(t *testing.T) {
+// TestGetWorkloadTargetsByAppHandler 测试获取应用的部署目标处理器
+func TestGetWorkloadTargetsByAppHandler(t *testing.T) {
 	t.Run("成功获取应用部署目标", func(t *testing.T) {
 		// 模拟返回的数据
 		mockData := []map[string]interface{}{
@@ -41,7 +41,7 @@ func TestGetDeploymentTargetsByAppHandler(t *testing.T) {
 				"app_id":          1,
 				"cluster_id":      1,
 				"k8s_namespace":   "production",
-				"k8s_deployment":  "api-service",
+				"k8s_workload":  "api-service",
 				"container_name": "api",
 			},
 			{
@@ -49,12 +49,12 @@ func TestGetDeploymentTargetsByAppHandler(t *testing.T) {
 				"app_id":          1,
 				"cluster_id":      2,
 				"k8s_namespace":   "staging",
-				"k8s_deployment":  "api-service-staging",
+				"k8s_workload":  "api-service-staging",
 				"container_name": "api",
 			},
 		}
 
-		mockRepo := &MockDeploymentTargetRepository{
+		mockRepo := &MockWorkloadTargetRepository{
 			getByAppFunc: func(appID int) (interface{}, error) {
 				if appID == 1 {
 					return mockData, nil
@@ -64,7 +64,7 @@ func TestGetDeploymentTargetsByAppHandler(t *testing.T) {
 		}
 
 		// 创建请求
-		req := httptest.NewRequest("GET", "/api/v1/deployment-targets/app/1", nil)
+		req := httptest.NewRequest("GET", "/api/v1/workload-targets/app/1", nil)
 		w := httptest.NewRecorder()
 
 		// 注意：这里使用现有的处理器结构
@@ -75,7 +75,7 @@ func TestGetDeploymentTargetsByAppHandler(t *testing.T) {
 	})
 
 	t.Run("无效的应用 ID", func(t *testing.T) {
-		req := httptest.NewRequest("GET", "/api/v1/deployment-targets/app/invalid", nil)
+		req := httptest.NewRequest("GET", "/api/v1/workload-targets/app/invalid", nil)
 		w := httptest.NewRecorder()
 
 		// 验证错误响应
@@ -83,14 +83,14 @@ func TestGetDeploymentTargetsByAppHandler(t *testing.T) {
 	})
 
 	t.Run("应用不存在", func(t *testing.T) {
-		mockRepo := &MockDeploymentTargetRepository{
+		mockRepo := &MockWorkloadTargetRepository{
 			getByAppFunc: func(appID int) (interface{}, error) {
 				return []interface{}{}, nil
 			},
 		}
 
 		_ = mockRepo
-		req := httptest.NewRequest("GET", "/api/v1/deployment-targets/app/999", nil)
+		req := httptest.NewRequest("GET", "/api/v1/workload-targets/app/999", nil)
 		w := httptest.NewRecorder()
 
 		// 对于不存在的应用，应该返回空列表
@@ -98,15 +98,15 @@ func TestGetDeploymentTargetsByAppHandler(t *testing.T) {
 	})
 }
 
-// TestCreateDeploymentTargetHandler 测试创建部署目标处理器
-func TestCreateDeploymentTargetHandler(t *testing.T) {
+// TestCreateWorkloadTargetHandler 测试创建部署目标处理器
+func TestCreateWorkloadTargetHandler(t *testing.T) {
 	t.Run("成功创建部署目标", func(t *testing.T) {
 		payload := map[string]interface{}{
 			"app_id":           1,
 			"env_id":           1,
 			"cluster_id":       1,
 			"k8s_namespace":    "production",
-			"k8s_deployment":   "api-service",
+			"k8s_workload":   "api-service",
 			"container_name":  "api",
 			"registry_domain":  "docker.io",
 			"image_repo":      "company/api-service",
@@ -115,7 +115,7 @@ func TestCreateDeploymentTargetHandler(t *testing.T) {
 		body, err := json.Marshal(payload)
 		require.NoError(t, err)
 
-		req := httptest.NewRequest("POST", "/api/v1/deployment-targets", bytes.NewReader(body))
+		req := httptest.NewRequest("POST", "/api/v1/workload-targets", bytes.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
 		w := httptest.NewRecorder()
 
@@ -132,7 +132,7 @@ func TestCreateDeploymentTargetHandler(t *testing.T) {
 		body, err := json.Marshal(payload)
 		require.NoError(t, err)
 
-		req := httptest.NewRequest("POST", "/api/v1/deployment-targets", bytes.NewReader(body))
+		req := httptest.NewRequest("POST", "/api/v1/workload-targets", bytes.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
 		w := httptest.NewRecorder()
 
@@ -140,8 +140,8 @@ func TestCreateDeploymentTargetHandler(t *testing.T) {
 	})
 }
 
-// TestUpdateDeploymentTargetHandler 测试更新部署目标处理器
-func TestUpdateDeploymentTargetHandler(t *testing.T) {
+// TestUpdateWorkloadTargetHandler 测试更新部署目标处理器
+func TestUpdateWorkloadTargetHandler(t *testing.T) {
 	t.Run("成功更新部署目标", func(t *testing.T) {
 		payload := map[string]interface{}{
 			"k8s_namespace": "updated-namespace",
@@ -150,7 +150,7 @@ func TestUpdateDeploymentTargetHandler(t *testing.T) {
 		body, err := json.Marshal(payload)
 		require.NoError(t, err)
 
-		req := httptest.NewRequest("PUT", "/api/v1/deployment-targets/1", bytes.NewReader(body))
+		req := httptest.NewRequest("PUT", "/api/v1/workload-targets/1", bytes.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
 		w := httptest.NewRecorder()
 
@@ -165,7 +165,7 @@ func TestUpdateDeploymentTargetHandler(t *testing.T) {
 		body, err := json.Marshal(payload)
 		require.NoError(t, err)
 
-		req := httptest.NewRequest("PUT", "/api/v1/deployment-targets/999", bytes.NewReader(body))
+		req := httptest.NewRequest("PUT", "/api/v1/workload-targets/999", bytes.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
 		w := httptest.NewRecorder()
 
@@ -173,17 +173,17 @@ func TestUpdateDeploymentTargetHandler(t *testing.T) {
 	})
 }
 
-// TestDeleteDeploymentTargetHandler 测试删除部署目标处理器
-func TestDeleteDeploymentTargetHandler(t *testing.T) {
+// TestDeleteWorkloadTargetHandler 测试删除部署目标处理器
+func TestDeleteWorkloadTargetHandler(t *testing.T) {
 	t.Run("成功删除部署目标", func(t *testing.T) {
-		req := httptest.NewRequest("DELETE", "/api/v1/deployment-targets/1", nil)
+		req := httptest.NewRequest("DELETE", "/api/v1/workload-targets/1", nil)
 		w := httptest.NewRecorder()
 
 		assert.NotNil(t, w)
 	})
 
 	t.Run("部署目标不存在", func(t *testing.T) {
-		req := httptest.NewRequest("DELETE", "/api/v1/deployment-targets/999", nil)
+		req := httptest.NewRequest("DELETE", "/api/v1/workload-targets/999", nil)
 		w := httptest.NewRecorder()
 
 		assert.NotNil(t, w)

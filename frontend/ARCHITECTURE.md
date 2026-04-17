@@ -37,7 +37,7 @@
 │  /api/v1/applications
 │  /api/v1/environments
 │  /api/v1/clusters
-│  /api/v1/deployment-targets
+│  /api/v1/workload-targets
 └─────────────────────────────────────────────────────┘
 ```
 
@@ -60,7 +60,7 @@
        │         ├─> fetchApplications()
        │         ├─> fetchEnvironments()
        │         ├─> fetchClusters()
-       │         └─> fetchDeploymentTargets()
+       │         └─> fetchWorkloadTargets()
        │
        └─> router-view (当前页面)
 ```
@@ -136,7 +136,7 @@ defineStore('app', () => {
   const applications = ref([])
   const environments = ref([])
   const clusters = ref([])
-  const deploymentTargets = ref([])
+  const workloadTargets = ref([])
   
   // Computed getters (缓存计算)
   const getApplicationById = computed(...)  // O(1) 查询

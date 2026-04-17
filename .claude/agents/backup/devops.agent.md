@@ -78,7 +78,7 @@ tools: Read, Grep, Glob, Bash, Create, Edit
    ```bash
    kubectl create serviceaccount release-deployer -n kube-system
    
-   # 仅授予 patch deployment/update pod 权限（不是 admin）
+   # 仅授予 patch workload/update pod 权限（不是 admin）
    # 权限范围：
    #   - 特定 namespace (prod/staging/dev)
    #   - 仅 deployment/statefulset 资源
@@ -132,7 +132,7 @@ tools: Read, Grep, Glob, Bash, Create, Edit
 #### 检查清单
 
 - [ ] 所有集群 kubeconfig 可用且权限正确
-- [ ] Service Account 权限最小化（仅 patch deployment）
+- [ ] Service Account 权限最小化（仅 patch deployment/statefulset）
 - [ ] Harbor 账户创建并可正常拉取镜像
 - [ ] 网络连通性测试通过 (kubectl get nodes / curl harbor API)
 - [ ] 凭证安全存储 (环境变量 / 密钥管理服务)
@@ -166,12 +166,12 @@ tools: Read, Grep, Glob, Bash, Create, Edit
 3. **生成测试数据库初始化脚本**
    ```sql
    -- infra/db/init-test.sql
-   -- 包含测试用的应用、环境、集群、deployment_target 映射
+   -- 包含测试用的应用、环境、集群、workload_target 映射
    
    INSERT INTO application VALUES (1, 'test-app', 'http://github.com/test', 'docker');
    INSERT INTO environment VALUES (1, 'test', 1);
    INSERT INTO cluster VALUES (1, 'test-cluster', 'kubernetes', '...kubeconfig...');
-   INSERT INTO deployment_target VALUES (1, 1, 1, 1, 'test', 'test-app', 'app', 'harbor.test', 'test/test-app');
+   INSERT INTO workload_target VALUES (1, 1, 1, 1, 'test', 'test-app', 'app', 'harbor.test', 'test/test-app');
    ```
 
 **监控告警初始化**:
@@ -376,7 +376,7 @@ tools: Read, Grep, Glob, Bash, Create, Edit
 
 #### 输出物
 
-- `infra/k8s/release-system-deployment.yaml`
+- `infra/k8s/release-system-workload.yaml`
 - `infra/nginx/release-system.conf`
 - `infra/monitoring/alerting-rules.yaml`
 - `infra/backup/backup-script.sh`
@@ -418,7 +418,7 @@ tools: Read, Grep, Glob, Bash, Create, Edit
      ('staging-cluster', 'kubernetes', '...');
    
    -- 最关键的映射
-   INSERT INTO deployment_target (...) VALUES
+   INSERT INTO workload_target (...) VALUES
      (user_service_id, prod_id, prod_cluster_id, 'prod', 'user-service', 'app', 'harbor.com', 'platform/user-service'),
      ...
    ```
@@ -427,7 +427,7 @@ tools: Read, Grep, Glob, Bash, Create, Edit
    ```
    核查:
    - 是否漏了某个关键应用？
-   - namespace/deployment 名字是否准确？
+   - namespace/workload 名字是否准确？
    - registry domain 是否正确？
    - 权限是否完整?
    ```
@@ -517,7 +517,7 @@ spec:
 ```
 
 **命名约定**:
-- 文件名: 资源类型-名字.yaml (deployment-backend.yaml)
+- 文件名: 资源类型-名字.yaml (workload-backend.yaml)
 - Namespace: release-system
 - Label: app=release-system, component=backend/frontend
 
@@ -597,7 +597,7 @@ infra/
 
 | 风险 | 原因 | 解决方案 |
 |------|------|---------|
-| kubeconfig 权限过大 | 懒得细化 RBAC | 使用最小权限 SA (仅 patch deployment) |
+| kubeconfig 权限过大 | 懒得细化 RBAC | 使用最小权限 SA (仅 patch workload) |
 | K8s 连接超时 | 网络隔离或被墙 | 提前测试网络连通性，配置适当超时 |
 | SQLite 文件损坏 | 没有备份策略 | 每天自动备份，监控文件完整性 |
 | 并发冲突导致部署失败 | SQLite WAL 配置不当 | PRAGMA journal_mode=WAL + SetMaxOpenConns(1) |

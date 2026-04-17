@@ -28,7 +28,7 @@ tools: Read, Grep, Glob, Bash, Create, Edit
 ```
 API层 (go-chi)
   ↓
-Service层 (ReleaseService、DeploymentService)
+Service层 (ReleaseService、WorkloadService)
   ↓
 Repository层 (数据访问抽象)
   ↓
@@ -44,7 +44,7 @@ K8sDeployer / SaltDeployer / AnsibleDeployer
 | application | 应用元信息 | P0 |
 | environment | 逻辑环境(prod/staging/dr) | P0 |
 | cluster | 物理集群 | P0 |
-| deployment_target | 应用→环境→集群的映射（核心） | P0 |
+| workload_target | 应用→环境→集群的映射（核心） | P0 |
 | release_record | 发布记录及生命周期追踪 | P0 |
 | release_event | 发布过程中的详细事件日志 | P0 |
 | audit_log | 操作审计日志 | P1 |
@@ -68,7 +68,7 @@ K8sDeployer / SaltDeployer / AnsibleDeployer
 - `db/init.yaml` - 初始化数据示例
 
 **检查清单**:
-- [ ] deployment_target 表能准确映射应用到集群
+- [ ] workload_target 表能准确映射应用到集群
 - [ ] release_record 状态机完整 (pending→validating→deploying→success/failed)
 - [ ] release_event 事件类型全面
 - [ ] SQLite 字段类型及约束正确
@@ -125,7 +125,7 @@ K8sDeployer / SaltDeployer / AnsibleDeployer
 权限检查
   ↓ (用户是否能发此环境)
 获取部署目标
-  ↓ (app/env/cluster→deployment_target)
+  ↓ (app/env/cluster→workload_target)
 镜像验证
   ↓ (镜像在 registry 存在)
 创建 ReleaseRecord (status=validating)
@@ -169,7 +169,7 @@ Deployer.Validate() + Deployer.Deploy() (异步)
 | GET | /api/v1/release/{id} | 查询发布进度 + 事件 |
 | GET | /api/v1/release | 发布历史列表 |
 | POST | /api/v1/release/{id}/rollback | 回滚 |
-| GET | /api/v1/deployment-target | 查询部署配置 |
+| GET | /api/v1/workload-target | 查询部署配置 |
 | GET | /api/v1/app | 应用列表 |
 | GET | /api/v1/environment | 环境列表 |
 
@@ -184,7 +184,7 @@ Deployer.Validate() + Deployer.Deploy() (异步)
 ### Day 6: 集成测试 + 真实数据导入
 
 **任务**:
-1. 导入真实的 application/environment/cluster/deployment_target 数据
+1. 导入真实的 application/environment/cluster/workload_target 数据
 2. 端到端测试 (选择→发布→查询→回滚)
 3. 建立集成测试用例
 4. 性能测试 (并发发布、数据库事务)
@@ -236,7 +236,7 @@ test/
 - **包**: 小写单词 (service、deploy)
 - **接口**: 大写首字母 + 后缀 Interface (DeployStrategy)
 - **结构体**: 大驼峰 (ReleaseRecord)
-- **方法**: 大驼峰 (GetDeploymentTarget)
+- **方法**: 大驼峰 (GetWorkloadTarget)
 - **常量**: 大写 + 下划线 (STATUS_PENDING)
 - **错误**: 统一用 fmt.Errorf，包含上下文
 
@@ -283,14 +283,14 @@ test/
 
 ### 与 K8s 集群的交互
 
-- 从 deployment_target 获取 kubeconfig
+- 从 workload_target 获取 kubeconfig
 - 使用 client-go 连接集群
-- Patch deployment 镜像字段
+- Patch workload 镜像字段
 - Watch pod 状态变化
 
 ### 与 Harbor registry 的交互
 
-- 从 deployment_target 获取 registry_domain
+- 从 workload_target 获取 registry_domain
 - 拼装完整镜像 URL
 - 验证镜像是否存在 (可选：HTTP HEAD /v2/{repo}/manifests/{tag})
 

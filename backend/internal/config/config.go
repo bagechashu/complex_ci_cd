@@ -7,28 +7,24 @@ import (
 
 type Config struct {
 	// Server
-	ServerPort     int
-	ServerHost     string
-	Environment    string
+	ServerPort    int
+	ServerHost    string
+	Environment   string
 
 	// Database
-	DatabasePath   string
-
-	// Kubernetes
-	KubeConfigPath string
+	DatabasePath  string
 
 	// Encryption
-	EncryptionKey  string
+	EncryptionKey string
 }
 
 func LoadConfig() *Config {
 	return &Config{
-		ServerPort:     getEnvInt("SERVER_PORT", 8080),
-		ServerHost:     getEnvStr("SERVER_HOST", "0.0.0.0"),
-		Environment:    getEnvStr("ENVIRONMENT", "development"),
-		DatabasePath:   getEnvStr("DATABASE_PATH", "./release_control.db"),
-		KubeConfigPath: getEnvStr("KUBECONFIG", os.ExpandEnv("$HOME/.kube/config")),
-		EncryptionKey:  getEnvStr("ENCRYPTION_KEY", "default-key-change-in-production"),
+		ServerPort:    getEnvInt("SERVER_PORT", 8080),
+		ServerHost:    getEnvStr("SERVER_HOST", "0.0.0.0"),
+		Environment:   getEnvStr("ENVIRONMENT", "development"),
+		DatabasePath:  getEnvStr("DATABASE_PATH", "./release_control.db"),
+		EncryptionKey: getEnvStr("ENCRYPTION_KEY", "default-key-change-in-production"),
 	}
 }
 

@@ -17,7 +17,7 @@ func SetupRoutes(
 	appRepo repository.ApplicationRepository,
 	clusterRepo repository.ClusterRepository,
 	releaseRepo repository.ReleaseRecordRepository,
-	deploymentTargetRepo *repository.DeploymentTargetRepository,
+	workloadTargetRepo *repository.WorkloadTargetRepository,
 	log *logger.Logger,
 ) {
 	// Add CORS middleware
@@ -50,13 +50,13 @@ func SetupRoutes(
 		r.Put("/clusters/{id}", UpdateClusterHandler(clusterRepo))
 		r.Delete("/clusters/{id}", DeleteClusterHandler(clusterRepo))
 
-		// Deployment Targets (App-Cluster Configs)
-		r.Get("/app-cluster-configs", ListDeploymentTargetsHandler(deploymentTargetRepo))
-		r.Get("/app-cluster-configs/by-app/{app_id}", ListDeploymentTargetsByAppHandler(deploymentTargetRepo, clusterRepo))
-		r.Post("/app-cluster-configs", CreateDeploymentTargetHandler(deploymentTargetRepo))
-		r.Get("/app-cluster-configs/{id}", GetDeploymentTargetHandler(deploymentTargetRepo))
-		r.Put("/app-cluster-configs/{id}", UpdateDeploymentTargetHandler(deploymentTargetRepo))
-		r.Delete("/app-cluster-configs/{id}", DeleteDeploymentTargetHandler(deploymentTargetRepo))
+		// workload Targets (App-Cluster Configs)
+		r.Get("/app-cluster-configs", ListWorkloadTargetsHandler(workloadTargetRepo))
+		r.Get("/app-cluster-configs/by-app/{app_id}", ListWorkloadTargetsByAppHandler(workloadTargetRepo, clusterRepo))
+		r.Post("/app-cluster-configs", CreateWorkloadTargetHandler(workloadTargetRepo))
+		r.Get("/app-cluster-configs/{id}", GetWorkloadTargetHandler(workloadTargetRepo))
+		r.Put("/app-cluster-configs/{id}", UpdateWorkloadTargetHandler(workloadTargetRepo))
+		r.Delete("/app-cluster-configs/{id}", DeleteWorkloadTargetHandler(workloadTargetRepo))
 
 		// Releases
 		r.Get("/releases", ListReleasesHandler(releaseRepo))
@@ -66,8 +66,8 @@ func SetupRoutes(
 		// Environments (placeholder - returns empty list for now)
 		r.Get("/environments", environmentsHandler)
 		
-		// Deployment Targets
-		r.Get("/deployment-targets", ListDeploymentTargetsHandler(deploymentTargetRepo))
+		// workload Targets
+		r.Get("/workload-targets", ListWorkloadTargetsHandler(workloadTargetRepo))
 
 		// Shell Servers
 		r.Get("/shell-servers", GetShellServersHandler())
@@ -105,7 +105,7 @@ func environmentsHandler(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write([]byte(`{"total":0,"data":[]}`))
 }
 
-func deploymentTargetsHandler(w http.ResponseWriter, r *http.Request) {
+func workloadTargetsHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write([]byte(`{"total":0,"data":[]}`))

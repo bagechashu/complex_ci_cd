@@ -119,7 +119,7 @@ interface ErrorResponse {
 **格式**: 小写，下划线分隔
 ```typescript
 status: "pending" | "validating" | "deploying" | "success" | "failed" | "rolled_back"
-event_type: "deployment_started" | "pod_updated" | "rollout_complete" | "error"
+event_type: "workload_started" | "pod_updated" | "rollout_complete" | "error"
 ```
 
 ### 6. ID 和主键
@@ -154,7 +154,7 @@ event_type: "deployment_started" | "pod_updated" | "rollout_complete" | "error"
 ```json
 {
   "code": "SUCCESS",
-  "message": "deployment accepted",
+  "message": "workload accepted",
   "data": {
     "release_id": 123,
     "status": "accepted",
@@ -190,8 +190,8 @@ event_type: "deployment_started" | "pod_updated" | "rollout_complete" | "error"
       {
         "id": 1,
         "release_id": 123,
-        "event_type": "deployment_started",
-        "event_message": "K8s deployment patch started",
+        "event_type": "workload_started",
+        "event_message": "K8s workload patch started",
         "created_at": "2026-04-10T10:00:05Z"
       },
       {
@@ -278,11 +278,11 @@ GET /api/v1/release?app_id=1&env_id=2&limit=20&offset=0
 
 ---
 
-### GET /api/v1/deployment-target
+### GET /api/v1/workload-target
 
 **查询参数**:
 ```
-GET /api/v1/deployment-target?app_id=1&env_id=2
+GET /api/v1/workload-target?app_id=1&env_id=2
 ```
 
 **响应** (200):
@@ -290,7 +290,7 @@ GET /api/v1/deployment-target?app_id=1&env_id=2
 {
   "code": "SUCCESS",
   "data": {
-    "deployment_targets": [
+    "workload_targets": [
       {
         "id": 1,
         "app_id": 1,
@@ -298,7 +298,7 @@ GET /api/v1/deployment-target?app_id=1&env_id=2
         "cluster_id": 1,
         "cluster_name": "prod-cluster",
         "k8s_namespace": "prod",
-        "k8s_deployment": "user-service",
+        "k8s_workload": "user-service",
         "registry_domain": "harbor.com",
         "image_repo": "project/user-service"
       }
@@ -345,7 +345,7 @@ enum ReleaseStatus {
 }
 
 enum EventType {
-  DEPLOYMENT_STARTED = 'deployment_started',
+  workload_STARTED = 'workload_started',
   POD_UPDATED = 'pod_updated',
   ROLLOUT_COMPLETE = 'rollout_complete',
   ERROR = 'error'
@@ -373,14 +373,14 @@ interface ReleaseRecord {
   error_msg?: string
 }
 
-interface DeploymentTarget {
+interface WorkloadTarget {
   id: number
   app_id: number
   env_id: number
   cluster_id: number
   cluster_name: string
   k8s_namespace: string
-  k8s_deployment: string
+  k8s_workload: string
   registry_domain: string
   image_repo: string
 }
@@ -478,7 +478,7 @@ interface ListResponse<T> {
 ```
 ✅ 完成: 
   - API 框架搭建
-  - deployment_target 表设计
+  - workload_target 表设计
 
 🚀 今日进行中:
   - K8sDeployer 实现
