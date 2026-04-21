@@ -65,7 +65,7 @@ func (r *SQLiteShellTaskRepository) GetByID(ctx context.Context, id int) (*model
 	var t models.ShellTask
 	err := r.db.QueryRowContext(ctx, sqShellTaskSelect+" WHERE id = ?", id).Scan(
 		&t.ID, &t.Name, &t.Description, &t.CommandID, &t.ExecutionMethod, &t.RequiresApproval, &t.CreatedAt, &t.UpdatedAt)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, errors.New("shell task not found")
 	}
 	if err != nil {

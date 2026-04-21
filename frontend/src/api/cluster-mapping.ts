@@ -113,13 +113,3 @@ export const deleteClusterMappings = async (mappingIds: number[]): Promise<void>
     throw error
   }
 }
-
-export const clusterMappingAPI = {
-  getClusterMappings,
-  getClusterMappingsByApp,
-  getClusterMapping,
-  createClusterMapping,
-  updateClusterMapping,
-  deleteClusterMapping,
-  deleteClusterMappings
-}

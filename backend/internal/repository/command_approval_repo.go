@@ -50,7 +50,7 @@ func (r *SQLiteCommandApprovalRepository) Create(ctx context.Context, ca *models
 func (r *SQLiteCommandApprovalRepository) GetByID(ctx context.Context, id string) (*models.CommandApproval, error) {
 	var ca models.CommandApproval
 	err := r.db.QueryRowContext(ctx, sqCommandApprovalSelect+" WHERE id = ?", id).Scan(&ca.ID, &ca.RequestID, &ca.ApprovalStatus, &ca.ApprovedBy, &ca.ApprovedAt, &ca.CreatedAt, &ca.UpdatedAt)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, errors.New("approval not found")
 	}
 	return &ca, err
@@ -59,7 +59,7 @@ func (r *SQLiteCommandApprovalRepository) GetByID(ctx context.Context, id string
 func (r *SQLiteCommandApprovalRepository) GetByRequestID(ctx context.Context, requestID string) (*models.CommandApproval, error) {
 	var ca models.CommandApproval
 	err := r.db.QueryRowContext(ctx, sqCommandApprovalSelect+" WHERE request_id = ?", requestID).Scan(&ca.ID, &ca.RequestID, &ca.ApprovalStatus, &ca.ApprovedBy, &ca.ApprovedAt, &ca.CreatedAt, &ca.UpdatedAt)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, errors.New("approval not found")
 	}
 	return &ca, err

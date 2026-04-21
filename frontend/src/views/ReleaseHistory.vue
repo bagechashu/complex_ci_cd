@@ -125,7 +125,7 @@ import type { DataTableColumns } from 'naive-ui'
 import { useReleaseStore } from '@/stores/releaseStore'
 import { useAppStore } from '@/stores/appStore'
 import { useUiStore } from '@/stores/uiStore'
-import { formatDateTime, getStatusLabel } from '@/utils/format'
+import { formatDateTime, getStatusLabel, getStatusType } from '@/utils/format'
 import type { ReleaseResponse, ReleaseEvent } from '@/types/api'
 
 const releaseStore = useReleaseStore()
@@ -294,18 +294,6 @@ const handleRollback = async (releaseId: number) => {
   } catch (error) {
     uiStore.error('回滚失败')
   }
-}
-
-const getStatusType = (status: string) => {
-  const typeMap: Record<string, 'success' | 'error' | 'warning' | 'info'> = {
-    pending: 'warning',
-    validating: 'info',
-    deploying: 'info',
-    success: 'success',
-    failed: 'error',
-    rolled_back: 'warning'
-  }
-  return typeMap[status] || 'info'
 }
 
 // ============ Lifecycle ============

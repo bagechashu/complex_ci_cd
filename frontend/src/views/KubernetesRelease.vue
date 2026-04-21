@@ -599,14 +599,14 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
 import { NButton, NDropdown } from 'naive-ui'
-import { getApplications, getClusters, createRelease, getEnvironments } from '@/api/metadata'
+import { getApplications, getClusters, createRelease } from '@/api/metadata'
 import {
   getClusterMappingsByApp,
   createClusterMapping,
   updateClusterMapping,
   deleteClusterMapping as apiDeleteClusterMapping
 } from '@/api/cluster-mapping'
-import type { Application, Cluster, ClusterMapping, Environment } from '@/types/api'
+import type { Application, Cluster, WorkloadTarget, Environment } from '@/types/api'
 
 // State
 const searchQuery = ref('')
@@ -615,9 +615,9 @@ const selectedApplicationId = ref<number | null>(null)
 const applications = ref<Application[]>([])
 const clusters = ref<Cluster[]>([])
 const environments = ref<Environment[]>([])
-const clusterMappings = ref<ClusterMapping[]>([])
+const clusterMappings = ref<WorkloadTarget[]>([])
 // Store all mappings by app_id for lazy loading (only load on demand)
-const allMappingsByApp = ref<{ [appId: number]: ClusterMapping[] }>({})
+const allMappingsByApp = ref<{ [appId: number]: WorkloadTarget[] }>({})
 
 // Pagination state
 const currentPage = ref(1)
@@ -644,7 +644,7 @@ const applicationForm = ref<Partial<Application>>({
 // Cluster Mapping Modal
 const showClusterMappingModal = ref(false)
 const editingMappingId = ref<number | null>(null)
-const clusterMappingForm = ref<Partial<ClusterMapping>>({
+const clusterMappingForm = ref<Partial<WorkloadTarget>>({
   workload_type: 'Deployment'
 })
 
@@ -652,11 +652,11 @@ const clusterMappingForm = ref<Partial<ClusterMapping>>({
 const showManageClusterModal = ref(false)
 const availableClustersForManage = ref<Cluster[]>([])
 const showEditFormInManageModal = ref(false)
-const editingMappingInManageModal = ref<ClusterMapping | null>(null)
+const editingMappingInManageModal = ref<WorkloadTarget | null>(null)
 
 // Release Modal
 const showReleaseModal = ref(false)
-const releaseInfo = ref<Partial<ClusterMapping & { registry_prefix?: string }>>({})
+const releaseInfo = ref<Partial<WorkloadTarget & { registry_prefix?: string }>>({})
 const releaseForm = ref({
   image_tag: '',
   dryRun: false
@@ -782,7 +782,7 @@ const deleteApplication = async (appId: number) => {
   }
 }
 
-const openEditClusterMappingModal = (mapping: ClusterMapping | null) => {
+const openEditClusterMappingModal = (mapping: WorkloadTarget | null) => {
   if (mapping) {
     editingMappingId.value = mapping.id
     clusterMappingForm.value = { ...mapping }
@@ -861,7 +861,7 @@ const deleteClusterMapping = async (mappingId: number) => {
 }
 
 
-const openReleaseModal = (mapping: ClusterMapping) => {
+const openReleaseModal = (mapping: WorkloadTarget) => {
   releaseInfo.value = mapping
   releaseForm.value = { image_tag: '', dryRun: false }
   showReleaseModal.value = true
@@ -918,7 +918,7 @@ const closeManageClusterModal = () => {
   editingMappingInManageModal.value = null
 }
 
-const startEditInManageModal = (mapping: ClusterMapping) => {
+const startEditInManageModal = (mapping: WorkloadTarget) => {
   editingMappingInManageModal.value = mapping
   clusterMappingForm.value = { ...mapping }
   showEditFormInManageModal.value = true
@@ -979,7 +979,7 @@ const isClusterAlreadyMapped = (clusterId: number | string): boolean => {
   return clusterMappings.value.some(m => m.cluster_id === clusterId)
 }
 
-const getMappingForCluster = (clusterId: number | string): ClusterMapping | null => {
+const getMappingForCluster = (clusterId: number | string): WorkloadTarget | null => {
   return clusterMappings.value.find(m => m.cluster_id === clusterId) || null
 }
 
@@ -1069,11 +1069,11 @@ const loadClusters = async () => {
 
 const loadEnvironments = async () => {
   try {
-    const data = await getEnvironments()
-    environments.value = data
+    // Environments are preloaded from appStore or metadata API
+    // This function is kept for consistency but may not be needed
+    // Environments can be derived from clusters
   } catch (error) {
     console.error('Failed to load environments:', error)
-    // Environments are optional, so we don't show an error
   }
 }
 

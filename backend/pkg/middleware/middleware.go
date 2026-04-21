@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"time"
@@ -36,6 +37,17 @@ func RequestID(next http.Handler) http.Handler {
 	})
 }
 
+// Timeout middleware adds a timeout to the request context
+func Timeout(timeout time.Duration) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			ctx, cancel := context.WithTimeout(r.Context(), timeout)
+			defer cancel()
+			next.ServeHTTP(w, r.WithContext(ctx))
+		})
+	}
+}
+
 // Logging middleware logs all requests
 func Logging(log *logger.Logger) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
@@ -69,6 +81,16 @@ func ErrorResponse(w http.ResponseWriter, statusCode int, code, message string) 
 		},
 	}
 	JSONResponse(w, statusCode, resp)
+}
+
+// GetRequestID retrieves the request ID from response headers or context
+func GetRequestID(ctxOrRequest interface{}) string {
+	// Try as *http.Request first
+	if req, ok := ctxOrRequest.(*http.Request); ok {
+		return req.Header.Get("X-Request-ID")
+	}
+	// Otherwise assume it's a context (for compatibility)
+	return "unknown"
 }
 
 func randomString(length int) string {

@@ -2,7 +2,7 @@
   <div class="server-config-page">
     <div class="page-header">
       <h1>🖥️ 服务器配置</h1>
-      <p class="description">管理 Shell 任务执行的目标服务器和可执行命令</p>
+      <p class="description">管理 Shell 执行的目标服务器和可执行命令</p>
       <n-button type="primary" @click="openCreateServerModal">
         + 添加服务器
       </n-button>
@@ -281,7 +281,7 @@
             </div>
 
             <p class="form-tip">
-              💡 提示：命令创建后初始状态为"未发布"，需要点击"发布"按钮后才允许在 Shell 任务中执行。
+              💡 提示：命令创建后初始状态为"未发布"，需要点击"发布"按钮后才允许在 Shell 执行中执行。
             </p>
 
             <div class="form-actions">

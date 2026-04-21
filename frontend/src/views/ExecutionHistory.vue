@@ -2,7 +2,7 @@
   <div class="execution-history-page">
     <div class="page-header">
       <h1>📊 执行历史</h1>
-      <p class="description">查看 Shell 任务执行记录和输出结果</p>
+      <p class="description">查看 Shell 执行记录和输出结果</p>
     </div>
 
     <div class="filters-bar">
@@ -59,8 +59,8 @@
 
         <div v-for="execution in filteredExecutions" :key="execution.id" class="table-row">
           <div class="col-id">#{{ execution.id }}</div>
-          <div class="col-task">{{ execution.task_name || '-' }}</div>
-          <div class="col-server">{{ execution.server_name || '-' }}</div>
+          <div class="col-task">{{ truncateString(execution.task_name, 40) }}</div>
+          <div class="col-server">{{ truncateString(execution.server_name, 40) }}</div>
           <div class="col-status">
             <span class="status-badge" :class="`status-${execution.status}`">
               {{ statusText(execution.status) }}
@@ -124,7 +124,7 @@
               </div>
               <div v-if="selectedExecution?.started_at && selectedExecution?.completed_at">
                 <span class="time-label">耗时:</span>
-                <span>{{ calculateDuration(selectedExecution.started_at, selectedExecution.completed_at) }}</span>
+                <span>{{ formatDuration(calcMs(selectedExecution.started_at, selectedExecution.completed_at)) }}</span>
               </div>
             </div>
           </div>
@@ -163,9 +163,10 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { NButton } from 'naive-ui'
 import type { ShellTaskExecution, ShellTask, ShellServer } from '@/types/api'
+import { formatDate, formatDateTime, truncateString, calculateDuration as calcMs, formatDuration } from '@/utils/format'
 import {
-  listShellExecutions,
-  getShellExecution,
+  listShellTaskExecutions,
+  getShellTaskExecution,
   listShellTasks,
   listShellServers
 } from '@/api/shell'
@@ -214,7 +215,7 @@ onUnmounted(() => {
 async function loadAllData() {
   try {
     const [execRes, tasksRes, serversRes] = await Promise.all([
-      listShellExecutions(1, 100),
+      listShellTaskExecutions(1, 100),
       listShellTasks(1, 100),
       listShellServers(1, 100)
     ])
@@ -228,7 +229,7 @@ async function loadAllData() {
 
 async function loadExecutions() {
   try {
-    const res = await listShellExecutions(1, 100)
+    const res = await listShellTaskExecutions(1, 100)
     executions.value = res.data
   } catch (error) {
     console.error('Failed to load executions:', error)
@@ -237,7 +238,7 @@ async function loadExecutions() {
 
 async function viewExecution(execution: ShellTaskExecution) {
   try {
-    selectedExecution.value = await getShellExecution(execution.id)
+    selectedExecution.value = await getShellTaskExecution(execution.id)
     showDetailModal.value = true
   } catch (error) {
     console.error('Failed to load execution details:', error)
@@ -260,33 +261,6 @@ function statusText(status?: string): string {
   return statusMap[status || ''] || status || '-'
 }
 
-function formatDate(dateString: string | null | undefined): string {
-  if (!dateString) return '-'
-  const date = new Date(dateString)
-  return date.toLocaleDateString('zh-CN')
-}
-
-function formatDateTime(dateString: string | null | undefined): string {
-  if (!dateString) return '-'
-  const date = new Date(dateString)
-  return date.toLocaleString('zh-CN')
-}
-
-function calculateDuration(startStr: string, endStr: string): string {
-  try {
-    const start = new Date(startStr).getTime()
-    const end = new Date(endStr).getTime()
-    const seconds = Math.floor((end - start) / 1000)
-
-    if (seconds < 60) return `${seconds}秒`
-    const minutes = Math.floor(seconds / 60)
-    if (minutes < 60) return `${minutes}分${seconds % 60}秒`
-    const hours = Math.floor(minutes / 60)
-    return `${hours}小时${minutes % 60}分`
-  } catch {
-    return '-'
-  }
-}
 </script>
 
 <style scoped>

@@ -12,12 +12,16 @@ tools: Read, Grep, Glob, Bash, Create, Edit
 
 ### 技能栈
 
-- **框架**: Vue3 + TypeScript (类型安全)
-- **UI 组件库**: Naive UI (企业级、美观)
-- **构建工具**: Vite (快速开发体验)
-- **状态管理**: Pinia (简洁高效)
-- **HTTP 客户端**: Axios (拦截器、错误处理)
-- **实时更新**: 轮询 (MVP) / WebSocket (未来)
+- **框架**: Vue 3.3+ (Composition API、TypeScript 5.2+)
+- **UI组件库**: Naive UI 2.34+ (企业级、国产、美观、完整组件)
+- **构建工具**: Vite 5.0+ (快速开发、HMR、最小化)
+- **状态管理**: Pinia 2.1+ (轻量级、类型安全、DevTools支持)
+- **路由**: Vue Router 4.2+ (SPA路由、懒加载、嵌套路由)
+- **HTTP客户端**: Axios 1.6+ (拦截器、错误处理、并发控制)
+- **日期时间**: Day.js 1.11+ (轻量日期库、格式化、时区)
+- **类型检查**: TypeScript 5.2+ (strict mode、接口、类型推断)
+- **代码质量**: ESLint 8.53+、Prettier 3.0+ (格式化、检查)
+- **项目配置**: tsconfig.json、vite.config.ts (别名、代理、优化)
 
 ---
 
@@ -26,25 +30,70 @@ tools: Read, Grep, Glob, Bash, Create, Edit
 ### 系统分层
 
 ```
-页面层 (Pages)
-  ↓
-组件层 (Components) - 可复用UI组件
-  ↓
-Store 层 (Pinia) - 状态管理
-  ↓
-API 层 (Services) - HTTP 请求封装
-  ↓
-后端 API (go-chi)
+页面层 (Pages / Views)
+  ├─ ReleaseFlow.vue (发布工作流)
+  ├─ ReleaseHistory.vue (发布历史)
+  ├─ ReleaseDetail.vue (发布详情)
+  ├─ KubernetesRelease.vue (K8s发布页)
+  ├─ ClusterConfig.vue (集群配置)
+  ├─ ServerConfig.vue (服务器配置)
+  ├─ ShellExec.vue (Shell执行)
+  └─ ExecutionHistory.vue (执行历史)
+  
+组件层 (Components)
+  ├─ Sidebar.vue (侧边栏)
+  └─ 其他可复用UI组件
+  
+可组合层 (Composables)
+  └─ 业务逻辑hooks
+  
+Store层 (Pinia Stores)
+  ├─ stores/appStore.ts (应用/环境/集群元数据)
+  ├─ stores/releaseStore.ts (发布流程和历史)
+  └─ stores/uiStore.ts (全局UI状态)
+  
+API层 (Services / API)
+  ├─ api/request.ts (Axios实例、拦截器、错误处理)
+  ├─ api/release.ts (发布相关API)
+  ├─ api/metadata.ts (应用/环境/集群元数据API)
+  ├─ api/cluster-mapping.ts (集群映射API)
+  ├─ api/shell.ts (Shell执行API)
+  └─ api/index.ts (统一导出)
+  
+类型定义层 (Types)
+  ├─ types/api.ts (API请求/响应类型)
+  ├─ types/models.ts (业务模型类型)
+  └─ types/*.ts (其他TS类型)
+  
+工具库 (Utils)
+  ├─ utils/auth.ts (认证相关)
+  ├─ utils/format.ts (格式化)
+  └─ utils/...
+  
+样式层 (Styles)
+  ├─ styles/main.css (全局样式)
+  └─ 组件内scoped样式
+  
+核心文件
+  ├─ main.ts (应用入口)
+  ├─ App.vue (根组件)
+  ├─ router/index.ts (路由配置)
+  ├─ vite.config.ts (Vite构建配置)
+  └─ tsconfig.json (TypeScript配置)
 ```
 
 ### 核心页面模块
 
-| 页面 | 功能 | 优先级 |
-|------|------|--------|
-| ReleaseFlow | 发布选择 + 进度展示 (核心) | P0 |
-| ReleaseHistory | 发布历史列表 + 回滚 | P0 |
-| ReleaseDetail | 发布详情 + 事件日志 | P1 |
-| WorkloadTargetList | 部署配置管理 (可选) | P2 |
+| 页面 | 文件 | 功能 | 优先级 | 状态 |
+|------|------|------|--------|------|
+| 发布工作流 | ReleaseFlow.vue | 发布选择 + 进度展示（核心） | P0 | ✅ |
+| 发布历史 | ReleaseHistory.vue | 发布历史列表 + 回滚 | P0 | ✅ |
+| K8s发布 | KubernetesRelease.vue | K8s特定发布功能 | P1 | ✅ |
+| 发布详情 | ReleaseDetail.vue | 发布详情 + 事件日志 | P1 | ✅ |
+| 集群配置 | ClusterConfig.vue | 集群信息管理 | P1 | ✅ |
+| 服务器配置 | ServerConfig.vue | Shell服务器配置 | P2 | ✅ |
+| Shell执行 | ShellExec.vue | 预定义命令执行 | P2 | ✅ |
+| 执行历史 | ExecutionHistory.vue | 命令执行历史 | P2 | ✅ |
 
 ---
 

@@ -2,6 +2,7 @@ package repository
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"time"
 
@@ -50,7 +51,7 @@ func (r *EnvironmentRepository) GetByID(id int) (*models.Environment, error) {
 		id,
 	).Scan(&env.ID, &env.Name, &env.Rank, &env.CreatedAt, &env.UpdatedAt)
 
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, fmt.Errorf("environment not found")
 	}
 	if err != nil {

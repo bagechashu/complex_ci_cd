@@ -1,6 +1,7 @@
 package logger
 
 import (
+	"fmt"
 	"log/slog"
 	"os"
 	"sync"
@@ -67,10 +68,20 @@ func convertArgs(args []interface{}) []interface{} {
 		return args
 	}
 	
-	// If odd number of arguments, keep them as is for slog to handle
-	result := make([]interface{}, len(args))
-	for i := 0; i < len(args); i++ {
-		result[i] = args[i]
+	// Convert key-value pairs to slog format
+	// slog.Any(key, value) or slog.Attr pattern
+	attrs := make([]interface{}, 0, len(args))
+	
+	// If odd number of arguments, pass them as-is for slog to handle
+	if len(args)%2 != 0 {
+		return args
 	}
-	return result
+	
+	// Convert to key, value pairs
+	for i := 0; i < len(args); i += 2 {
+		key := fmt.Sprintf("%v", args[i])
+		value := args[i+1]
+		attrs = append(attrs, slog.Any(key, value))
+	}
+	return attrs
 }

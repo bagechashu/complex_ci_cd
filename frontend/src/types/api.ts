@@ -110,6 +110,7 @@ export interface WorkloadTarget {
   cluster_name?: string
   environment?: string
   registry_prefix?: string
+  current_image?: string
   created_at: string
   updated_at: string
 }
@@ -125,15 +126,6 @@ export interface ErrorResponse {
     code: string
     message: string
   }
-}
-
-// Application list response with pagination
-export interface ApplicationListResponse {
-  page: number
-  pageSize: number
-  total: number
-  totalPages: number
-  data: Application[]
 }
 
 // ============ Shell Server Types ============

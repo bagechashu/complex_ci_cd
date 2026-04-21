@@ -67,7 +67,7 @@ func (r *SQLiteClusterRepository) GetByID(ctx context.Context, id int) (*models.
 		&c.ID, &c.Name, &c.Type, &c.Environment, &c.RegistryPrefix,
 		&c.Labels, &encryptedKubeconfig,
 		&c.K8sConnectionStatus, &c.AnsibleHosts, &c.CreatedAt, &c.UpdatedAt)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, errors.New("cluster not found")
 	}
 	if err != nil {

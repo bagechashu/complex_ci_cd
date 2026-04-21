@@ -16,15 +16,13 @@ func NewDeployerFactory(log *logger.Logger) *DeployerFactory {
 }
 
 // CreateDeployer creates a deployer based on cluster type
+// Currently supports Kubernetes deployer; other deployment methods (Salt, Ansible, etc.)
+// are handled through SSH shell execution via ShellService
 func (f *DeployerFactory) CreateDeployer(clusterType string) (DeployStrategy, error) {
 	switch clusterType {
 	case "kubernetes":
 		return NewK8sDeployer(f.log), nil
-	case "salt":
-		return NewSaltDeployer(f.log), nil
-	case "ansible":
-		return NewAnsibleDeployer(f.log), nil
 	default:
-		return nil, fmt.Errorf("unsupported cluster type: %s", clusterType)
+		return nil, fmt.Errorf("unsupported cluster type: %s (only 'kubernetes' is supported; use shell execution for other methods)", clusterType)
 	}
 }

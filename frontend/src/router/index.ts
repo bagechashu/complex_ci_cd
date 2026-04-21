@@ -8,7 +8,7 @@ import type { RouteRecordRaw } from 'vue-router'
 // 导入页面组件
 import KubernetesRelease from '@/views/KubernetesRelease.vue'
 import ClusterConfig from '@/views/ClusterConfig.vue'
-import ShellTask from '@/views/ShellTask.vue'
+import ShellTasks from '@/views/ShellTasks.vue'
 import ServerConfig from '@/views/ServerConfig.vue'
 import ReleaseHistory from '@/views/ReleaseHistory.vue'
 import ExecutionHistory from '@/views/ExecutionHistory.vue'
@@ -37,9 +37,9 @@ const routes: RouteRecordRaw[] = [
     }
   },
   {
-    path: '/shell-task',
-    name: 'ShellTask',
-    component: ShellTask,
+    path: '/shell-tasks',
+    name: 'ShellTasks',
+    component: ShellTasks,
     meta: {
       title: 'Shell 任务'
     }

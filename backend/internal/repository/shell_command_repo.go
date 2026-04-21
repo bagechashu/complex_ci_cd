@@ -54,7 +54,7 @@ func (r *SQLiteShellCommandRepository) GetByID(ctx context.Context, id int) (*mo
 	var c models.ShellCommand
 	err := r.db.QueryRowContext(ctx, sqShellCommandSelect+" WHERE id = ?", id).Scan(
 		&c.ID, &c.ServerID, &c.Command, &c.Description, &c.IsPublished, &c.CreatedAt, &c.UpdatedAt)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, errors.New("shell command not found")
 	}
 	if err != nil {

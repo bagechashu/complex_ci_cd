@@ -60,24 +60,131 @@ api-service + production + cluster-prod-1
 - **事件类型**: started, validating, deploying, success, failed, rolled_back
 - **用途**: 前端实时展示发布进度，错误追踪
 
-## 分层架构
+## 分层架构（已简化 - 去掉Application Service中间层）
 
 ```
 ┌────────────────────────────────────────────────────────┐
 │               REST API 层 (go-chi)                      │
 │  ┌─────────────────────────────────────────────────┐   │
 │  │ /api/v1/releases          (POST/GET/DELETE)    │   │
-│  │ /api/v1/releases/{id}     (GET)                │   │
-│  │ /api/v1/releases/{id}/events (GET)             │   │
-│  │ /api/v1/releases/{id}/rollback (POST)          │   │
+│  │ /api/v1/applications      (POST/GET)           │   │
+│  │ /api/v1/clusters          (POST/GET)           │   │
+│  │ /api/v1/app-cluster-configs                    │   │
+│  │ /api/v1/shell-tasks                            │   │
 │  └─────────────────────────────────────────────────┘   │
-│              handlers/ 数据序列化/HTTP处理              │
-└────────────────────┬─────────────────────────────────┘
-                     │
-┌────────────────────▼─────────────────────────────────┐
-│           业务逻辑层 (services/)                       │
+│          handlers/ 处理HTTP请求、参数验证               │
+└────────────────┬─────────────────────────────────────┘
+                 │ 直接调用
+┌────────────────▼─────────────────────────────────────┐
+│     业务逻辑层 (Service Helper + Domain)              │
 │  ┌─────────────────────────────────────────────────┐  │
-│  │ ReleaseService                                  │  │
+│  │ internal/services/                              │  │
+│  │ ├─ helpers.go (ReleaseApp, RollbackApp, ...)   │  │
+│  │ ├─ validation.go (验证函数)                     │  │
+│  │ └─ deps.go (ServiceDeps 依赖结构)               │  │
+│  │ domain/{agg}/                                   │  │
+│  │ ├─ aggregates/ (聚合根: Release, App, ...)     │  │
+│  │ ├─ services/ (Domain Service 业务规则)         │  │
+│  │ └─ repositories/ (接口定义)                    │  │
+│  └─────────────────────────────────────────────────┘  │
+└────────────────┬─────────────────────────────────────┘
+                 │ 直接调用
+┌────────────────▼─────────────────────────────────────┐
+│         Repository层 (数据访问)                        │
+│  ├─ infrastructure/persistence/repositories/         │
+│  │  ├─ release_repository.go                         │
+│  │  ├─ application_repository.go                     │
+│  │  ├─ cluster_repository.go                         │
+│  │  ├─ workload_target_repository.go                 │
+│  │  └─ ... (10+ repositories)                        │
+│  └─ 职责: CRUD、SQL执行、数据映射                    │
+└────────────────┬─────────────────────────────────────┘
+                 │
+┌────────────────▼─────────────────────────────────────┐
+│              SQLite3 数据库                           │
+└─────────────────────────────────────────────────────┘
+```
+
+## 架构改进说明
+
+### 之前 vs 现在
+
+```
+❌ 之前（5层，有Application Service）
+─────────────────────────────────────────
+Handler
+  ↓
+Application Service (中间层)
+  ├─ 协调
+  ├─ 验证
+  ├─ 事务管理
+  └─ Repository调用
+    ↓
+Domain Service
+  ↓
+Repository
+  ↓
+Database
+
+问题:
+- 多一层无必要的抽象
+- 代码跳转多、理解成本高
+- 新人需要理解各个层的职责
+
+✅ 现在（3层，Service Helper方式）
+────────────────────────────────────
+Handler → 验证请求、调用Helper、返回结果
+  ↓
+Service Helper函数 → 协调Repository、实现业务逻辑
+  ├─ ReleaseApp()
+  ├─ RollbackApp()
+  ├─ CreateApplication()
+  └─ ...
+    ↓
+Domain + Repository → DDD聚合根 + 数据访问
+  ↓
+Database
+
+改进:
+- 直接的函数调用、清晰明了
+- 新人一眼看清逻辑流
+- 符合Go的"少即是多"哲学
+- 测试更简单（只需mock repository）
+```
+
+## Service Helper 函数示例
+
+### 简单的函数调用
+
+```go
+// Handler直接调用Service Helper
+func (h *ReleaseHandler) CreateRelease(w http.ResponseWriter, r *http.Request) {
+    var req struct { AppID, EnvID, ClusterID int; Image string }
+    json.NewDecoder(r.Body).Decode(&req)
+    
+    // 一步调用（不再有ApplicationService中间层）
+    releaseID, err := services.ReleaseApp(
+        r.Context(),
+        req.AppID, req.EnvID, req.ClusterID, req.Image,
+        getUser(r),
+        h.deps,  // ServiceDeps包含所有repository
+    )
+    
+    // 处理响应
+    json.NewEncoder(w).Encode(map[string]int{"id": releaseID})
+}
+```
+
+## 核心模块职责
+
+| 模块 | 位置 | 职责 |
+|------|------|------|
+| **Handler** | internal/handlers/ | HTTP处理、请求验证、响应序列化 |
+| **Service Helper** | internal/services/helpers.go | 业务逻辑、Repository协调 |
+| **Validation** | internal/services/validation.go | 参数验证、业务规则检查 |
+| **Domain** | domain/{agg}/ | DDD聚合根、领域逻辑、值对象 |
+| **Repository** | infrastructure/persistence/ | 数据访问、ORM映射 |
+| **Deployer** | internal/deployers/ | 部署策略（K8s/SSH） |
 │  │  - Release()      // 发布主流程                │  │
 │  │  - Rollback()     // 回滚逻辑                  │  │
 │  │  - GetStatus()    // 查询状态                  │  │

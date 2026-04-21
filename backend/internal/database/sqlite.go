@@ -8,7 +8,7 @@ import (
 )
 
 // CurrentSchemaVersion is the current database schema version
-const CurrentSchemaVersion = 2
+const CurrentSchemaVersion = 1
 
 // initSchemaVersion initializes the schema_version table if it doesn't exist
 func initSchemaVersion(db *sql.DB) error {
@@ -43,9 +43,10 @@ func recordSchemaVersion(db *sql.DB, version int, description string) error {
 	return err
 }
 
-// migrateSchemaV1 creates the complete initial schema (merged from v1-v4)
+// migrateSchemaV1 creates the complete initial schema with all tables and indexes
 func migrateSchemaV1(db *sql.DB) error {
 	schema := `
+	-- Core application management tables
 	CREATE TABLE IF NOT EXISTS application (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		name TEXT NOT NULL UNIQUE,
@@ -138,28 +139,29 @@ func migrateSchemaV1(db *sql.DB) error {
 		created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 	);
 
-	CREATE INDEX IF NOT EXISTS idx_application_name ON application(name);
-	CREATE INDEX IF NOT EXISTS idx_environment_name ON environment(name);
-	CREATE INDEX IF NOT EXISTS idx_cluster_name ON cluster(name);
-	CREATE INDEX IF NOT EXISTS idx_cluster_type ON cluster(type);
-	CREATE INDEX IF NOT EXISTS idx_release_app_env ON release_record(app_id, env_id);
-	CREATE INDEX IF NOT EXISTS idx_release_status ON release_record(status);
-	CREATE INDEX IF NOT EXISTS idx_release_created ON release_record(created_at DESC);
-	CREATE INDEX IF NOT EXISTS idx_event_release ON release_event(release_id);
-	CREATE INDEX IF NOT EXISTS idx_workload_target ON workload_target(app_id, env_id, cluster_id);
-	CREATE INDEX IF NOT EXISTS idx_audit_log_created ON audit_log(created_at DESC);
-	`
+	CREATE TABLE IF NOT EXISTS application_cluster_config (
+		id TEXT PRIMARY KEY,
+		application_id TEXT NOT NULL,
+		cluster_id TEXT NOT NULL,
+		labels TEXT,
+		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		UNIQUE(application_id, cluster_id),
+		FOREIGN KEY (application_id) REFERENCES application(id) ON DELETE CASCADE,
+		FOREIGN KEY (cluster_id) REFERENCES cluster(id) ON DELETE CASCADE
+	);
 
-	if _, err := db.Exec(schema); err != nil {
-		return err
-	}
+	CREATE TABLE IF NOT EXISTS command_approval (
+		id TEXT PRIMARY KEY,
+		request_id TEXT NOT NULL UNIQUE,
+		approval_status TEXT NOT NULL DEFAULT 'pending',
+		approved_by TEXT,
+		approved_at DATETIME,
+		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	);
 
-	return recordSchemaVersion(db, 1, "Complete initial schema (merged from v1-v4): application, environment, cluster, workload_target, release_record, release_event, audit_log")
-}
-
-// migrateSchemaV2 adds shell server and task management tables
-func migrateSchemaV2(db *sql.DB) error {
-	schema := `
+	-- Shell server and task management tables
 	CREATE TABLE IF NOT EXISTS shell_server (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		name TEXT NOT NULL UNIQUE,
@@ -226,21 +228,62 @@ func migrateSchemaV2(db *sql.DB) error {
 		FOREIGN KEY (command_id) REFERENCES shell_command(id) ON DELETE CASCADE
 	);
 
+	-- Core indexes
+	CREATE INDEX IF NOT EXISTS idx_application_name ON application(name);
+	CREATE INDEX IF NOT EXISTS idx_environment_name ON environment(name);
+	CREATE INDEX IF NOT EXISTS idx_cluster_name ON cluster(name);
+	CREATE INDEX IF NOT EXISTS idx_cluster_type ON cluster(type);
+
+	-- Release record indexes
+	CREATE INDEX IF NOT EXISTS idx_release_app_env ON release_record(app_id, env_id);
+	CREATE INDEX IF NOT EXISTS idx_release_status ON release_record(status);
+	CREATE INDEX IF NOT EXISTS idx_release_created ON release_record(created_at DESC);
+	CREATE INDEX IF NOT EXISTS idx_release_status_created ON release_record(status, created_at DESC);
+	CREATE INDEX IF NOT EXISTS idx_release_app_status ON release_record(app_id, status);
+	CREATE INDEX IF NOT EXISTS idx_release_app_cluster ON release_record(app_id, cluster_id);
+
+	-- Release event indexes
+	CREATE INDEX IF NOT EXISTS idx_event_release ON release_event(release_id);
+
+	-- Workload target indexes
+	CREATE INDEX IF NOT EXISTS idx_workload_target ON workload_target(app_id, env_id, cluster_id);
+	CREATE INDEX IF NOT EXISTS idx_workload_app_env_cluster ON workload_target(app_id, env_id, cluster_id);
+	CREATE INDEX IF NOT EXISTS idx_workload_app ON workload_target(app_id);
+	CREATE INDEX IF NOT EXISTS idx_workload_cluster ON workload_target(cluster_id);
+
+	-- Audit log indexes
+	CREATE INDEX IF NOT EXISTS idx_audit_log_created ON audit_log(created_at DESC);
+	CREATE INDEX IF NOT EXISTS idx_audit_log_user ON audit_log(user_id);
+	CREATE INDEX IF NOT EXISTS idx_audit_log_resource ON audit_log(resource_type, resource_id);
+	CREATE INDEX IF NOT EXISTS idx_audit_log_operation ON audit_log(operation, created_at DESC);
+
+	-- Application cluster config indexes
+	CREATE INDEX IF NOT EXISTS idx_app_cluster_config_app ON application_cluster_config(application_id);
+	CREATE INDEX IF NOT EXISTS idx_app_cluster_config_cluster ON application_cluster_config(cluster_id);
+	CREATE INDEX IF NOT EXISTS idx_app_cluster_config_app_cluster ON application_cluster_config(application_id, cluster_id);
+
+	-- Command approval indexes
+	CREATE INDEX IF NOT EXISTS idx_command_approval_request ON command_approval(request_id);
+	CREATE INDEX IF NOT EXISTS idx_command_approval_status ON command_approval(approval_status);
+	CREATE INDEX IF NOT EXISTS idx_command_approval_created ON command_approval(created_at DESC);
+
+	-- Shell server and task indexes
 	CREATE INDEX IF NOT EXISTS idx_shell_server_name ON shell_server(name);
+	CREATE INDEX IF NOT EXISTS idx_shell_server_status ON shell_server(status);
 	CREATE INDEX IF NOT EXISTS idx_shell_command_server ON shell_command(server_id);
 	CREATE INDEX IF NOT EXISTS idx_shell_command_published ON shell_command(is_published);
 	CREATE INDEX IF NOT EXISTS idx_shell_task_command ON shell_task(command_id);
 	CREATE INDEX IF NOT EXISTS idx_shell_task_server ON shell_task_server(task_id, server_id);
-	CREATE INDEX IF NOT EXISTS idx_shell_execution_task ON shell_task_execution(task_id);
-	CREATE INDEX IF NOT EXISTS idx_shell_execution_status ON shell_task_execution(status);
-	CREATE INDEX IF NOT EXISTS idx_shell_execution_created ON shell_task_execution(created_at DESC);
+	CREATE INDEX IF NOT EXISTS idx_shell_taskution_task ON shell_task_execution(task_id);
+	CREATE INDEX IF NOT EXISTS idx_shell_taskution_status ON shell_task_execution(status);
+	CREATE INDEX IF NOT EXISTS idx_shell_taskution_created ON shell_task_execution(created_at DESC);
 	`
 
 	if _, err := db.Exec(schema); err != nil {
 		return err
 	}
 
-	return recordSchemaVersion(db, 2, "Added shell server, shell_command, shell_task, and shell_task_execution tables")
+	return recordSchemaVersion(db, 1, "Complete initial schema: application, environment, cluster, workload_target, release_record, release_event, audit_log, shell_server, shell_command, shell_task, shell_task_execution")
 }
 
 // applyMigrations applies all pending migrations based on current schema version
@@ -256,22 +299,10 @@ func applyMigrations(db *sql.DB) error {
 	}
 
 	// Apply migrations in order
-	for version := currentVersion + 1; version <= CurrentSchemaVersion; version++ {
-		switch version {
-		case 1:
-			if err := migrateSchemaV1(db); err != nil {
-				return fmt.Errorf("failed to apply schema v%d: %w", version, err)
-			}
-			log.Info("Applied schema version 1: Complete initial schema created")
-		case 2:
-			if err := migrateSchemaV2(db); err != nil {
-				return fmt.Errorf("failed to apply schema v%d: %w", version, err)
-			}
-			log.Info("Applied schema version 2: Added shell server and task management tables")
-		default:
-			return fmt.Errorf("unknown schema version: %d", version)
-		}
+	if err := migrateSchemaV1(db); err != nil {
+		return fmt.Errorf("failed to apply schema v1: %w", err)
 	}
+	log.Info("Applied schema version 1: Complete initial schema created")
 
 	return nil
 }
@@ -289,8 +320,8 @@ func createTables(db *sql.DB) error {
 	}
 
 	// Note: Initial data should be loaded manually using backend/db/init_data.sql
-	// Run: sqlite3 release_control.db < backend/db/init_data.sql
-	logger.GetLogger().Info("Database tables created successfully", "note", "Run: sqlite3 release_control.db < backend/db/init_data.sql to load sample data")
+	// Run: sqlite3 create-sample-data.db < backend/db/init_data.sql
+	logger.GetLogger().Info("Database tables created successfully", "note", "Run: sqlite3 create-sample-data.db < backend/db/init_data.sql to load sample data")
 
 	return nil
 }

@@ -1,4 +1,4 @@
-# Shell任务 逻辑
+# Shell执行 逻辑
 
 之前我的想法是可以直接使用原有的 ansible 和 salt 所在服务器和 playbook, sts 文件, 我仅仅是可以通过 ssh 连接到 ansible 和 salt 所在的服务器调用脚本即可.
 但是我发现实现的过程中, 后端 ansible 和 salt 的逻辑, 和 k8s deploy 的逻辑混在了一起. 前端我纠正过一次, 基本满足,但是仍需要小改一下.

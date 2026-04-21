@@ -80,7 +80,7 @@ func (r *SQLiteApplicationClusterConfigRepository) GetByID(ctx context.Context, 
 		&config.UpdatedAt,
 	)
 
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, errors.New("config not found")
 	}
 	if err != nil {
@@ -102,7 +102,7 @@ func (r *SQLiteApplicationClusterConfigRepository) GetByApplicationAndCluster(ct
 		&config.UpdatedAt,
 	)
 
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, errors.New("config not found")
 	}
 	if err != nil {

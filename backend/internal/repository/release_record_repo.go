@@ -47,7 +47,7 @@ func (r *SQLiteReleaseRecordRepository) Create(ctx context.Context, rr *models.R
 func (r *SQLiteReleaseRecordRepository) GetByID(ctx context.Context, id int) (*models.ReleaseRecord, error) {
 	var rr models.ReleaseRecord
 	err := r.db.QueryRowContext(ctx, sqReleaseRecordSelect+" WHERE id = ?", id).Scan(&rr.ID, &rr.AppID, &rr.EnvID, &rr.ClusterID, &rr.Image, &rr.Status, &rr.PreviousImage, &rr.ErrorMsg, &rr.TriggeredBy, &rr.StartedAt, &rr.CompletedAt, &rr.CreatedAt, &rr.UpdatedAt)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, errors.New("release not found")
 	}
 	return &rr, err

@@ -7,13 +7,13 @@ import type {
   Environment,
   Cluster,
   WorkloadTarget,
-  ApplicationListResponse
+  PaginatedResponse
 } from '@/types/api'
 import request from './request'
 
 // ==================== 应用 ====================
 
-export const getApplications = async (page: number = 1, pageSize: number = 10, search: string = ''): Promise<ApplicationListResponse> => {
+export const getApplications = async (page: number = 1, pageSize: number = 10, search: string = ''): Promise<PaginatedResponse<Application>> => {
   const params = new URLSearchParams()
   params.append('page', page.toString())
   params.append('pageSize', pageSize.toString())
@@ -188,51 +188,6 @@ export const deleteShellServer = (serverId: number): Promise<void> => {
   return request.delete(`/v1/shell-servers/${serverId}`)
 }
 
-// ==================== Shell 任务 ====================
-
-/**
- * 获取所有 Shell 任务
- */
-export const getShellTasks = async (): Promise<any[]> => {
-  const response: any = await request.get('/v1/shell-tasks')
-  return response?.data || []
-}
-
-/**
- * 获取单个 Shell 任务
- */
-export const getShellTask = (taskId: number): Promise<any> => {
-  return request.get(`/v1/shell-tasks/${taskId}`)
-}
-
-/**
- * 创建 Shell 任务
- */
-export const createShellTask = (task: any): Promise<any> => {
-  return request.post('/v1/shell-tasks', task)
-}
-
-/**
- * 更新 Shell 任务
- */
-export const updateShellTask = (taskId: number, task: any): Promise<any> => {
-  return request.put(`/v1/shell-tasks/${taskId}`, task)
-}
-
-/**
- * 删除 Shell 任务
- */
-export const deleteShellTask = (taskId: number): Promise<void> => {
-  return request.delete(`/v1/shell-tasks/${taskId}`)
-}
-
-/**
- * 执行 Shell 任务
- */
-export const executeShellTask = (taskId: number, payload: any): Promise<any> => {
-  return request.post(`/v1/shell-tasks/${taskId}/execute`, payload)
-}
-
 // ==================== 命令批准 ====================
 
 /**
@@ -317,17 +272,12 @@ export const metadataAPI = {
   deleteCluster,
   getWorkloadTargets,
   getClustersByAppAndEnv,
+  getApplicationsByCluster,
   getShellServers,
   getShellServer,
   createShellServer,
   updateShellServer,
   deleteShellServer,
-  getShellTasks,
-  getShellTask,
-  createShellTask,
-  updateShellTask,
-  deleteShellTask,
-  executeShellTask,
   getCommandApprovals,
   submitCommandApproval,
   approveCommand,

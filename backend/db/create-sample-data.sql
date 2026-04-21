@@ -1,4 +1,5 @@
 -- Initial sample data for Release Control System
+-- This file contains comprehensive test data for all tables in the schema
 
 -- 1. Insert sample applications (15 records)
 INSERT OR IGNORE INTO application (name, image_name, git_repo, build_type, created_at, updated_at) VALUES 
@@ -98,3 +99,76 @@ INSERT OR IGNORE INTO audit_log (user_id, operation, resource_type, resource_id,
 ('developer@example.com', 'VIEW', 'workload_history', 2, datetime('now', '-3 days')),
 ('admin@example.com', 'CREATE', 'application', 5, datetime('now', '-2 days')),
 ('scheduler@system', 'AUTO_DEPLOY', 'release', 15, datetime('now', '-1 days'));
+
+-- 8. Insert application cluster configurations
+INSERT OR IGNORE INTO application_cluster_config (id, application_id, cluster_id, labels, created_at, updated_at) VALUES 
+('app-1-cluster-1', (SELECT id FROM application WHERE name='api-service'), (SELECT id FROM cluster WHERE name='k8s-dev'), 'env=dev,tier=backend,owner=backend-team', datetime('now'), datetime('now')),
+('app-1-cluster-2', (SELECT id FROM application WHERE name='api-service'), (SELECT id FROM cluster WHERE name='k8s-staging'), 'env=staging,tier=backend,owner=backend-team', datetime('now'), datetime('now')),
+('app-1-cluster-3', (SELECT id FROM application WHERE name='api-service'), (SELECT id FROM cluster WHERE name='k8s-prod-cn1'), 'env=prod,tier=backend,zone=cn1,critical=true,owner=backend-team', datetime('now'), datetime('now')),
+('app-1-cluster-4', (SELECT id FROM application WHERE name='api-service'), (SELECT id FROM cluster WHERE name='k8s-prod-cn2'), 'env=prod,tier=backend,zone=cn2,critical=true,owner=backend-team', datetime('now'), datetime('now')),
+('app-2-cluster-1', (SELECT id FROM application WHERE name='web-ui'), (SELECT id FROM cluster WHERE name='k8s-dev'), 'env=dev,tier=frontend,owner=frontend-team', datetime('now'), datetime('now')),
+('app-2-cluster-2', (SELECT id FROM application WHERE name='web-ui'), (SELECT id FROM cluster WHERE name='k8s-staging'), 'env=staging,tier=frontend,owner=frontend-team', datetime('now'), datetime('now')),
+('app-2-cluster-3', (SELECT id FROM application WHERE name='web-ui'), (SELECT id FROM cluster WHERE name='k8s-prod-cn1'), 'env=prod,tier=frontend,zone=cn1,critical=true,owner=frontend-team', datetime('now'), datetime('now')),
+('app-3-cluster-1', (SELECT id FROM application WHERE name='data-processor'), (SELECT id FROM cluster WHERE name='k8s-dev'), 'env=dev,tier=processing,owner=data-team', datetime('now'), datetime('now')),
+('app-3-cluster-2', (SELECT id FROM application WHERE name='data-processor'), (SELECT id FROM cluster WHERE name='k8s-staging'), 'env=staging,tier=processing,owner=data-team', datetime('now'), datetime('now')),
+('app-3-cluster-3', (SELECT id FROM application WHERE name='data-processor'), (SELECT id FROM cluster WHERE name='k8s-prod-cn1'), 'env=prod,tier=processing,zone=cn1,critical=true,owner=data-team', datetime('now'), datetime('now'));
+
+-- 9. Insert shell servers (5 servers)
+INSERT OR IGNORE INTO shell_server (name, host, port, username, auth_type, password, private_key, status, last_connected, created_at, updated_at) VALUES 
+('dev-server-01', '192.168.1.10', 22, 'deploy', 'password', 'dev_password_123', NULL, 'active', datetime('now', '-1 hours'), datetime('now'), datetime('now')),
+('staging-server-01', '192.168.2.10', 22, 'deploy', 'key', NULL, '-----BEGIN RSA PRIVATE KEY-----\nMIIEpAIBAAKCAQEA2Z2wZ...truncated\n-----END RSA PRIVATE KEY-----', 'active', datetime('now', '-2 hours'), datetime('now'), datetime('now')),
+('prod-server-cn1-01', '10.0.1.10', 22, 'deploy', 'key', NULL, '-----BEGIN RSA PRIVATE KEY-----\nMIIEpAIBAAKCAQEA3a3xY...truncated\n-----END RSA PRIVATE KEY-----', 'active', datetime('now', '-30 minutes'), datetime('now'), datetime('now')),
+('prod-server-cn1-02', '10.0.1.11', 22, 'deploy', 'key', NULL, '-----BEGIN RSA PRIVATE KEY-----\nMIIEpAIBAAKCAQEA4b4yZ...truncated\n-----END RSA PRIVATE KEY-----', 'active', datetime('now', '-45 minutes'), datetime('now'), datetime('now')),
+('prod-server-cn2-01', '10.0.2.10', 22, 'deploy', 'key', NULL, '-----BEGIN RSA PRIVATE KEY-----\nMIIEpAIBAAKCAQEA5c5zZ...truncated\n-----END RSA PRIVATE KEY-----', 'active', datetime('now', '-1 hours'), datetime('now'), datetime('now'));
+
+-- 10. Insert shell commands (10 commands)
+INSERT OR IGNORE INTO shell_command (server_id, command, description, is_published, created_at, updated_at) VALUES 
+((SELECT id FROM shell_server WHERE name='dev-server-01'), 'systemctl status api-service', 'Check api-service status on dev server', 1, datetime('now'), datetime('now')),
+((SELECT id FROM shell_server WHERE name='dev-server-01'), 'docker logs -f api-service', 'View api-service logs in real-time', 1, datetime('now'), datetime('now')),
+((SELECT id FROM shell_server WHERE name='staging-server-01'), 'systemctl restart web-ui', 'Restart web-ui service on staging', 1, datetime('now'), datetime('now')),
+((SELECT id FROM shell_server WHERE name='staging-server-01'), 'kubectl get pods -n staging', 'List all pods in staging namespace', 1, datetime('now'), datetime('now')),
+((SELECT id FROM shell_server WHERE name='prod-server-cn1-01'), 'systemctl status payment-gateway', 'Check payment-gateway status', 0, datetime('now'), datetime('now')),
+((SELECT id FROM shell_server WHERE name='prod-server-cn1-01'), 'kubectl get deployments -n production', 'List all deployments in prod', 1, datetime('now'), datetime('now')),
+((SELECT id FROM shell_server WHERE name='prod-server-cn1-02'), 'df -h', 'Check disk usage', 1, datetime('now'), datetime('now')),
+((SELECT id FROM shell_server WHERE name='prod-server-cn1-02'), 'free -m', 'Check memory usage', 1, datetime('now'), datetime('now')),
+((SELECT id FROM shell_server WHERE name='prod-server-cn2-01'), 'uptime', 'Check server uptime', 1, datetime('now'), datetime('now')),
+((SELECT id FROM shell_server WHERE name='prod-server-cn2-01'), 'ps aux | grep java', 'Check running Java processes', 1, datetime('now'), datetime('now'));
+
+-- 11. Insert shell tasks (6 tasks)
+INSERT OR IGNORE INTO shell_task (name, description, command_id, execution_method, requires_approval, created_at, updated_at) VALUES 
+('health-check-dev', 'Perform health check on dev cluster', (SELECT id FROM shell_command WHERE description LIKE 'Check api-service%' LIMIT 1), 'parallel', 0, datetime('now'), datetime('now')),
+('restart-staging-web', 'Restart web-ui on staging server', (SELECT id FROM shell_command WHERE description='Restart web-ui service on staging'), 'serial', 0, datetime('now'), datetime('now')),
+('prod-list-deployments', 'List all production deployments', (SELECT id FROM shell_command WHERE description='List all deployments in prod'), 'serial', 1, datetime('now'), datetime('now')),
+('monitor-resources', 'Monitor disk and memory resources', (SELECT id FROM shell_command WHERE description='Check disk usage'), 'parallel', 0, datetime('now'), datetime('now')),
+('critical-restart-payment', 'Restart payment-gateway (CRITICAL)', (SELECT id FROM shell_command WHERE description='Check payment-gateway status'), 'serial', 1, datetime('now'), datetime('now')),
+('check-uptime', 'Check server uptime in production', (SELECT id FROM shell_command WHERE description='Check server uptime'), 'parallel', 0, datetime('now'), datetime('now'));
+
+-- 12. Insert shell task server associations (map tasks to servers)
+INSERT OR IGNORE INTO shell_task_server (task_id, server_id, created_at) VALUES 
+((SELECT id FROM shell_task WHERE name='health-check-dev'), (SELECT id FROM shell_server WHERE name='dev-server-01'), datetime('now')),
+((SELECT id FROM shell_task WHERE name='restart-staging-web'), (SELECT id FROM shell_server WHERE name='staging-server-01'), datetime('now')),
+((SELECT id FROM shell_task WHERE name='prod-list-deployments'), (SELECT id FROM shell_server WHERE name='prod-server-cn1-01'), datetime('now')),
+((SELECT id FROM shell_task WHERE name='prod-list-deployments'), (SELECT id FROM shell_server WHERE name='prod-server-cn1-02'), datetime('now')),
+((SELECT id FROM shell_task WHERE name='monitor-resources'), (SELECT id FROM shell_server WHERE name='prod-server-cn1-01'), datetime('now')),
+((SELECT id FROM shell_task WHERE name='monitor-resources'), (SELECT id FROM shell_server WHERE name='prod-server-cn1-02'), datetime('now')),
+((SELECT id FROM shell_task WHERE name='monitor-resources'), (SELECT id FROM shell_server WHERE name='prod-server-cn2-01'), datetime('now')),
+((SELECT id FROM shell_task WHERE name='critical-restart-payment'), (SELECT id FROM shell_server WHERE name='prod-server-cn1-01'), datetime('now')),
+((SELECT id FROM shell_task WHERE name='check-uptime'), (SELECT id FROM shell_server WHERE name='prod-server-cn2-01'), datetime('now'));
+
+-- 13. Insert shell task executions (execution history)
+INSERT OR IGNORE INTO shell_task_execution (task_id, server_id, command_id, status, output, error_message, exit_code, started_at, completed_at, created_at, updated_at) VALUES 
+((SELECT id FROM shell_task WHERE name='health-check-dev'), (SELECT id FROM shell_server WHERE name='dev-server-01'), (SELECT id FROM shell_command WHERE description LIKE 'Check api-service%' LIMIT 1), 'success', 'api-service is running (PID 12345)', NULL, 0, datetime('now', '-2 hours'), datetime('now', '-2 hours', '+10 seconds'), datetime('now', '-2 hours'), datetime('now', '-2 hours')),
+((SELECT id FROM shell_task WHERE name='restart-staging-web'), (SELECT id FROM shell_server WHERE name='staging-server-01'), (SELECT id FROM shell_command WHERE description='Restart web-ui service on staging'), 'success', 'Service restarted successfully', NULL, 0, datetime('now', '-90 minutes'), datetime('now', '-90 minutes', '+15 seconds'), datetime('now', '-90 minutes'), datetime('now', '-90 minutes')),
+((SELECT id FROM shell_task WHERE name='monitor-resources'), (SELECT id FROM shell_server WHERE name='prod-server-cn1-01'), (SELECT id FROM shell_command WHERE description='Check disk usage'), 'success', 'Filesystem: 82% used (410GB/500GB)', NULL, 0, datetime('now', '-45 minutes'), datetime('now', '-45 minutes', '+5 seconds'), datetime('now', '-45 minutes'), datetime('now', '-45 minutes')),
+((SELECT id FROM shell_task WHERE name='monitor-resources'), (SELECT id FROM shell_server WHERE name='prod-server-cn1-02'), (SELECT id FROM shell_command WHERE description='Check memory usage'), 'success', 'Memory: 78% used (15.6GB/20GB)', NULL, 0, datetime('now', '-45 minutes'), datetime('now', '-45 minutes', '+5 seconds'), datetime('now', '-45 minutes'), datetime('now', '-45 minutes')),
+((SELECT id FROM shell_task WHERE name='health-check-dev'), (SELECT id FROM shell_server WHERE name='dev-server-01'), (SELECT id FROM shell_command WHERE description LIKE 'Check api-service%' LIMIT 1), 'success', 'api-service is running (PID 12346)', NULL, 0, datetime('now', '-30 minutes'), datetime('now', '-30 minutes', '+10 seconds'), datetime('now', '-30 minutes'), datetime('now', '-30 minutes')),
+((SELECT id FROM shell_task WHERE name='check-uptime'), (SELECT id FROM shell_server WHERE name='prod-server-cn2-01'), (SELECT id FROM shell_command WHERE description='Check server uptime'), 'success', 'up 45 days, 12 hours, 34 minutes', NULL, 0, datetime('now', '-20 minutes'), datetime('now', '-20 minutes', '+5 seconds'), datetime('now', '-20 minutes'), datetime('now', '-20 minutes')),
+((SELECT id FROM shell_task WHERE name='prod-list-deployments'), (SELECT id FROM shell_server WHERE name='prod-server-cn1-01'), (SELECT id FROM shell_command WHERE description='List all deployments in prod'), 'failed', NULL, 'Connection timeout after 30s', 1, datetime('now', '-10 minutes'), datetime('now', '-10 minutes', '+30 seconds'), datetime('now', '-10 minutes'), datetime('now', '-10 minutes'));
+
+-- 14. Insert command approvals (for tasks requiring approval)
+INSERT OR IGNORE INTO command_approval (id, request_id, approval_status, approved_by, approved_at, created_at, updated_at) VALUES 
+('approval-001', 'req-prod-list-001', 'approved', 'admin@example.com', datetime('now', '-1 days'), datetime('now', '-1 days'), datetime('now', '-1 days')),
+('approval-002', 'req-critical-restart-001', 'pending', NULL, NULL, datetime('now', '-30 minutes'), datetime('now', '-30 minutes')),
+('approval-003', 'req-prod-list-002', 'rejected', 'security@example.com', datetime('now', '-2 days'), datetime('now', '-2 days', '+2 hours'), datetime('now', '-2 days', '+2 hours')),
+('approval-004', 'req-critical-restart-002', 'approved', 'admin@example.com', datetime('now', '-12 hours'), datetime('now', '-12 hours', '-30 minutes'), datetime('now', '-12 hours')),
+('approval-005', 'req-prod-list-003', 'approved', 'ops-lead@example.com', datetime('now', '-6 hours'), datetime('now', '-6 hours', '-1 hour'), datetime('now', '-6 hours'));

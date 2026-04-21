@@ -73,10 +73,10 @@ const menuItems: MenuItem[] = [
     meta: { title: '集群配置' }
   },
   {
-    name: 'ShellTask',
-    path: '/shell-task',
+    name: 'ShellTasks',
+    path: '/shell-tasks',
     label: 'Shell 任务',
-    icon: '🔧',
+    icon: '🐚',
     meta: { title: 'Shell 任务' }
   },
   {

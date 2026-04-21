@@ -1,5 +1,5 @@
 /**
- * shell.ts - Shell 服务器和任务相关的 API 调用
+ * shell.ts - Shell 服务器、命令和执行相关的 API 调用
  */
 
 import type {
@@ -54,11 +54,11 @@ export const createShellCommand = (data: Omit<ShellCommand, 'id' | 'created_at' 
   return request.post('/v1/shell-commands', data)
 }
 
-export const publishShellCommand = (id: number): Promise<ShellCommand> => {
+export const publishShellCommand = (id: number): Promise<void> => {
   return request.post(`/v1/shell-commands/${id}/publish`, {})
 }
 
-export const unpublishShellCommand = (id: number): Promise<ShellCommand> => {
+export const unpublishShellCommand = (id: number): Promise<void> => {
   return request.post(`/v1/shell-commands/${id}/unpublish`, {})
 }
 
@@ -81,11 +81,16 @@ export const getShellTask = (id: number): Promise<ShellTask> => {
   return request.get(`/v1/shell-tasks/${id}`)
 }
 
-export const createShellTask = (data: Omit<ShellTask, 'id' | 'created_at' | 'updated_at'>): Promise<ShellTask> => {
+export const createShellTask = (
+  data: Omit<ShellTask, 'id' | 'created_at' | 'updated_at'>
+): Promise<ShellTask> => {
   return request.post('/v1/shell-tasks', data)
 }
 
-export const updateShellTask = (id: number, data: Partial<ShellTask>): Promise<ShellTask> => {
+export const updateShellTask = (
+  id: number,
+  data: Partial<ShellTask>
+): Promise<ShellTask> => {
   return request.put(`/v1/shell-tasks/${id}`, data)
 }
 
@@ -93,18 +98,19 @@ export const deleteShellTask = (id: number): Promise<void> => {
   return request.delete(`/v1/shell-tasks/${id}`)
 }
 
-// ============ Shell Execution API ============
+// ============ Shell Task Execution API ============
 
-export const listShellExecutions = (
+export const listShellTaskExecutions = (
   page: number = 1,
   pageSize: number = 10,
   taskID?: number
 ): Promise<PaginatedResponse<ShellTaskExecution>> => {
   const params: any = { page, pageSize }
   if (taskID) params.taskID = taskID
-  return request.get('/v1/shell-executions', { params })
+  return request.get('/v1/shell-task-executions', { params })
 }
 
-export const getShellExecution = (id: number): Promise<ShellTaskExecution> => {
-  return request.get(`/v1/shell-executions/${id}`)
+export const getShellTaskExecution = (id: number): Promise<ShellTaskExecution> => {
+  return request.get(`/v1/shell-task-executions/${id}`)
 }
+

@@ -12,46 +12,268 @@ tools: Read, Grep, Glob, Bash, Create, Edit
 
 ### 技能栈
 
-- **语言框架**: Go + go-chi (轻量级 REST API)
-- **数据库**: SQLite (配置中心) + 高并发优化
-- **K8s集成**: client-go (多集群管理、部署更新、状态查询)
-- **部署方式**: K8s (优先) + Salt + Ansible (可扩展接口)
-- **安全**: AES 加密、JWT 认证、RBAC 权限、操作审计
-- **测试**: 单元测试、集成测试、性能测试
+- **编程语言**: Go 1.26+ (高并发、内存高效)
+- **Web框架**: go-chi v5.2+ (轻量级 REST API、路由、中间件)
+- **数据库**: SQLite3 (本地配置管理、无需额外部署、WAL mode优化)
+- **K8s集成**: client-go (多集群管理、Deployment/StatefulSet/DaemonSet部署)
+- **部署方式**: K8s (优先) + 通过SSH执行Shell命令 (Salt/Ansible等)
+- **安全加密**: AES 加密(kubeconfig、密钥)、敏感信息隐藏(json:"-")、SSH认证
+- **并发处理**: Goroutines、异步发布流程、数据库并发控制
+- **CORS**: go-chi/cors (跨域资源共享支持)
+- **测试**: stretchr/testify (单元测试、断言库)
+- **日志**: 结构化日志记录、链路追踪ID
 
 ---
 
 ## 发布控制系统的核心架构
 
-### 系统分层
+### 系统分层（三层架构 - 简化）
 
 ```
-API层 (go-chi)
-  ↓
-Service层 (ReleaseService、WorkloadService)
-  ↓
-Repository层 (数据访问抽象)
-  ↓
-Deploy层 (DeployStrategy 策略接口)
-  ↓ (接口实现)
-K8sDeployer / SaltDeployer / AnsibleDeployer
+┌─────────────────────────────────────────────────────────────┐
+│ HTTP层 (go-chi Handler) ⭐ 业务协调                         │
+│ ├─ handlers/router.go (路由定义)                            │
+│ ├─ handlers/releases.go (发布API + 直接业务逻辑)            │
+│ ├─ handlers/applications.go (应用API)                       │
+│ ├─ handlers/clusters.go (集群API)                           │
+│ ├─ handlers/shell_tasks.go (Shell API)                      │
+│ └─ middleware/ (CORS、日志、RequestID)                      │
+│   职责: HTTP处理、请求验证、错误处理、业务协调              │
+└────────────────┬────────────────────────────────────────────┘
+                 │
+┌────────────────▼────────────────────────────────────────────┐
+│ Domain + Service层 (业务逻辑) ⭐ 核心                       │
+│ ├─ domain/{agg}/aggregates/ (DDD聚合根)                    │
+│ ├─ domain/{agg}/services/ (Domain Service 函数)             │
+│ ├─ internal/services/*.go (简单的service函数)               │
+│ │  └─ ReleaseHelper, ApplicationHelper, ClusterHelper...   │
+│ │  └─ 职责: 协调repository、实现业务规则                   │
+│ └─ deployers/ (策略模式: 部署执行器)                       │
+│   职责: 业务规则、验证逻辑、事务管理、协调repository        │
+└────────────────┬────────────────────────────────────────────┘
+                 │
+┌────────────────▼────────────────────────────────────────────┐
+│ Repository层 (数据访问) ⭐ 数据隔离                         │
+│ ├─ domain/{agg}/repositories/ (接口)                        │
+│ ├─ infrastructure/persistence/repositories/ (实现)           │
+│ │  ├─ release_repository.go                                │
+│ │  ├─ application_repository.go                            │
+│ │  ├─ cluster_repository.go                                │
+│ │  ├─ workload_target_repository.go                        │
+│ │  └─ ... (其他repositories)                               │
+│ └─ 职责: CRUD操作、查询、SQL执行、数据映射                  │
+└────────────────┬────────────────────────────────────────────┘
+                 │
+┌────────────────▼────────────────────────────────────────────┐
+│ 数据库和基础设施                                            │
+│ ├─ database/ (SQLite初始化、schema)                         │
+│ ├─ internal/config/ (配置管理)                              │
+│ ├─ pkg/ (通用工具: logger、utils)                           │
+│ └─ models/ (数据模型struct)                                 │
+└─────────────────────────────────────────────────────────────┘
 ```
 
-### 数据模型关键表
+### 数据模型关键表 (SQLite3, Schema V3)
 
-| 表名 | 用途 | 优先级 |
-|------|------|--------|
-| application | 应用元信息 | P0 |
-| environment | 逻辑环境(prod/staging/dr) | P0 |
-| cluster | 物理集群 | P0 |
-| workload_target | 应用→环境→集群的映射（核心） | P0 |
-| release_record | 发布记录及生命周期追踪 | P0 |
-| release_event | 发布过程中的详细事件日志 | P0 |
-| audit_log | 操作审计日志 | P1 |
+| 表名 | Go Model | 用途 | 核心字段 |
+|------|----------|------|---------|
+| application | Application | 应用信息 | id, name, git_repo, build_type |
+| environment | Environment | 逻辑环境 | id, name, priority |
+| cluster | Cluster | K8s集群 + SSH服务器 | id, name, type, kubeconfig(加密), k8s_connection_status |
+| workload_target | WorkloadTarget | **应用→环境→集群映射** | (app_id,env_id,cluster_id)唯一, namespace, workload_name, workload_type, container_name, registry_domain, image_repo |
+| release_record | ReleaseRecord | 发布记录及生命周期 | id, app_id, env_id, cluster_id, image, status, previous_image, triggered_by, started_at, completed_at |
+| release_event | ReleaseEvent | 发布过程事件日志 | id, release_id, event_type, event_message, created_at |
+| shell_server | ShellServer | SSH服务器配置 | id, name, host, port, username, auth_type, password(加密), private_key(加密), status |
+| shell_command | ShellCommand | 允许执行的命令白名单 | id, server_id, command, is_published |
+| shell_exec_task | ShellExecTask | 命令执行记录 | id, task_id, server_id, command_id, status, output, error_message, exit_code |
 
 ---
 
-## MVP 实施路线（6天）
+## 服务层架构指南 ⭐ 已简化
+
+### Service层职责定义（简单函数方式）
+
+| 模式 | 位置 | 用途 | 优点 |
+|------|------|------|------|
+| **Business Logic Helper** | `internal/services/helpers.go` | 具体业务操作 | 直接、无中间层 |
+| **Validation Helper** | `internal/services/validation.go` | 参数验证、前置检查 | 专注验证逻辑 |
+| **Transaction Manager** | `internal/services/transaction.go` | 事务边界管理 | 清晰的事务控制 |
+| **Domain Service** | `domain/{agg}/services/` | 跨聚合业务规则 | DDD风格保留 |
+
+### 推荐的服务函数签名
+
+```go
+// internal/services/helpers.go
+
+// Release 处理一次发布操作（Handler直接调用）
+func ReleaseApp(ctx context.Context, 
+    appID, envID, clusterID int, 
+    image string, 
+    repo ReleaseRepository,
+    workloadRepo WorkloadTargetRepository,
+    deployer DeployStrategy,
+    log *logger.Logger) (*models.ReleaseRecord, error) {
+    
+    // 1. 参数验证
+    if appID <= 0 || image == "" {
+        return nil, fmt.Errorf("invalid input: appID=%d, image=%s", appID, image)
+    }
+    
+    // 2. 获取部署目标
+    workload, err := workloadRepo.GetByAppEnvCluster(ctx, appID, envID, clusterID)
+    if err != nil {
+        return nil, fmt.Errorf("failed to get workload: %w", err)
+    }
+    
+    // 3. 执行部署
+    if err := deployer.Deploy(ctx, workload, image); err != nil {
+        return nil, fmt.Errorf("deployment failed: %w", err)
+    }
+    
+    // 4. 记录发布
+    record := &models.ReleaseRecord{
+        AppID: appID,
+        EnvID: envID,
+        ClusterID: clusterID,
+        Image: image,
+        Status: "success",
+        StartedAt: time.Now(),
+        CompletedAt: time.Now(),
+    }
+    
+    if err := repo.Save(ctx, record); err != nil {
+        return nil, fmt.Errorf("failed to save release: %w", err)
+    }
+    
+    return record, nil
+}
+
+// GetReleaseStatus 查询发布状态
+func GetReleaseStatus(ctx context.Context, 
+    releaseID int, 
+    repo ReleaseRepository) (*models.ReleaseRecord, error) {
+    
+    release, err := repo.ByID(ctx, releaseID)
+    if err != nil {
+        return nil, fmt.Errorf("release not found: %w", err)
+    }
+    return release, nil
+}
+
+// CreateApplication 创建应用
+func CreateApplication(ctx context.Context,
+    name, imageName, owner string,
+    repo ApplicationRepository) (*models.Application, error) {
+    
+    // 验证
+    if name == "" || imageName == "" {
+        return nil, fmt.Errorf("name and image_name required")
+    }
+    
+    app := &models.Application{
+        Name: name,
+        ImageName: imageName,
+        Owner: owner,
+        CreatedAt: time.Now(),
+    }
+    
+    if err := repo.Save(ctx, app); err != nil {
+        return nil, fmt.Errorf("failed to create application: %w", err)
+    }
+    
+    return app, nil
+}
+```
+
+### Handler调用示例
+
+```go
+// internal/handlers/releases/handler.go
+
+func (h *ReleaseHandler) CreateRelease(w http.ResponseWriter, r *http.Request) {
+    var req struct {
+        AppID     int    `json:"app_id"`
+        EnvID     int    `json:"env_id"`
+        ClusterID int    `json:"cluster_id"`
+        Image     string `json:"image"`
+    }
+    
+    if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+        http.Error(w, err.Error(), http.StatusBadRequest)
+        return
+    }
+    
+    // 直接调用服务函数，无中间层
+    record, err := services.ReleaseApp(
+        r.Context(),
+        req.AppID, req.EnvID, req.ClusterID, req.Image,
+        h.releaseRepo, h.workloadRepo, h.deployer, h.log,
+    )
+    if err != nil {
+        h.log.Error("Release failed", "error", err)
+        http.Error(w, err.Error(), http.StatusInternalServerError)
+        return
+    }
+    
+    w.Header().Set("Content-Type", "application/json")
+    json.NewEncoder(w).Encode(map[string]any{
+        "code": 0,
+        "data": record,
+    })
+}
+```
+
+### 对比：Application Service vs Service Helper
+
+| 特性 | Application Service | Service Helper |
+|------|-------------------|-----------------|
+| **定义** | 复杂的服务类 | 简单的函数 |
+| **初始化** | 需要DI容器注入 | 直接调用 |
+| **职责** | 多个（协调+验证+事务+...） | 单一（特定业务操作） |
+| **可测试性** | ★★★★☆ | ★★★★★ |
+| **代码复杂度** | 中等 | 低 |
+| **适用场景** | 复杂业务流程 | 中小型CRUD操作 |
+| **Go习惯度** | ★★☆ | ★★★★★ |
+
+**结论**: 本项目使用 Service Helper 函数方式，保持 Go 的简单直白风格。
+
+### 关键设计原则
+
+1. **事务边界**: Service层包含完整的业务事务
+   ```go
+   func (s *ReleaseService) Release(ctx context.Context, req *ReleaseRequest) error {
+       tx := s.db.BeginTx(ctx)
+       defer tx.Rollback()
+       // 所有操作在事务内完成
+       return tx.Commit().Error
+   }
+   ```
+
+2. **验证分层**:
+   - Handler: HTTP格式验证（JSON序列化）
+   - Service: 业务规则验证（权限、逻辑约束）
+   - Repository: 数据库约束（FK、UK）
+
+3. **依赖注入**: 所有Repository通过构造函数注入
+   ```go
+   type ReleaseService struct {
+       releaseRepo ReleaseRecordRepository
+       workloadRepo WorkloadTargetRepository
+       appRepo ApplicationRepository
+       deployer Deployer
+   }
+   ```
+
+4. **错误处理**: 统一的错误类型
+   ```go
+   type ServiceError struct {
+       Code    string // INVALID_INPUT, PERMISSION_DENIED, NOT_FOUND
+       Message string
+       Err     error
+   }
+   ```
+
+---
 
 ### Day 1-2: 数据层基础
 
@@ -75,18 +297,20 @@ K8sDeployer / SaltDeployer / AnsibleDeployer
 
 ---
 
-### Day 3: 部署抽象 + K8s 实现
+### Day 3: K8s部署实现
 
 **任务**:
 1. DeployStrategy 接口设计 (6个方法: Deploy/Validate/Rollback/Status/HealthCheck/Type)
-2. K8sDeployer 完整实现
+2. K8sDeployer 完整实现 (仅支持K8s)
 3. Deployer 工厂模式
 4. kubeconfig 加密存储方案
+5. ShellService设计 (通过SSH执行命令)
 
 **输出**:
-- `internal/deploy/deployer.go` - DeployStrategy 接口
-- `internal/deploy/k8s.go` - K8sDeployer 实现
-- `internal/deploy/factory.go` - Deployer 工厂
+- `internal/deployers/deployer.go` - DeployStrategy 接口
+- `internal/deployers/k8s_deployer.go` - K8sDeployer 实现
+- `internal/deployers/factory.go` - Deployer 工厂
+- `internal/services/shell_service.go` - ShellService 实现
 - `internal/crypto/encryption.go` - AES 加密工具
 
 **K8sDeployer 关键实现**:
@@ -96,11 +320,21 @@ K8sDeployer / SaltDeployer / AnsibleDeployer
 - 状态查询: Pod ready 状态、Rollout 进度
 - 错误信息详细记录 (Event、错误原因)
 
+**ShellService 关键实现** (Salt/Ansible等通过SSH执行):
+- SSH连接管理（支持密钥和密码认证）
+- 命令白名单执行（shell_command表）
+- 单服务器和多服务器执行（串行/并行）
+- 执行结果完整记录（shell_exec_task表）
+- 连接缓存和复用（避免频繁建立连接）
+
 **检查清单**:
 - [ ] kubeconfig 能正确加载并连接集群
 - [ ] Pod 更新能准确执行 (不误杀其他容器)
 - [ ] 健康检查逻辑完善 (ready、running)
 - [ ] 多集群客户端缓存有效
+- [ ] SSH连接支持密钥和密码认证
+- [ ] 命令执行结果完整记录到数据库
+- [ ] 支持并行执行多个服务器
 
 ---
 

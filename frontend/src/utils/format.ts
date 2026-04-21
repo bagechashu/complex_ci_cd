@@ -21,6 +21,17 @@ export const formatDateTime = (
 }
 
 /**
+ * 格式化日期（仅日期部分）
+ */
+export const formatDate = (
+  timestamp: string | null | undefined,
+  format = 'YYYY-MM-DD'
+): string => {
+  if (!timestamp) return '-'
+  return dayjs(timestamp).format(format)
+}
+
+/**
  * 格式化为相对时间（如"5分钟前"）
  */
 export const formatRelativeTime = (timestamp: string | null | undefined): string => {
@@ -65,6 +76,21 @@ export const getStatusLabel = (status: string): string => {
     rolled_back: '已回滚'
   }
   return statusMap[status] || status
+}
+
+/**
+ * 获取状态的 UI 类型（用于 NTag）
+ */
+export const getStatusType = (status: string): 'success' | 'error' | 'warning' | 'info' => {
+  const typeMap: Record<string, 'success' | 'error' | 'warning' | 'info'> = {
+    pending: 'warning',
+    validating: 'info',
+    deploying: 'info',
+    success: 'success',
+    failed: 'error',
+    rolled_back: 'warning'
+  }
+  return typeMap[status] || 'info'
 }
 
 /**

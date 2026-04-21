@@ -84,7 +84,7 @@ func (r *SQLiteShellServerRepository) GetByID(ctx context.Context, id int) (*mod
 		&s.ID, &s.Name, &s.Host, &s.Port, &s.Username,
 		&s.AuthType, &encryptedPassword, &encryptedPrivateKey,
 		&s.Status, &s.LastConnected, &s.CreatedAt, &s.UpdatedAt)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, errors.New("shell server not found")
 	}
 	if err != nil {
@@ -120,7 +120,7 @@ func (r *SQLiteShellServerRepository) GetByName(ctx context.Context, name string
 		&s.ID, &s.Name, &s.Host, &s.Port, &s.Username,
 		&s.AuthType, &encryptedPassword, &encryptedPrivateKey,
 		&s.Status, &s.LastConnected, &s.CreatedAt, &s.UpdatedAt)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, errors.New("shell server not found")
 	}
 	if err != nil {

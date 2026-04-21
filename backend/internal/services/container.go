@@ -1,0 +1,230 @@
+package services
+
+import (
+	"database/sql"
+	"fmt"
+
+	"built-and-deploy/internal/deployers"
+	"built-and-deploy/internal/repository"
+	"built-and-deploy/pkg/logger"
+)
+
+type ServiceContainer struct {
+	// Service instances
+	applicationService *ApplicationService
+	clusterService     *ClusterService
+	shellService       *ShellService
+
+	// Repository instances
+	releaseRepo           repository.ReleaseRecordRepository
+	appRepo               repository.ApplicationRepository
+	clusterRepo           repository.ClusterRepository
+	workloadRepo          repository.WorkloadTargetRepository
+	eventRepo             repository.ReleaseEventRepository
+	shellServerRepo       repository.ShellServerRepository
+	shellCommandRepo      repository.ShellCommandRepository
+	shellTaskExecutionRepo repository.ShellTaskExecutionRepository
+	shellTaskRepo         repository.ShellTaskRepository
+
+	deployerFact *deployers.DeployerFactory
+	log          *logger.Logger
+	db           *sql.DB
+}
+
+// Option is a functional option for ServiceContainer
+type Option func(*ServiceContainer) error
+
+// NewServiceContainer creates a new ServiceContainer with functional options
+func NewServiceContainer(
+	db *sql.DB,
+	log *logger.Logger,
+	opts ...Option,
+) (*ServiceContainer, error) {
+	c := &ServiceContainer{
+		log: log,
+		db:  db,
+		deployerFact: deployers.NewDeployerFactory(log),
+	}
+
+	// Apply all options
+	for _, opt := range opts {
+		if err := opt(c); err != nil {
+			return nil, fmt.Errorf("applying option: %w", err)
+		}
+	}
+
+	// Validate that all required repositories are set
+	if err := c.validate(); err != nil {
+		return nil, err
+	}
+
+	// Initialize services
+	// ApplicationService
+	if c.appRepo != nil && c.releaseRepo != nil {
+		c.applicationService = NewApplicationService(c.appRepo, c.releaseRepo, log)
+	}
+
+	// ClusterService
+	if c.clusterRepo != nil {
+		c.clusterService = NewClusterService(c.clusterRepo, c.deployerFact, "default-key", log)
+	}
+
+	// ShellService
+	if c.shellTaskRepo != nil && c.shellServerRepo != nil && c.shellCommandRepo != nil && c.shellTaskExecutionRepo != nil {
+		encryptionKey := "default-key" // This should be passed as option
+		c.shellService = NewShellService(c.shellTaskRepo, c.shellServerRepo, c.shellCommandRepo, c.shellTaskExecutionRepo, encryptionKey, log)
+	}
+
+	return c, nil
+}
+
+// validate checks that all required repositories are set
+func (c *ServiceContainer) validate() error {
+	if c.appRepo == nil {
+		return fmt.Errorf("application repository is required")
+	}
+	if c.clusterRepo == nil {
+		return fmt.Errorf("cluster repository is required")
+	}
+	if c.releaseRepo == nil {
+		return fmt.Errorf("release repository is required")
+	}
+	if c.workloadRepo == nil {
+		return fmt.Errorf("workload repository is required")
+	}
+	if c.eventRepo == nil {
+		return fmt.Errorf("event repository is required")
+	}
+	if c.shellServerRepo == nil {
+		return fmt.Errorf("shell server repository is required")
+	}
+	if c.shellCommandRepo == nil {
+		return fmt.Errorf("shell command repository is required")
+	}
+	if c.shellTaskExecutionRepo == nil {
+		return fmt.Errorf("shell task execution repository is required")
+	}
+	if c.shellTaskRepo == nil {
+		return fmt.Errorf("shell task repository is required")
+	}
+	return nil
+}
+
+// Functional options for each repository
+
+// WithApplicationRepository sets the application repository
+func WithApplicationRepository(repo repository.ApplicationRepository) Option {
+	return func(c *ServiceContainer) error {
+		if repo == nil {
+			return fmt.Errorf("application repository cannot be nil")
+		}
+		c.appRepo = repo
+		return nil
+	}
+}
+
+// WithClusterRepository sets the cluster repository
+func WithClusterRepository(repo repository.ClusterRepository) Option {
+	return func(c *ServiceContainer) error {
+		if repo == nil {
+			return fmt.Errorf("cluster repository cannot be nil")
+		}
+		c.clusterRepo = repo
+		return nil
+	}
+}
+
+// WithReleaseRepository sets the release record repository
+func WithReleaseRepository(repo repository.ReleaseRecordRepository) Option {
+	return func(c *ServiceContainer) error {
+		if repo == nil {
+			return fmt.Errorf("release record repository cannot be nil")
+		}
+		c.releaseRepo = repo
+		return nil
+	}
+}
+
+// WithWorkloadRepository sets the workload target repository
+func WithWorkloadRepository(repo repository.WorkloadTargetRepository) Option {
+	return func(c *ServiceContainer) error {
+		if repo == nil {
+			return fmt.Errorf("workload target repository cannot be nil")
+		}
+		c.workloadRepo = repo
+		return nil
+	}
+}
+
+// WithEventRepository sets the release event repository
+func WithEventRepository(repo repository.ReleaseEventRepository) Option {
+	return func(c *ServiceContainer) error {
+		if repo == nil {
+			return fmt.Errorf("event repository cannot be nil")
+		}
+		c.eventRepo = repo
+		return nil
+	}
+}
+
+// WithShellServerRepository sets the shell server repository
+func WithShellServerRepository(repo repository.ShellServerRepository) Option {
+	return func(c *ServiceContainer) error {
+		if repo == nil {
+			return fmt.Errorf("shell server repository cannot be nil")
+		}
+		c.shellServerRepo = repo
+		return nil
+	}
+}
+
+// WithShellCommandRepository sets the shell command repository
+func WithShellCommandRepository(repo repository.ShellCommandRepository) Option {
+	return func(c *ServiceContainer) error {
+		if repo == nil {
+			return fmt.Errorf("shell command repository cannot be nil")
+		}
+		c.shellCommandRepo = repo
+		return nil
+	}
+}
+
+// WithShellTaskRepository sets the shell task repository
+func WithShellTaskRepository(repo repository.ShellTaskRepository) Option {
+	return func(c *ServiceContainer) error {
+		if repo == nil {
+			return fmt.Errorf("shell task repository cannot be nil")
+		}
+		c.shellTaskRepo = repo
+		return nil
+	}
+}
+
+// WithShellTaskExecutionRepository sets the shell task execution repository
+func WithShellTaskExecutionRepository(repo repository.ShellTaskExecutionRepository) Option {
+	return func(c *ServiceContainer) error {
+		if repo == nil {
+			return fmt.Errorf("shell task execution repository cannot be nil")
+		}
+		c.shellTaskExecutionRepo = repo
+		return nil
+	}
+}
+
+// Getter methods
+
+func (c *ServiceContainer) Application() *ApplicationService { return c.applicationService }
+func (c *ServiceContainer) Cluster() *ClusterService { return c.clusterService }
+func (c *ServiceContainer) Shell() *ShellService { return c.shellService }
+func (c *ServiceContainer) ApplicationRepo() repository.ApplicationRepository { return c.appRepo }
+func (c *ServiceContainer) ClusterRepo() repository.ClusterRepository { return c.clusterRepo }
+func (c *ServiceContainer) ReleaseRepo() repository.ReleaseRecordRepository { return c.releaseRepo }
+func (c *ServiceContainer) WorkloadRepo() repository.WorkloadTargetRepository { return c.workloadRepo }
+func (c *ServiceContainer) EventRepo() repository.ReleaseEventRepository { return c.eventRepo }
+func (c *ServiceContainer) ShellServerRepo() repository.ShellServerRepository { return c.shellServerRepo }
+func (c *ServiceContainer) ShellCommandRepo() repository.ShellCommandRepository { return c.shellCommandRepo }
+func (c *ServiceContainer) ShellTaskRepo() repository.ShellTaskRepository { return c.shellTaskRepo }
+func (c *ServiceContainer) ShellTaskExecutionRepo() repository.ShellTaskExecutionRepository { return c.shellTaskExecutionRepo }
+func (c *ServiceContainer) Logger() *logger.Logger { return c.log }
+func (c *ServiceContainer) DB() *sql.DB { return c.db }
+func (c *ServiceContainer) DeployerFactory() *deployers.DeployerFactory { return c.deployerFact }

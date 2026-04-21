@@ -42,10 +42,10 @@
               </n-tag>
             </n-descriptions-item>
             <n-descriptions-item label="当前镜像">
-              {{ release.image }}
+              {{ truncateString(release.image, 60) }}
             </n-descriptions-item>
             <n-descriptions-item label="上一版本">
-              {{ release.previous_image || '-' }}
+              {{ truncateString(release.previous_image, 60) }}
             </n-descriptions-item>
             <n-descriptions-item label="发起人">
               {{ release.triggered_by }}
@@ -87,7 +87,7 @@
             <div v-for="event in events" :key="event.id" class="event">
               <div class="event-header">
                 <span class="time">{{ formatDateTime(event.created_at, 'YYYY-MM-DD HH:mm:ss') }}</span>
-                <n-tag type="info" size="small">{{ event.type }}</n-tag>
+                <n-tag type="info" size="small">{{ getEventTypeLabel(event.type) }}</n-tag>
               </div>
               <div class="event-message">{{ event.message }}</div>
               <div v-if="event.details" class="event-details">
@@ -145,7 +145,7 @@ import {
 import { useReleaseStore } from '@/stores/releaseStore'
 import { useAppStore } from '@/stores/appStore'
 import { useUiStore } from '@/stores/uiStore'
-import { formatDateTime, getStatusLabel, formatDuration } from '@/utils/format'
+import { formatDateTime, getStatusLabel, formatDuration, getStatusType, getEventTypeLabel, truncateString } from '@/utils/format'
 import type { ReleaseResponse, ReleaseEvent } from '@/types/api'
 
 const router = useRouter()
@@ -274,18 +274,6 @@ const handleRetry = () => {
 
 const goBack = () => {
   router.push({ name: 'ReleaseHistory' })
-}
-
-const getStatusType = (status: string) => {
-  const typeMap: Record<string, 'success' | 'error' | 'warning' | 'info'> = {
-    pending: 'warning',
-    validating: 'info',
-    deploying: 'info',
-    success: 'success',
-    failed: 'error',
-    rolled_back: 'warning'
-  }
-  return typeMap[status] || 'info'
 }
 
 // ============ Lifecycle ============
