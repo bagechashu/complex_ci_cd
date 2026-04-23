@@ -1,72 +1,65 @@
 <template>
   <div class="shell-tasks-page">
-    <!-- Page Header -->
-    <div class="page-header">
-      <div class="header-title">
-        <h1>🐚 Shell 任务管理</h1>
-        <p class="subtitle">创建和管理预定义的 Shell 执行任务（DDD 架构）</p>
+    <div class="main-content">
+      <!-- Page Header -->
+      <div class="page-header">
+        <div class="header-title">
+          <h1>🐚 Shell 任务管理</h1>
+        </div>
+        <div class="header-actions">
+          <n-button type="primary" @click="openCreateModal" :loading="createLoading">
+            + 创建任务
+          </n-button>
+          <n-button
+            v-if="selectedRowKeys.length > 0"
+            type="error"
+            @click="deleteBatch"
+            :loading="deleteLoading"
+          >
+            批量删除
+          </n-button>
+        </div>
       </div>
-      <div class="header-actions">
-        <n-button type="primary" @click="openCreateModal" :loading="createLoading">
-          + 创建任务
-        </n-button>
+
+      <!-- Error Message -->
+      <n-alert v-if="error" type="error" closable @close="clearError" class="mb-4">
+        {{ error }}
+      </n-alert>
+
+      <!-- Table Section (Toolbar + Table + Pagination) -->
+      <div class="table-section">
+        <!-- Tasks Table -->
+        <n-card class="tasks-table">
+          <n-spin :show="tasksLoading">
+            <n-data-table
+              :columns="columns"
+              :data="shellTasks"
+              :bordered="false"
+              :single-line="false"
+              :loading="tasksLoading"
+              :row-key="(row) => row.id"
+              v-model:checked-row-keys="selectedRowKeys"
+              :scroll-x="1200"
+              striped
+              class="shell-tasks-table"
+            />
+          </n-spin>
+        </n-card>
+
+        <!-- Pagination -->
+        <div class="pagination-container">
+          <n-pagination
+            v-model:page="currentPage"
+            :page-count="pagination.totalPages"
+            :page-size="pagination.pageSize"
+            show-size-picker
+            :page-sizes="[5, 10, 20, 50]"
+            @update:page="handlePageChange"
+            @update:page-size="handlePageSizeChange"
+            style="text-align: right"
+          />
+        </div>
       </div>
-    </div>
-
-    <!-- Error Message -->
-    <n-alert v-if="error" type="error" closable @close="clearError" class="mb-4">
-      {{ error }}
-    </n-alert>
-
-    <!-- Toolbar -->
-    <div class="toolbar">
-      <div class="toolbar-left">
-        <n-checkbox v-model:checked="selectAll" @update:checked="handleSelectAllChange">
-          全选
-        </n-checkbox>
-        <span v-if="selectedTaskIds.length > 0" class="selection-info">
-          已选择 {{ selectedTaskIds.length }} 项
-        </span>
-      </div>
-      <div class="toolbar-right">
-        <n-button
-          v-if="selectedTaskIds.length > 0"
-          type="error"
-          @click="deleteBatch"
-          :loading="deleteLoading"
-        >
-          批量删除
-        </n-button>
-      </div>
-    </div>
-
-    <!-- Tasks Table -->
-    <n-card class="tasks-table">
-      <n-spin :show="tasksLoading">
-        <n-data-table
-          :columns="columns"
-          :data="shellTasks"
-          :bordered="false"
-          :single-line="false"
-          :loading="tasksLoading"
-          striped
-          class="shell-tasks-table"
-        />
-      </n-spin>
-    </n-card>
-
-    <!-- Pagination -->
-    <div class="pagination-container">
-      <n-pagination
-        v-model:page="currentPage"
-        :page-count="pagination.totalPages"
-        :page-size="pagination.pageSize"
-        show-size-picker
-        :page-sizes="[5, 10, 20, 50]"
-        @update:page="handlePageChange"
-        @update:page-size="handlePageSizeChange"
-        style="text-align: right"
-      />
     </div>
 
     <!-- Create/Edit Modal -->
@@ -171,7 +164,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, h } from 'vue'
+import { ref, computed, onMounted, h, watch } from 'vue'
 import { useShellStore } from '@/stores/shellStore'
 import type { DataTableColumn } from 'naive-ui'
 import type { ShellTask } from '@/types/api'
@@ -194,7 +187,7 @@ const showDeleteConfirm = ref(false)
 const editingTaskId = ref<number | null>(null)
 const taskToDelete = ref<ShellTask | null>(null)
 const currentPage = ref(1)
-const selectAll = ref(false)
+const selectedRowKeys = ref<(string | number)[]>([])
 
 const taskForm = ref<Partial<ShellTask>>({
   name: '',
@@ -218,8 +211,12 @@ const formRules = {
     trigger: 'change'
   },
   server_ids: {
-    required: true,
-    message: '请选择至少一个目标服务器',
+    validator: (rule, value) => {
+      if (!Array.isArray(value) || value.length === 0) {
+        return new Error('请选择至少一个目标服务器')
+      }
+      return true
+    },
     trigger: 'change'
   }
 }
@@ -254,10 +251,22 @@ const serverTreeOptions = computed(() => {
   }))
 })
 
+// Watch selectedRowKeys changes and sync with shellStore
+watch(selectedRowKeys, (newKeys) => {
+  // Update selectedTaskIds in store based on table selection
+  shellStore.selectedTaskIds.value = newKeys as number[]
+})
+
+watch(selectedTaskIds, (newIds) => {
+  // Update selectedRowKeys based on store changes
+  selectedRowKeys.value = newIds
+})
+
 // ============ Table Columns ============
 const columns: DataTableColumn<ShellTask>[] = [
   {
     type: 'selection',
+    key: 'selection',
     width: 40,
     align: 'center'
   },
@@ -470,15 +479,15 @@ const confirmDelete = async () => {
  * Batch delete
  */
 const deleteBatch = async () => {
-  if (selectedTaskIds.value.length === 0) {
+  if (selectedRowKeys.value.length === 0) {
     message.warning('请先选择要删除的任务')
     return
   }
 
-  const count = await shellStore.deleteMultipleShellTasks(selectedTaskIds.value)
+  const count = await shellStore.deleteMultipleShellTasks(selectedRowKeys.value as number[])
   message.success(`已删除 ${count} 个任务`)
   shellStore.clearSelection()
-  selectAll.value = false
+  selectedRowKeys.value = []
   await shellStore.fetchShellTasks(currentPage.value, pagination.value.pageSize)
 }
 
@@ -499,17 +508,6 @@ const handlePageSizeChange = async (pageSize: number) => {
 }
 
 /**
- * Handle select all
- */
-const handleSelectAllChange = (checked: boolean) => {
-  if (checked) {
-    shellStore.selectAllTasks()
-  } else {
-    shellStore.clearSelection()
-  }
-}
-
-/**
  * Clear error
  */
 const clearError = () => {
@@ -526,19 +524,24 @@ onMounted(async () => {
 <style scoped>
 .shell-tasks-page {
   padding: 24px;
-  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
   min-height: 100vh;
+  background: white;
+}
+
+.main-content {
+  max-width: 1400px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
 }
 
 .page-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 24px;
-  background: white;
-  padding: 20px;
-  border-radius: 8px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+  padding: 20px 0;
+  /* border-bottom: 1px solid #e0e6ed; */
 }
 
 .header-title h1 {
@@ -560,46 +563,30 @@ onMounted(async () => {
 }
 
 .mb-4 {
-  margin-bottom: 16px;
+  margin: 16px 0;
 }
 
-.toolbar {
+.table-section {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 16px;
-  padding: 12px 16px;
-  background: white;
-  border-radius: 6px;
-  border: 1px solid #e0e6ed;
-}
-
-.toolbar-left,
-.toolbar-right {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.selection-info {
-  font-size: 14px;
-  color: #666;
-  margin-left: 8px;
+  flex-direction: column;
+  background: transparent;
+  border-radius: 0;
+  box-shadow: none;
 }
 
 .tasks-table {
-  margin-bottom: 20px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+  box-shadow: none;
+  border-radius: 0;
+  border-bottom: 1px solid #e0e6ed;
 }
 
 .pagination-container {
   display: flex;
   justify-content: flex-end;
-  margin-top: 20px;
-  padding: 16px;
-  background: white;
-  border-radius: 6px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+  padding: 16px 0;
+  background: transparent;
+  box-shadow: none;
+  border-radius: 0;
 }
 
 .font-semibold {

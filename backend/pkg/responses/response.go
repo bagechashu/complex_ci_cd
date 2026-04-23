@@ -1,8 +1,8 @@
 package responses
 
 import (
-    "encoding/json"
-    "net/http"
+	"encoding/json"
+	"net/http"
 )
 
 type Response struct {
@@ -20,4 +20,5 @@ func JSON(w http.ResponseWriter, statusCode int, message string, data interface{
 func SuccessResponse(w http.ResponseWriter, data interface{}) { JSON(w, http.StatusOK, "success", data) }
 func CreatedResponse(w http.ResponseWriter, data interface{}) { JSON(w, http.StatusCreated, "created", data) }
 func BadRequestResponse(w http.ResponseWriter, msg string) { JSON(w, http.StatusBadRequest, msg, nil) }
+func NotFoundResponse(w http.ResponseWriter, msg string) { JSON(w, http.StatusNotFound, msg, nil) }
 func InternalErrorResponse(w http.ResponseWriter, msg string) { JSON(w, http.StatusInternalServerError, msg, nil) }

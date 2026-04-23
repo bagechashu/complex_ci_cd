@@ -1,36 +1,38 @@
 <template>
   <n-config-provider :theme-overrides="themeOverrides">
-    <div class="app-wrapper">
-      <!-- Sidebar -->
-      <Sidebar />
+    <n-message-provider>
+      <div class="app-wrapper">
+        <!-- Sidebar -->
+        <Sidebar />
 
-      <!-- Main Content -->
-      <div class="layout">
-        <!-- Header -->
-        <div class="layout-header">
-          <h1>{{ pageTitle }}</h1>
-        </div>
+        <!-- Main Content -->
+        <div class="layout">
+          <!-- Header -->
+          <div class="layout-header">
+            <h1>{{ pageTitle }}</h1>
+          </div>
 
-        <!-- Content Area -->
-        <div class="layout-content">
-          <div class="container">
-            <!-- Messages Notification -->
-            <div v-if="uiStore.messages.length > 0" class="message-container">
-              <div
-                v-for="msg in uiStore.messages"
-                :key="msg.id"
-                :class="['message', `message-${msg.type}`]"
-              >
-                {{ msg.content }}
+          <!-- Content Area -->
+          <div class="layout-content">
+            <div class="container">
+              <!-- Messages Notification -->
+              <div v-if="uiStore.messages.length > 0" class="message-container">
+                <div
+                  v-for="msg in uiStore.messages"
+                  :key="msg.id"
+                  :class="['message', `message-${msg.type}`]"
+                >
+                  {{ msg.content }}
+                </div>
               </div>
-            </div>
 
-            <!-- Main Router View -->
-            <router-view />
+              <!-- Main Router View -->
+              <router-view />
+            </div>
           </div>
         </div>
       </div>
-    </div>
+    </n-message-provider>
   </n-config-provider>
 </template>
 

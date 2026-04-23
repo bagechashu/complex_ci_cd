@@ -173,22 +173,10 @@ func (r *SQLiteShellServerRepository) List(ctx context.Context, offset, limit in
 			return nil, 0, err
 		}
 
-		// Decrypt sensitive information
-		if encryptedPassword != nil && *encryptedPassword != "" {
-			plaintext, err := utils.DecryptAES(*encryptedPassword, r.encryptionKey)
-			if err != nil {
-				return nil, 0, err
-			}
-			s.Password = plaintext
-		}
-
-		if encryptedPrivateKey != nil && *encryptedPrivateKey != "" {
-			plaintext, err := utils.DecryptAES(*encryptedPrivateKey, r.encryptionKey)
-			if err != nil {
-				return nil, 0, err
-			}
-			s.PrivateKey = plaintext
-		}
+		// Don't decrypt sensitive info for list operations - they're not returned in API response anyway
+		// This prevents errors if encryption keys don't match or data is corrupted
+		s.Password = ""
+		s.PrivateKey = ""
 
 		servers = append(servers, &s)
 	}

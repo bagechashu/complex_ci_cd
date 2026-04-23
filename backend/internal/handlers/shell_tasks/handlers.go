@@ -12,9 +12,13 @@
 package shell_tasks
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
+	"strconv"
+	"time"
 
+	"built-and-deploy/internal/models"
 	"built-and-deploy/internal/services"
 	"built-and-deploy/pkg/logger"
 	"built-and-deploy/pkg/responses"
@@ -65,8 +69,46 @@ import (
 //	]
 func List(shellService *services.ShellService, log *logger.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// TODO: Implement shell tasks listing
-		responses.SuccessResponse(w, []interface{}{})
+		// Get pagination parameters
+		pageStr := r.URL.Query().Get("page")
+		pageSizeStr := r.URL.Query().Get("pageSize")
+
+		page := 1
+		pageSize := 10
+
+		if p, err := strconv.Atoi(pageStr); err == nil && p > 0 {
+			page = p
+		}
+		if ps, err := strconv.Atoi(pageSizeStr); err == nil && ps > 0 {
+			pageSize = ps
+		}
+
+		ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
+		defer cancel()
+
+		offset := (page - 1) * pageSize
+		taskRepo := shellService.ShellTaskRepo()
+		tasks, total, err := taskRepo.List(ctx, offset, pageSize)
+		if err != nil {
+			log.Error("Failed to list shell tasks", "error", err)
+			responses.InternalErrorResponse(w, "Failed to retrieve shell tasks")
+			return
+		}
+
+		totalPages := (total + pageSize - 1) / pageSize
+
+		resp := map[string]interface{}{
+			"code":       0,
+			"message":    "success",
+			"data":       tasks,
+			"page":       page,
+			"pageSize":   pageSize,
+			"total":      total,
+			"totalPages": totalPages,
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(resp)
 	}
 }
 
@@ -111,12 +153,192 @@ func List(shellService *services.ShellService, log *logger.Logger) http.HandlerF
 //   - Sensitive command output may be redacted from logs
 func Create(shellService *services.ShellService, log *logger.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var req map[string]interface{}
+		var req struct {
+			Name             string `json:"name"`
+			Description      string `json:"description"`
+			CommandID        int    `json:"command_id"`
+			ServerIDs        []int  `json:"server_ids"`
+			ExecutionMethod  string `json:"execution_method"`
+			RequiresApproval bool   `json:"requires_approval"`
+		}
+
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			responses.BadRequestResponse(w, "Invalid request body")
 			return
 		}
-		// TODO: Implement shell task creation
-		responses.CreatedResponse(w, req)
+
+		// Validate required fields
+		if req.Name == "" || req.CommandID == 0 || len(req.ServerIDs) == 0 {
+			responses.BadRequestResponse(w, "Missing required fields: name, command_id, server_ids")
+			return
+		}
+
+		// Set default execution method
+		if req.ExecutionMethod == "" {
+			req.ExecutionMethod = "serial"
+		}
+
+		task := &models.ShellTask{
+			Name:             req.Name,
+			Description:      req.Description,
+			CommandID:        req.CommandID,
+			ServerIDs:        req.ServerIDs,
+			ExecutionMethod:  req.ExecutionMethod,
+			RequiresApproval: req.RequiresApproval,
+		}
+
+		// Validate model
+		if err := task.Validate(); err != nil {
+			responses.BadRequestResponse(w, err.Error())
+			return
+		}
+
+		ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
+		defer cancel()
+
+		taskRepo := shellService.ShellTaskRepo()
+		if err := taskRepo.Create(ctx, task); err != nil {
+			log.Error("Failed to create shell task", "error", err)
+			responses.InternalErrorResponse(w, "Failed to create shell task")
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusCreated)
+		resp := map[string]interface{}{
+			"code":    0,
+			"message": "created",
+			"data":    task,
+		}
+		json.NewEncoder(w).Encode(resp)
+	}
+}
+
+// Get handles GET /shell-tasks/{id} request to retrieve a specific shell task.
+func Get(shellService *services.ShellService, log *logger.Logger) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		idStr := r.PathValue("id")
+		id, err := strconv.Atoi(idStr)
+		if err != nil {
+			responses.BadRequestResponse(w, "Invalid task ID")
+			return
+		}
+
+		ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
+		defer cancel()
+
+		taskRepo := shellService.ShellTaskRepo()
+		task, err := taskRepo.GetByID(ctx, id)
+		if err != nil {
+			log.Error("Failed to get shell task", "id", id, "error", err)
+			responses.NotFoundResponse(w, "Shell task not found")
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		resp := map[string]interface{}{
+			"code":    0,
+			"message": "success",
+			"data":    task,
+		}
+		json.NewEncoder(w).Encode(resp)
+	}
+}
+
+// Update handles PUT /shell-tasks/{id} request to update a shell task.
+func Update(shellService *services.ShellService, log *logger.Logger) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		idStr := r.PathValue("id")
+		id, err := strconv.Atoi(idStr)
+		if err != nil {
+			responses.BadRequestResponse(w, "Invalid task ID")
+			return
+		}
+
+		var req struct {
+			Name             string `json:"name"`
+			Description      string `json:"description"`
+			CommandID        int    `json:"command_id"`
+			ServerIDs        []int  `json:"server_ids"`
+			ExecutionMethod  string `json:"execution_method"`
+			RequiresApproval bool   `json:"requires_approval"`
+		}
+
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			responses.BadRequestResponse(w, "Invalid request body")
+			return
+		}
+
+		ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
+		defer cancel()
+
+		taskRepo := shellService.ShellTaskRepo()
+		task, err := taskRepo.GetByID(ctx, id)
+		if err != nil {
+			responses.NotFoundResponse(w, "Shell task not found")
+			return
+		}
+
+		// Update fields if provided
+		if req.Name != "" {
+			task.Name = req.Name
+		}
+		if req.Description != "" {
+			task.Description = req.Description
+		}
+		if req.CommandID > 0 {
+			task.CommandID = req.CommandID
+		}
+		if len(req.ServerIDs) > 0 {
+			task.ServerIDs = req.ServerIDs
+		}
+		if req.ExecutionMethod != "" {
+			task.ExecutionMethod = req.ExecutionMethod
+		}
+		task.RequiresApproval = req.RequiresApproval
+
+		// Validate model
+		if err := task.Validate(); err != nil {
+			responses.BadRequestResponse(w, err.Error())
+			return
+		}
+
+		if err := taskRepo.Update(ctx, task); err != nil {
+			log.Error("Failed to update shell task", "id", id, "error", err)
+			responses.InternalErrorResponse(w, "Failed to update shell task")
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		resp := map[string]interface{}{
+			"code":    0,
+			"message": "success",
+			"data":    task,
+		}
+		json.NewEncoder(w).Encode(resp)
+	}
+}
+
+// Delete handles DELETE /shell-tasks/{id} request to delete a shell task.
+func Delete(shellService *services.ShellService, log *logger.Logger) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		idStr := r.PathValue("id")
+		id, err := strconv.Atoi(idStr)
+		if err != nil {
+			responses.BadRequestResponse(w, "Invalid task ID")
+			return
+		}
+
+		ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
+		defer cancel()
+
+		taskRepo := shellService.ShellTaskRepo()
+		if err := taskRepo.Delete(ctx, id); err != nil {
+			log.Error("Failed to delete shell task", "id", id, "error", err)
+			responses.InternalErrorResponse(w, "Failed to delete shell task")
+			return
+		}
+
+		w.WriteHeader(http.StatusNoContent)
 	}
 }

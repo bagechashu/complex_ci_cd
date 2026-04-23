@@ -7,6 +7,8 @@ import (
 	"built-and-deploy/internal/handlers/applications"
 	"built-and-deploy/internal/handlers/clusters"
 	"built-and-deploy/internal/handlers/environments"
+	"built-and-deploy/internal/handlers/shell_commands"
+	"built-and-deploy/internal/handlers/shell_servers"
 	"built-and-deploy/internal/handlers/shell_tasks"
 	"built-and-deploy/internal/handlers/workloads"
 	"built-and-deploy/internal/services"
@@ -41,8 +43,29 @@ func NewRouter(container *services.ServiceContainer, log *logger.Logger) http.Ha
         r.Get("/app-cluster-configs/by-app/{id}", workloads.GetAppClusterConfigsByAppHandler(container.Workload(), log))
         r.Get("/app-cluster-configs", workloads.GetAppClusterConfigsHandler(container.Workload(), log))
         r.Post("/app-cluster-configs", workloads.CreateAppClusterConfigHandler(container.WorkloadRepo(), log))
+
+        // Shell Servers endpoints
+        r.Get("/shell-servers", shell_servers.ListShellServersHandler(container.ShellServerRepo(), log))
+        r.Get("/shell-servers/{id}", shell_servers.GetShellServerHandler(container.ShellServerRepo(), log))
+        r.Post("/shell-servers", shell_servers.CreateShellServerHandler(container.ShellServerRepo(), log))
+        r.Put("/shell-servers/{id}", shell_servers.UpdateShellServerHandler(container.ShellServerRepo(), log))
+        r.Delete("/shell-servers/{id}", shell_servers.DeleteShellServerHandler(container.ShellServerRepo(), log))
+
+        // Shell Commands endpoints
+        r.Get("/shell-commands", shell_commands.ListShellCommandsHandler(container.ShellCommandRepo(), log))
+        r.Get("/shell-commands/{id}", shell_commands.GetShellCommandHandler(container.ShellCommandRepo(), log))
+        r.Post("/shell-commands", shell_commands.CreateShellCommandHandler(container.ShellCommandRepo(), log))
+        r.Put("/shell-commands/{id}", shell_commands.UpdateShellCommandHandler(container.ShellCommandRepo(), log))
+        r.Post("/shell-commands/{id}/publish", shell_commands.PublishShellCommandHandler(container.ShellCommandRepo(), log))
+        r.Post("/shell-commands/{id}/unpublish", shell_commands.UnpublishShellCommandHandler(container.ShellCommandRepo(), log))
+        r.Delete("/shell-commands/{id}", shell_commands.DeleteShellCommandHandler(container.ShellCommandRepo(), log))
+
+        // Shell Tasks endpoints
         r.Get("/shell-tasks", shell_tasks.List(container.Shell(), log))
         r.Post("/shell-tasks", shell_tasks.Create(container.Shell(), log))
+        r.Get("/shell-tasks/{id}", shell_tasks.Get(container.Shell(), log))
+        r.Put("/shell-tasks/{id}", shell_tasks.Update(container.Shell(), log))
+        r.Delete("/shell-tasks/{id}", shell_tasks.Delete(container.Shell(), log))
     })
 
     log.Info("NewRouter complete - routes registered")
