@@ -467,8 +467,8 @@ onMounted(async () => {
 }
 
 .list-item.active {
-  background: #e6f7ff;
-  border-left: 3px solid #1890ff;
+  background: rgba(45, 134, 89, 0.12);
+  border-left: 3px solid #2d8659;
 }
 
 .list-item-header {
@@ -509,8 +509,8 @@ onMounted(async () => {
 }
 
 .env-badge {
-  background: #e6f7ff;
-  color: #1890ff;
+  background: rgba(45, 134, 89, 0.12);
+  color: #2d8659;
   padding: 2px 8px;
   border-radius: 0;
   font-weight: 600;
@@ -700,8 +700,8 @@ onMounted(async () => {
 .form-input:focus,
 .form-textarea:focus {
   outline: none;
-  border-color: #1890ff;
-  box-shadow: 0 0 0 3px rgba(24, 144, 255, 0.1);
+  border-color: #2d8659;
+  box-shadow: 0 0 0 2px rgba(45, 134, 89, 0.1);
 }
 
 .form-textarea {
@@ -794,7 +794,7 @@ onMounted(async () => {
 
 .app-item:hover {
   background: #f9f9f9;
-  border-color: #1890ff;
+  border-color: #2d8659;
   box-shadow: 0 1px 4px rgba(24, 144, 255, 0.1);
 }
 

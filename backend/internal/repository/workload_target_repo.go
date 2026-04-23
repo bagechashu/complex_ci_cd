@@ -57,13 +57,29 @@ func (r *SQLiteWorkloadTargetRepository) Create(target *models.WorkloadTarget) (
 func (r *SQLiteWorkloadTargetRepository) GetByID(id int) (*models.WorkloadTarget, error) {
     var t models.WorkloadTarget
     var envID int
-    var k8sWorkload, containerName, registryDomain, imageRepo, workloadType, workloadName string
+    var containerName, registryDomain, imageRepo sql.NullString
+    var workloadType, workloadName string
     err := r.db.QueryRow(sqWorkloadTargetSelect+" WHERE id = ?", id).Scan(
-        &t.ID, &t.AppID, &envID, &t.ClusterID, &t.K8sNamespace, &k8sWorkload, &containerName, &registryDomain, &imageRepo, &workloadType, &workloadName, &t.CreatedAt, &t.UpdatedAt)
+        &t.ID, &t.AppID, &envID, &t.ClusterID, &t.K8sNamespace, &t.K8sWorkload, &containerName, &registryDomain, &imageRepo, &workloadType, &workloadName, &t.CreatedAt, &t.UpdatedAt)
     if errors.Is(err, sql.ErrNoRows) {
         return nil, errors.New("not found")
     }
-    return &t, err
+    if err != nil {
+        return nil, err
+    }
+    t.EnvID = envID
+    t.WorkloadType = workloadType
+    t.WorkloadName = workloadName
+    if containerName.Valid {
+        t.ContainerName = &containerName.String
+    }
+    if registryDomain.Valid {
+        t.RegistryDomain = &registryDomain.String
+    }
+    if imageRepo.Valid {
+        t.ImageRepo = &imageRepo.String
+    }
+    return &t, nil
 }
 
 func (r *SQLiteWorkloadTargetRepository) GetByApp(appID int) ([]*models.WorkloadTarget, error) {
@@ -76,9 +92,22 @@ func (r *SQLiteWorkloadTargetRepository) GetByApp(appID int) ([]*models.Workload
     for rows.Next() {
         var t models.WorkloadTarget
         var envID int
-        var k8sWorkload, containerName, registryDomain, imageRepo, workloadType, workloadName string
-        if err := rows.Scan(&t.ID, &t.AppID, &envID, &t.ClusterID, &t.K8sNamespace, &k8sWorkload, &containerName, &registryDomain, &imageRepo, &workloadType, &workloadName, &t.CreatedAt, &t.UpdatedAt); err != nil {
+        var containerName, registryDomain, imageRepo sql.NullString
+        var workloadType, workloadName string
+        if err := rows.Scan(&t.ID, &t.AppID, &envID, &t.ClusterID, &t.K8sNamespace, &t.K8sWorkload, &containerName, &registryDomain, &imageRepo, &workloadType, &workloadName, &t.CreatedAt, &t.UpdatedAt); err != nil {
             return nil, err
+        }
+        t.EnvID = envID
+        t.WorkloadType = workloadType
+        t.WorkloadName = workloadName
+        if containerName.Valid {
+            t.ContainerName = &containerName.String
+        }
+        if registryDomain.Valid {
+            t.RegistryDomain = &registryDomain.String
+        }
+        if imageRepo.Valid {
+            t.ImageRepo = &imageRepo.String
         }
         result = append(result, &t)
     }
@@ -95,9 +124,22 @@ func (r *SQLiteWorkloadTargetRepository) List(limit, offset int) ([]*models.Work
     for rows.Next() {
         var t models.WorkloadTarget
         var envID int
-        var k8sWorkload, containerName, registryDomain, imageRepo, workloadType, workloadName string
-        if err := rows.Scan(&t.ID, &t.AppID, &envID, &t.ClusterID, &t.K8sNamespace, &k8sWorkload, &containerName, &registryDomain, &imageRepo, &workloadType, &workloadName, &t.CreatedAt, &t.UpdatedAt); err != nil {
+        var containerName, registryDomain, imageRepo sql.NullString
+        var workloadType, workloadName string
+        if err := rows.Scan(&t.ID, &t.AppID, &envID, &t.ClusterID, &t.K8sNamespace, &t.K8sWorkload, &containerName, &registryDomain, &imageRepo, &workloadType, &workloadName, &t.CreatedAt, &t.UpdatedAt); err != nil {
             return nil, err
+        }
+        t.EnvID = envID
+        t.WorkloadType = workloadType
+        t.WorkloadName = workloadName
+        if containerName.Valid {
+            t.ContainerName = &containerName.String
+        }
+        if registryDomain.Valid {
+            t.RegistryDomain = &registryDomain.String
+        }
+        if imageRepo.Valid {
+            t.ImageRepo = &imageRepo.String
         }
         result = append(result, &t)
     }

@@ -16,15 +16,17 @@ type ServiceContainer struct {
 	shellService       *ShellService
 
 	// Repository instances
-	releaseRepo           repository.ReleaseRecordRepository
-	appRepo               repository.ApplicationRepository
-	clusterRepo           repository.ClusterRepository
-	workloadRepo          repository.WorkloadTargetRepository
-	eventRepo             repository.ReleaseEventRepository
-	shellServerRepo       repository.ShellServerRepository
-	shellCommandRepo      repository.ShellCommandRepository
-	shellTaskExecutionRepo repository.ShellTaskExecutionRepository
-	shellTaskRepo         repository.ShellTaskRepository
+	releaseRepo                repository.ReleaseRecordRepository
+	appRepo                    repository.ApplicationRepository
+	clusterRepo                repository.ClusterRepository
+	workloadRepo               repository.WorkloadTargetRepository
+	envRepo                    *repository.EnvironmentRepository
+	eventRepo                  repository.ReleaseEventRepository
+	shellServerRepo            repository.ShellServerRepository
+	shellCommandRepo           repository.ShellCommandRepository
+	shellTaskExecutionRepo     repository.ShellTaskExecutionRepository
+	shellTaskRepo              repository.ShellTaskRepository
+	appClusterConfigRepo       repository.ApplicationClusterConfigRepository
 
 	deployerFact *deployers.DeployerFactory
 	log          *logger.Logger
@@ -106,6 +108,9 @@ func (c *ServiceContainer) validate() error {
 	}
 	if c.shellTaskRepo == nil {
 		return fmt.Errorf("shell task repository is required")
+	}
+	if c.appClusterConfigRepo == nil {
+		return fmt.Errorf("application cluster config repository is required")
 	}
 	return nil
 }
@@ -211,20 +216,47 @@ func WithShellTaskExecutionRepository(repo repository.ShellTaskExecutionReposito
 	}
 }
 
+// WithEnvironmentRepository sets the environment repository
+func WithEnvironmentRepository(repo *repository.EnvironmentRepository) Option {
+	return func(c *ServiceContainer) error {
+		if repo == nil {
+			return fmt.Errorf("environment repository cannot be nil")
+		}
+		c.envRepo = repo
+		return nil
+	}
+}
+
+// WithApplicationClusterConfigRepository sets the application cluster config repository
+func WithApplicationClusterConfigRepository(repo repository.ApplicationClusterConfigRepository) Option {
+	return func(c *ServiceContainer) error {
+		if repo == nil {
+			return fmt.Errorf("application cluster config repository cannot be nil")
+		}
+		c.appClusterConfigRepo = repo
+		return nil
+	}
+}
+
 // Getter methods
 
 func (c *ServiceContainer) Application() *ApplicationService { return c.applicationService }
 func (c *ServiceContainer) Cluster() *ClusterService { return c.clusterService }
 func (c *ServiceContainer) Shell() *ShellService { return c.shellService }
+func (c *ServiceContainer) Workload() *WorkloadService { 
+	return NewWorkloadService(c.workloadRepo, c.appRepo, c.envRepo, c.clusterRepo, c.log)
+}
 func (c *ServiceContainer) ApplicationRepo() repository.ApplicationRepository { return c.appRepo }
 func (c *ServiceContainer) ClusterRepo() repository.ClusterRepository { return c.clusterRepo }
 func (c *ServiceContainer) ReleaseRepo() repository.ReleaseRecordRepository { return c.releaseRepo }
 func (c *ServiceContainer) WorkloadRepo() repository.WorkloadTargetRepository { return c.workloadRepo }
+func (c *ServiceContainer) EnvironmentRepo() *repository.EnvironmentRepository { return c.envRepo }
 func (c *ServiceContainer) EventRepo() repository.ReleaseEventRepository { return c.eventRepo }
 func (c *ServiceContainer) ShellServerRepo() repository.ShellServerRepository { return c.shellServerRepo }
 func (c *ServiceContainer) ShellCommandRepo() repository.ShellCommandRepository { return c.shellCommandRepo }
 func (c *ServiceContainer) ShellTaskRepo() repository.ShellTaskRepository { return c.shellTaskRepo }
 func (c *ServiceContainer) ShellTaskExecutionRepo() repository.ShellTaskExecutionRepository { return c.shellTaskExecutionRepo }
+func (c *ServiceContainer) AppClusterConfigRepo() repository.ApplicationClusterConfigRepository { return c.appClusterConfigRepo }
 func (c *ServiceContainer) Logger() *logger.Logger { return c.log }
 func (c *ServiceContainer) DB() *sql.DB { return c.db }
 func (c *ServiceContainer) DeployerFactory() *deployers.DeployerFactory { return c.deployerFact }

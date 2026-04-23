@@ -721,7 +721,7 @@ const sortedClusters = computed(() => {
 const selectApplication = async (app: Application) => {
   selectedApplicationId.value = app.id
   // Use pre-loaded mappings if available, otherwise fetch
-  if (allMappingsByApp.value[app.id]) {
+  if (allMappingsByApp.value[app.id] && allMappingsByApp.value[app.id].length > 0) {
     clusterMappings.value = allMappingsByApp.value[app.id]
   } else {
     try {
@@ -833,8 +833,9 @@ const saveClusterMapping = async () => {
       alert('集群配置已创建')
     }
 
-    // Reload mappings
+    // Clear cache and reload mappings to show latest data
     if (selectedApplication.value) {
+      allMappingsByApp.value[selectedApplication.value.id] = []
       await selectApplication(selectedApplication.value)
     }
     closeClusterMappingModal()
@@ -849,8 +850,9 @@ const deleteClusterMapping = async (mappingId: number) => {
     try {
       await apiDeleteClusterMapping(mappingId)
       alert('集群配置已删除')
-      // Reload mappings
+      // Clear cache and reload mappings
       if (selectedApplication.value) {
+        allMappingsByApp.value[selectedApplication.value.id] = []
         await selectApplication(selectedApplication.value)
       }
     } catch (error) {
@@ -909,6 +911,13 @@ const openManageClusterModal = async () => {
   availableClustersForManage.value = clusters.value
   showEditFormInManageModal.value = false
   editingMappingInManageModal.value = null
+  
+  // Load latest cluster mappings
+  if (selectedApplication.value) {
+    allMappingsByApp.value[selectedApplication.value.id] = []
+    await selectApplication(selectedApplication.value)
+  }
+  
   showManageClusterModal.value = true
 }
 
@@ -964,8 +973,9 @@ const saveClusterMappingInManageModal = async () => {
       alert('集群配置已创建')
     }
 
-    // Reload mappings
+    // Clear cache and reload mappings to show latest data
     if (selectedApplication.value) {
+      allMappingsByApp.value[selectedApplication.value.id] = []
       await selectApplication(selectedApplication.value)
     }
     cancelEditInManageModal()
@@ -1184,14 +1194,14 @@ onMounted(async () => {
 }
 
 .sort-controls button:hover {
-  border-color: #1890ff;
-  color: #1890ff;
+  border-color: #2d8659;
+  color: #2d8659;
 }
 
 .sort-controls button.active {
-  background: #e6f7ff;
-  border-color: #1890ff;
-  color: #1890ff;
+  background: rgba(45, 134, 89, 0.12);
+  border-color: #2d8659;
+  color: #2d8659;
   font-weight: 600;
 }
 
@@ -1223,8 +1233,8 @@ onMounted(async () => {
 }
 
 .list-item.active {
-  background: #e6f7ff;
-  border-left: 3px solid #1890ff;
+  background: rgba(45, 134, 89, 0.12);
+  border-left: 3px solid #2d8659;
 }
 
 .list-item-header {
@@ -1297,8 +1307,8 @@ onMounted(async () => {
 }
 
 .pagination-btn:hover:not(:disabled) {
-  border-color: #1890ff;
-  color: #1890ff;
+  border-color: #2d8659;
+  color: #2d8659;
 }
 
 .pagination-btn:disabled {
@@ -1413,8 +1423,8 @@ onMounted(async () => {
 }
 
 .env-badge {
-  background: #e6f7ff;
-  color: #1890ff;
+  background: rgba(45, 134, 89, 0.12);
+  color: #2d8659;
   padding: 2px 8px;
   border-radius: 0;
   font-size: 12px;
@@ -1535,8 +1545,8 @@ onMounted(async () => {
 .form-input:focus,
 .form-textarea:focus {
   outline: none;
-  border-color: #1890ff;
-  box-shadow: 0 0 0 3px rgba(24, 144, 255, 0.1);
+  border-color: #2d8659;
+  box-shadow: 0 0 0 3px rgba(45, 134, 89, 0.1);
 }
 
 .form-textarea {
@@ -1545,8 +1555,8 @@ onMounted(async () => {
 }
 
 .info-box {
-  background: #f0f8ff;
-  border: 1px solid #b3e5fc;
+  background: rgba(45, 134, 89, 0.12);
+  border: 1px solid #2d8659;
   border-radius: 0;
   padding: 12px;
   margin-bottom: 16px;
@@ -1572,8 +1582,8 @@ onMounted(async () => {
 }
 
 .cluster-summary {
-  background: #f0f8ff;
-  border: 1px solid #b3e5fc;
+  background: rgba(45, 134, 89, 0.12);
+  border: 1px solid #2d8659;
   border-radius: 0;
   padding: 12px;
   margin-bottom: 16px;
@@ -1591,8 +1601,8 @@ onMounted(async () => {
 }
 
 .env-tag {
-  background: #e6f7ff;
-  color: #1890ff;
+  background: rgba(45, 134, 89, 0.12);
+  color: #2d8659;
   padding: 4px 12px;
   border-radius: 0;
   font-size: 12px;
@@ -1625,8 +1635,8 @@ onMounted(async () => {
 }
 
 .cluster-card:hover {
-  border-color: #1890ff;
-  box-shadow: 0 2px 8px rgba(24, 144, 255, 0.1);
+  border-color: #2d8659;
+  box-shadow: 0 2px 8px rgba(45, 134, 89, 0.1);
 }
 
 .cluster-card-header {
@@ -1817,7 +1827,7 @@ onMounted(async () => {
   width: 40px;
   height: 40px;
   border: 4px solid #f0f0f0;
-  border-top-color: #1890ff;
+  border-top-color: #2d8659;
   border-radius: 0;
   animation: spin 1s linear infinite;
 }
@@ -1852,13 +1862,13 @@ onMounted(async () => {
   border-radius: 0;
   cursor: pointer;
   font-size: 14px;
-  color: #1890ff;
+  color: #2d8659;
   transition: all 0.2s;
 }
 
 .btn-back:hover {
-  background: #e6f7ff;
-  border-color: #1890ff;
+  background: rgba(45, 134, 89, 0.12);
+  border-color: #2d8659;
 }
 
 .edit-form-container {

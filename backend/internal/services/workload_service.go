@@ -33,6 +33,8 @@ import (
 //	}
 type WorkloadService struct {
 	workloadRepo repository.WorkloadTargetRepository
+	clusterRepo  repository.ClusterRepository
+	envRepo      *repository.EnvironmentRepository
 	log          *logger.Logger
 }
 
@@ -41,15 +43,11 @@ type WorkloadService struct {
 // Parameters:
 //   - workloadRepo: WorkloadTargetRepository for workload persistence
 //   - appRepo: ApplicationRepository for application details (currently unused)
-//   - envRepo: EnvironmentRepository for environment details (currently unused)
-//   - clusterRepo: ClusterRepository for cluster details (currently unused)
+//   - envRepo: EnvironmentRepository for environment details (enriching workload targets)
+//   - clusterRepo: ClusterRepository for cluster details (enriching workload targets)
 //   - log: Logger for structured logging
 //
 // Returns a configured WorkloadService ready for use.
-//
-// Note:
-//   - appRepo, envRepo, clusterRepo parameters are accepted for future expansion
-//   - Current implementation only uses workloadRepo
 //
 // Example:
 //
@@ -61,8 +59,18 @@ func NewWorkloadService(
 	clusterRepo repository.ClusterRepository,
 	log *logger.Logger,
 ) *WorkloadService {
+	// Type assert envRepo to *EnvironmentRepository if provided
+	var envRepoPtr *repository.EnvironmentRepository
+	if envRepo != nil {
+		if er, ok := envRepo.(*repository.EnvironmentRepository); ok {
+			envRepoPtr = er
+		}
+	}
+	
 	return &WorkloadService{
 		workloadRepo: workloadRepo,
+		clusterRepo:  clusterRepo,
+		envRepo:      envRepoPtr,
 		log:          log,
 	}
 }
@@ -79,6 +87,7 @@ func NewWorkloadService(
 // Note:
 //   - Returns up to 1000 targets
 //   - Empty slice if no workload targets exist
+//   - Enriches each target with cluster name and environment name
 //
 // Example:
 //
@@ -94,6 +103,17 @@ func (s *WorkloadService) ListWorkloadTargets(ctx context.Context) ([]*models.Wo
 		log.Printf("Error listing workload targets: %v", err)
 		return nil, err
 	}
+	
+	// Enrich targets with cluster names and environment names
+	for _, target := range targets {
+		if err := s.enrichClusterName(ctx, target); err != nil {
+			log.Printf("Warning: failed to enrich cluster name for target %d: %v", target.ID, err)
+		}
+		if err := s.enrichEnvironment(ctx, target); err != nil {
+			log.Printf("Warning: failed to enrich environment for target %d: %v", target.ID, err)
+		}
+	}
+	
 	return targets, nil
 }
 
@@ -108,19 +128,89 @@ func (s *WorkloadService) ListWorkloadTargets(ctx context.Context) ([]*models.Wo
 //   - error: Non-nil if retrieval fails
 //
 // Note:
-//   - Simplified implementation - currently returns all targets
-//   - In production, would filter by appID
+//   - Filters workload targets by appID from the repository
+//   - Enriches each target with cluster name and environment name
 //
 // Example:
 //
 //	targets, err := service.ListWorkloadTargetsByApp(ctx, 5)
 //	for _, target := range targets {
-//	    fmt.Printf("Workload %d: environment %d\n", target.ID, target.EnvironmentID)
+//	    fmt.Printf("Workload %d: cluster %s, environment %s\n", target.ID, target.ClusterName, target.Environment)
 //	}
 func (s *WorkloadService) ListWorkloadTargetsByApp(ctx context.Context, appID int) ([]*models.WorkloadTarget, error) {
-	// Simplified implementation - return all targets
-	// In production, would filter by app ID
-	return s.ListWorkloadTargets(ctx)
+	targets, err := s.workloadRepo.GetByApp(appID)
+	if err != nil {
+		log.Printf("Error listing workload targets for app %d: %v", appID, err)
+		return nil, err
+	}
+	
+	// Enrich targets with cluster names and environment names
+	for _, target := range targets {
+		if err := s.enrichClusterName(ctx, target); err != nil {
+			log.Printf("Warning: failed to enrich cluster name for target %d: %v", target.ID, err)
+		}
+		if err := s.enrichEnvironment(ctx, target); err != nil {
+			log.Printf("Warning: failed to enrich environment for target %d: %v", target.ID, err)
+		}
+	}
+	
+	return targets, nil
+}
+
+// enrichClusterName enriches a workload target with cluster name from the cluster repository.
+//
+// Parameters:
+//   - ctx: Context for cancellation and deadline
+//   - target: The workload target to enrich
+//
+// Returns:
+//   - error: Non-nil if enrichment fails
+//
+// Note:
+//   - If enrichment fails, the target is returned without cluster name
+//   - This is a best-effort operation
+func (s *WorkloadService) enrichClusterName(ctx context.Context, target *models.WorkloadTarget) error {
+	if s.clusterRepo == nil {
+		return nil // No cluster repo available, skip enrichment
+	}
+	
+	cluster, err := s.clusterRepo.GetByID(ctx, target.ClusterID)
+	if err != nil {
+		return err
+	}
+	
+	if cluster != nil {
+		target.ClusterName = cluster.Name
+	}
+	return nil
+}
+
+// enrichEnvironment enriches a workload target with environment name from the environment repository.
+//
+// Parameters:
+//   - ctx: Context for cancellation and deadline
+//   - target: The workload target to enrich
+//
+// Returns:
+//   - error: Non-nil if enrichment fails
+//
+// Note:
+//   - If enrichment fails, the target is returned without environment name
+//   - This is a best-effort operation
+func (s *WorkloadService) enrichEnvironment(ctx context.Context, target *models.WorkloadTarget) error {
+	if s.envRepo == nil {
+		return nil // No environment repo available, skip enrichment
+	}
+	
+	env, err := s.envRepo.GetByID(target.EnvID)
+	if err != nil {
+		return err
+	}
+	
+	if env != nil {
+		target.Environment = env.Name
+	}
+	return nil
 }
 
 // GetWorkloadTarget retrieves a specific workload target by ID.
