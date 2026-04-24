@@ -63,15 +63,6 @@
           >
             <div class="list-item-header">
               <div class="app-name">{{ app.name }}</div>
-              <div class="app-actions">
-                <button
-                  class="icon-btn"
-                  @click.stop="deleteApplication(app.id)"
-                  title="删除"
-                >
-                  🗑️
-                </button>
-              </div>
             </div>
             <div class="app-info">
               <span class="badge">{{ app.image_name }}</span>
@@ -112,9 +103,11 @@
           <div class="detail-section">
             <div class="section-header">
               <h3>应用信息</h3>
-              <n-button @click="openEditApplicationModal">
-                编辑应用
-              </n-button>
+              <div class="header-actions">
+                <n-button @click="openEditApplicationModal">
+                  编辑应用
+                </n-button>
+              </div>
             </div>
 
             <div class="info-grid">
@@ -142,7 +135,7 @@
             <div class="section-header">
               <h3>集群部署配置</h3>
               <n-button type="primary" size="small" @click="openManageClusterModal">
-                ⚙️ 管理集群关联
+                管理集群关联
               </n-button>
             </div>
 
@@ -176,20 +169,20 @@
                       size="small"
                       @click="openReleaseModal(mapping)"
                     >
-                      📤 发布
+                      发布
                     </n-button>
                     <n-button
                       size="small"
                       @click="openEditClusterMappingModal(mapping)"
                     >
-                      ✏️ 编辑
+                      编辑
                     </n-button>
                     <n-button
                       size="small"
                       type="error"
                       @click="deleteClusterMapping(mapping.id)"
                     >
-                      🗑️
+                      删除
                     </n-button>
                   </div>
                 </div>
@@ -1110,302 +1103,12 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-.k8s-release-page {
-  padding: 24px;
-  height: 100vh;
-  display: flex;
-  flex-direction: column;
-}
-
-.content-layout {
-  display: grid;
-  grid-template-columns: 300px 1fr;
-  gap: 24px;
-  flex: 1;
-  overflow: hidden;
-}
-
-/* List Panel */
-.list-panel {
-  display: flex;
-  flex-direction: column;
-  background: white;
-  border-radius: 0;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  overflow: hidden;
-}
-
-.list-header {
-  padding: 16px;
-  border-bottom: 1px solid #eee;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.list-header-top {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 12px;
-}
-
-.list-header h2 {
-  margin: 0;
-  font-size: 16px;
-}
-
-.header-menu {
-  display: flex;
-  align-items: center;
-  flex-shrink: 0;
-}
-
-.menu-btn {
-  font-size: 20px !important;
-  padding: 4px 8px !important;
-  min-width: auto !important;
-  font-weight: bold !important;
-  letter-spacing: 2px !important;
-}
-
-.search-input {
-  width: 100%;
-  padding: 8px 12px;
-  border: 1px solid #ddd;
-  border-radius: 0;
-  font-size: 14px;
-}
-
-.sort-controls {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-}
-
-.sort-controls button {
-  padding: 6px 12px;
-  border: 1px solid #ddd;
-  background: white;
-  border-radius: 0;
-  font-size: 13px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.sort-controls button:hover {
-  border-color: #2d8659;
-  color: #2d8659;
-}
-
-.sort-controls button.active {
-  background: rgba(45, 134, 89, 0.12);
-  border-color: #2d8659;
-  color: #2d8659;
-  font-weight: 600;
-}
-
-.sort-controls button.order-btn {
-  min-width: 32px;
-  font-size: 16px;
-}
-
-.list-container {
-  flex: 1;
-  overflow-y: auto;
-}
-
-.empty-state {
-  padding: 32px 16px;
-  text-align: center;
-  color: #999;
-}
-
-.list-item {
-  padding: 12px;
-  border-bottom: 1px solid #f0f0f0;
-  cursor: pointer;
-  transition: background 0.2s;
-}
-
-.list-item:hover {
-  background: #f9f9f9;
-}
-
-.list-item.active {
-  background: rgba(45, 134, 89, 0.12);
-  border-left: 3px solid #2d8659;
-}
-
-.list-item-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 8px;
-}
-
-.app-name {
-  font-weight: 600;
-  color: #1a1a1a;
-}
-
-.app-actions {
-  display: flex;
-  gap: 4px;
-}
-
-.icon-btn {
-  background: none;
-  border: none;
-  cursor: pointer;
-  font-size: 16px;
-  padding: 4px;
-  opacity: 0.6;
-  transition: opacity 0.2s;
-}
-
-.icon-btn:hover {
-  opacity: 1;
-}
-
-.app-info {
-  display: flex;
-  gap: 8px;
-  font-size: 12px;
-}
-
-.badge {
-  background: #f0f0f0;
-  padding: 2px 8px;
-  border-radius: 0;
-  color: #666;
-}
-
-.config-count {
-  color: #999;
-}
-
-/* Pagination */
-.pagination-controls {
-  padding: 12px 16px;
-  border-top: 1px solid #eee;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 12px;
-  background: #fafafa;
-}
-
-.pagination-btn {
-  padding: 6px 12px;
-  border: 1px solid #ddd;
-  background: white;
-  border-radius: 0;
-  cursor: pointer;
-  font-size: 12px;
-  transition: all 0.2s;
-}
-
-.pagination-btn:hover:not(:disabled) {
-  border-color: #2d8659;
-  color: #2d8659;
-}
-
-.pagination-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.pagination-info {
-  font-size: 12px;
-  color: #666;
-  text-align: center;
-  flex: 1;
-}
-
-/* Detail Panel */
-.detail-panel {
-  background: white;
-  border-radius: 0;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  overflow-y: auto;
-  padding: 24px;
-}
-
-.empty-detail {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 100%;
-  color: #999;
-}
-
-.detail-content {
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
-}
-
-.detail-section {
-  padding: 16px;
-  background: #f9f9f9;
-  border-radius: 0;
-  border: 1px solid #f0f0f0;
-}
-
-.section-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 16px;
-}
-
-.section-header h3 {
-  margin: 0;
-  font-size: 16px;
-}
-
-
-
-.info-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-}
-
-.info-item {
-  display: flex;
-  flex-direction: column;
-}
-
-.info-item label {
-  font-weight: 600;
-  color: #666;
-  font-size: 12px;
-}
-
-.info-item span {
-  margin-top: 4px;
-  color: #1a1a1a;
-}
-
-.code {
-  font-family: 'Courier New', monospace;
-  background: white;
-  padding: 2px 6px;
-  border-radius: 0;
-}
-
-.mappings-list {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
+/* ============ K8s-Specific Styles ============ */
 
 .mapping-item {
   padding: 12px;
   background: white;
-  border: 1px solid #e0e0e0;
+  border: 1px solid #eee;
   border-radius: 0;
 }
 
@@ -1436,8 +1139,6 @@ onMounted(async () => {
   gap: 6px;
 }
 
-
-
 .mapping-details {
   font-size: 12px;
 }
@@ -1466,94 +1167,6 @@ onMounted(async () => {
   margin: 0;
 }
 
-/* Modal */
-.modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-}
-
-.modal {
-  background: white;
-  border-radius: 0;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
-  max-width: 500px;
-  width: 90%;
-  max-height: 80vh;
-  overflow-y: auto;
-}
-
-.modal-header {
-  padding: 16px;
-  border-bottom: 1px solid #eee;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.modal-header h2 {
-  margin: 0;
-  font-size: 18px;
-}
-
-.close-btn {
-  background: none;
-  border: none;
-  font-size: 24px;
-  cursor: pointer;
-  color: #999;
-}
-
-.modal-body {
-  padding: 24px;
-}
-
-.modal-footer {
-  padding: 16px;
-  border-top: 1px solid #eee;
-  display: flex;
-  gap: 12px;
-  justify-content: flex-end;
-}
-
-.form-group {
-  margin-bottom: 16px;
-}
-
-.form-group label {
-  display: block;
-  margin-bottom: 8px;
-  font-weight: 600;
-}
-
-.form-input,
-.form-textarea {
-  width: 100%;
-  padding: 10px 12px;
-  border: 1px solid #ddd;
-  border-radius: 0;
-  font-size: 14px;
-}
-
-.form-input:focus,
-.form-textarea:focus {
-  outline: none;
-  border-color: #2d8659;
-  box-shadow: 0 0 0 3px rgba(45, 134, 89, 0.1);
-}
-
-.form-textarea {
-  resize: vertical;
-  font-family: 'Courier New', monospace;
-}
-
 .info-box {
   background: rgba(45, 134, 89, 0.12);
   border: 1px solid #2d8659;
@@ -1574,8 +1187,6 @@ onMounted(async () => {
   font-family: 'Courier New', monospace;
   color: #d32f2f;
 }
-
-
 
 .modal-large {
   max-width: 800px;
@@ -1627,7 +1238,7 @@ onMounted(async () => {
 }
 
 .cluster-card {
-  border: 1px solid #ddd;
+  border: 1px solid #eee;
   border-radius: 0;
   padding: 12px;
   background: white;
@@ -1696,7 +1307,7 @@ onMounted(async () => {
 }
 
 .mapping-manage-item {
-  border: 1px solid #ddd;
+  border: 1px solid #eee;
   border-radius: 0;
   padding: 12px;
   background: white;
@@ -1760,24 +1371,6 @@ onMounted(async () => {
   border-top: 1px solid #f0f0f0;
 }
 
-.empty-state {
-  text-align: center;
-  padding: 24px;
-  color: #999;
-  font-size: 14px;
-  background: #f5f5f5;
-  border-radius: 0;
-}
-
-.empty-state p {
-  margin: 0;
-}
-
-.btn-success:hover {
-  background: #73d13d;
-}
-
-/* Error and Loading States */
 .error-banner {
   position: fixed;
   top: 60px;
@@ -1796,8 +1389,6 @@ onMounted(async () => {
   color: #d32f2f;
   font-weight: 600;
 }
-
-
 
 .loading-overlay {
   position: fixed;
@@ -1844,13 +1435,6 @@ onMounted(async () => {
   font-weight: 600;
 }
 
-@media (max-width: 1200px) {
-  .content-layout {
-    grid-template-columns: 1fr;
-  }
-}
-
-/* Manage Modal Edit Form */
 .btn-back {
   display: inline-flex;
   align-items: center;
@@ -1858,7 +1442,7 @@ onMounted(async () => {
   padding: 8px 12px;
   margin-bottom: 16px;
   background: #f5f5f5;
-  border: 1px solid #ddd;
+  border: 1px solid #eee;
   border-radius: 0;
   cursor: pointer;
   font-size: 14px;

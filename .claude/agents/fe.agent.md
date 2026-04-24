@@ -70,9 +70,29 @@ API层 (Services / API)
   ├─ utils/format.ts (格式化)
   └─ utils/...
   
-样式层 (Styles)
-  ├─ styles/main.css (全局样式)
-  └─ 组件内scoped样式
+样式层 (Styles) - 详见 frontend-css-architecture SKILL
+  ├─ styles/main.css (全局样式入口)
+  ├─ styles/views.css (所有页面共用样式库 - 400+ 行，中央样式库)
+  ├─ styles/theme.ts (CSS 变量定义 - 颜色、间距、尺寸)
+  └─ 各 Vue 文件内 scoped 样式 (仅页面特定的自定义样式)
+  
+  **关键原则**:
+  ✅ views.css 是单一的真实来源(Single Source of Truth)
+  ✅ 所有通用样式都在 views.css 中定义（避免 1,200+ 行重复代码）
+  ✅ 页面 scoped 样式仅定义该页面特定内容
+  ✅ 使用 CSS 变量管理主题（方便切换主题）
+  ✅ 响应式设计：桌面优先，600px 断点处理
+  
+  **常用共享样式**:
+  布局: .page-container, .content-layout, .list-panel, .detail-panel
+  列表: .list-header, .list-item, .list-item.active
+  表单: .form-group, .form-input, .form-select, .form-row
+  详情: .detail-content, .detail-section, .section-header, .info-grid, .info-item
+  分页: .pagination-controls
+  徽章: .badge, .status-badge
+  模态: .modal-overlay, .modal, .modal-header, .modal-footer
+  按钮: .header-actions
+
   
 核心文件
   ├─ main.ts (应用入口)
@@ -632,4 +652,261 @@ ws.onmessage = (event) => {
 2. **Mock 服务** - 前端使用 Mock 数据先行开发 (MSW / json-server)
 3. **并行开发** - 前端 UI + 后端 API 同步实施
 4. **集成联调** - Day 5 对接真实后端
+
+---
+
+## 样式架构与 CSS 管理
+
+### 核心原则 (详见 `frontend-css-architecture` SKILL)
+
+发布控制系统前端采用**样式统一化**架构，目标是：
+- ✅ 消除 1,200+ 行重复 CSS 代码
+- ✅ 使用中央样式库（views.css）作为单一真实来源
+- ✅ 通过 CSS 变量实现主题管理
+- ✅ 保证所有 8 个页面视觉一致性
+- ✅ 响应式设计（桌面优先，600px 断点）
+
+### 文件组织
+
+```
+frontend/src/styles/
+├─ main.css                    # 全局样式入口
+│  └─ @import views.css
+├─ views.css                   # 中央样式库（400+ 行）
+│  ├─ CSS 变量 (颜色、间距、尺寸)
+│  ├─ 页面布局 (.page-container, .content-layout, .list-panel, .detail-panel)
+│  ├─ 列表样式 (.list-header, .list-item, .list-item.active)
+│  ├─ 表单样式 (.form-group, .form-input, .form-select, .form-row)
+│  ├─ 详情样式 (.detail-content, .detail-section, .section-header, .info-grid)
+│  ├─ 分页样式 (.pagination-controls, .pagination-btn)
+│  ├─ 徽章样式 (.badge, .status-badge)
+│  ├─ 模态样式 (.modal-overlay, .modal, .modal-header, .modal-footer)
+│  └─ 按钮样式 (.header-actions)
+└─ theme.ts                    # 主题配置（CSS 变量定义）
+```
+
+### CSS 变量系统
+
+```css
+/* 主题色 */
+--color-primary: #2d8659;              /* 森林绿 */
+
+/* 文本颜色 */
+--color-text-primary: #1a1a1a;         /* 主文本 */
+--color-text-secondary: #4a4a4a;       /* 次级文本 */
+--color-text-muted: #999999;           /* 弱化文本 */
+
+/* 背景颜色 */
+--color-bg-card: #ffffff;              /* 卡片背景 */
+--color-bg-dark: #f5f5f5;              /* 深灰背景 */
+--color-bg-light: #e5e5e5;             /* 浅灰背景 */
+
+/* 边框颜色 */
+--color-border: #eeeeee;               /* 标准边框 */
+--color-border-light: #f0f0f0;         /* 浅色边框 */
+
+/* 状态颜色 */
+--color-success: #2d8659;              /* 成功 */
+--color-error: #e63946;                /* 错误 */
+--color-warning: #f77f00;              /* 警告 */
+
+/* 间距 */
+--spacing-xs: 4px;
+--spacing-sm: 8px;
+--spacing-md: 12px;
+--spacing-lg: 16px;
+--spacing-xl: 20px;
+--spacing-xxl: 24px;
+--spacing-3xl: 30px;
+```
+
+### 页面开发规范
+
+#### ✅ 正确做法
+
+```vue
+<template>
+  <div class="page-container">
+    <div class="content-layout">
+      <!-- 左侧列表 -->
+      <div class="list-panel">
+        <div class="list-header">
+          <h2>集群列表</h2>
+        </div>
+        <div class="list-container">
+          <div 
+            v-for="cluster in clusters"
+            class="list-item"
+            :class="{ active: cluster.id === selectedId }"
+            @click="selectCluster(cluster)"
+          >
+            {{ cluster.name }}
+          </div>
+        </div>
+      </div>
+      
+      <!-- 右侧详情 -->
+      <div class="detail-panel" v-if="selected">
+        <div class="detail-content">
+          <div class="detail-section">
+            <div class="section-header">
+              <h3>集群信息</h3>
+              <div class="header-actions">
+                <button class="n-button">编辑</button>
+              </div>
+            </div>
+            <div class="info-grid">
+              <div class="info-item">
+                <label>名称</label>
+                <span>{{ selected.name }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
+
+<style scoped>
+/* 仅定义页面特定的自定义样式 */
+
+/* 示例：特殊的状态色 */
+.custom-status {
+  color: var(--color-primary);
+  font-weight: 600;
+}
+
+/* 示例：页面特定的动画 */
+.fade-enter-active {
+  transition: opacity 0.3s ease;
+}
+</style>
+```
+
+#### ❌ 错误做法
+
+```vue
+<template>
+  <!-- ❌ 不要使用内联样式 -->
+  <div style="display: flex; gap: 20px;">
+  
+  <!-- ❌ 不要重复定义 views.css 中的样式 -->
+  <div class="list-item" style="padding: 12px 16px;">
+</template>
+
+<style scoped>
+/* ❌ 不要重复定义通用样式 */
+.list-item {
+  padding: 12px 16px;
+  border-bottom: 1px solid #eee;
+}
+
+.list-item.active {
+  background: #e8f5f0;
+  border-left: 3px solid #2d8659;
+}
+</style>
+```
+
+### 常见样式类速查表
+
+| 用途 | 样式类 | 说明 |
+|------|--------|------|
+| 页面容器 | `.page-container` | 页面根div，padding: 24px |
+| 两列布局 | `.content-layout` | 列表+详情布局，flex + gap: 20px |
+| 列表面板 | `.list-panel` | 左侧固定宽度 (300px) |
+| 详情面板 | `.detail-panel` | 右侧可伸缩 (flex: 1) |
+| 列表头 | `.list-header` | 标题、搜索、排序区域 |
+| 列表项 | `.list-item` | 单个列表行 |
+| 列表项激活 | `.list-item.active` | 选中状态，有左边框 |
+| 详情内容 | `.detail-content` | 详情滚动区域 |
+| 详情区块 | `.detail-section` | 详情内的分组 |
+| 区块标题 | `.section-header` | 标题+操作按钮行 |
+| 操作按钮组 | `.header-actions` | 区块右侧按钮组 |
+| 信息网格 | `.info-grid` | 2列展示网格 |
+| 信息项 | `.info-item` | 单个标签-值对 |
+| 表单组 | `.form-group` | 表单字段容器 |
+| 表单行 | `.form-row` | 两列表单字段 |
+| 分页控制 | `.pagination-controls` | 分页按钮容器 |
+| 徽章 | `.badge` | 通用徽章 |
+| 状态徽章 | `.status-badge.connected/disconnected/unknown` | 连接状态显示 |
+
+### 样式变更检查清单
+
+修改样式时，使用此清单确保规范：
+
+- [ ] 通用样式已在 views.css 中定义，未在页面中重复
+- [ ] 所有颜色使用 CSS 变量（`var(--color-*)`）
+- [ ] 所有间距使用预定义变量（`var(--spacing-*)`）
+- [ ] 列表项选中时自动添加 `.active` class
+- [ ] 区块操作按钮使用 `.header-actions` 包裹
+- [ ] 详情区块使用 `.detail-section` 和 `.section-header`
+- [ ] 页面在 600px 断点时响应式调整
+- [ ] 无内联样式（inline styles）
+- [ ] 无重复定义的 CSS class
+
+### 工作流
+
+1. **创建页面时**
+   - 使用 `.page-container` 作为根元素
+   - 列表+详情布局使用 `.content-layout`
+   - 在 views.css 中已有的样式直接使用 class 名称
+
+2. **添加特定样式时**
+   - 如果样式是通用的（多个页面用），加到 views.css
+   - 如果样式是页面特定的，在 scoped 中定义新 class
+   - 不要覆盖 views.css 中已定义的 class
+
+3. **修改现有样式时**
+   - 评估是否影响其他页面
+   - 如果全局影响，修改 views.css
+   - 如果只影响一个页面，在页面中定义新 class
+
+### 响应式设计规范
+
+```css
+/* 桌面：默认 */
+.info-grid {
+  grid-template-columns: 1fr 1fr;
+}
+
+/* 平板和手机：600px 以下切换为单列 */
+@media (max-width: 600px) {
+  .info-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .content-layout {
+    flex-direction: column;
+  }
+}
+```
+
+---
+
+## 与 UI 库（Naive UI）协作
+
+### 使用 Naive UI 组件时的样式注意事项
+
+1. **保留 Naive UI 的默认样式**
+   - 不要覆盖 n-button, n-select 等组件的样式
+   - 如需定制，使用 Naive UI 提供的 props（type, size 等）
+
+2. **在 .header-actions 中使用 Naive UI 按钮**
+   ```vue
+   <div class="header-actions">
+     <n-button type="primary" @click="handleEdit">编辑</n-button>
+     <n-button @click="handleDelete">删除</n-button>
+   </div>
+   ```
+
+3. **列表使用 Naive UI DataTable 或自定义 .list-item**
+   - 简单列表用自定义 .list-item
+   - 复杂表格用 n-data-table
+
+4. **表单使用 Naive UI Form 或自定义 .form-group**
+   - 验证复杂的表单用 n-form
+   - 简单表单用自定义 .form-group
+
 5. **真实环境测试** - 对接真实 K8s 集群

@@ -66,6 +66,7 @@ onMounted(async () => {
 <style scoped>
 .app-wrapper {
   display: flex;
+  flex-direction: row;
   height: 100vh;
   background-color: #f5f5f5;
 }
@@ -103,8 +104,8 @@ onMounted(async () => {
 }
 
 .container {
-  max-width: 1200px;
-  margin: 0 auto;
+  width: 100%;
+  margin: 0;
 }
 
 .message-container {
@@ -121,7 +122,7 @@ onMounted(async () => {
   padding: 12px 16px;
   border-radius: 0;
   font-size: 14px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  border: 1px solid #eee;
   animation: slideIn 0.3s ease-out;
 }
 
@@ -156,11 +157,7 @@ onMounted(async () => {
   }
 }
 
-@media (max-width: 768px) {
-  .app-wrapper {
-    flex-direction: column;
-  }
-
+@media (max-width: 600px) {
   .layout-header {
     padding: 0 16px;
   }

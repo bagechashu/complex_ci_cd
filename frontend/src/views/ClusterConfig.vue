@@ -34,15 +34,6 @@
           >
             <div class="list-item-header">
               <div class="cluster-name">{{ cluster.name }}</div>
-              <div class="cluster-actions">
-                <button
-                  class="icon-btn"
-                  @click.stop="deleteCluster(cluster.id)"
-                  title="删除"
-                >
-                  🗑️
-                </button>
-              </div>
             </div>
             <div class="cluster-info">
               <span class="env-badge">{{ cluster.environment }}</span>
@@ -63,9 +54,11 @@
           <div class="detail-section">
             <div class="section-header">
               <h3>集群信息</h3>
-              <n-button @click="openEditClusterModal">
-                编辑集群
-              </n-button>
+              <div class="header-actions">
+                <n-button @click="openEditClusterModal">
+                  编辑集群
+                </n-button>
+              </div>
             </div>
 
             <div class="info-grid">
@@ -379,15 +372,15 @@ onMounted(async () => {
 <style scoped>
 .cluster-config-page {
   padding: 24px;
-  height: 100vh;
+  min-height: 100vh;
+  background: white;
   display: flex;
   flex-direction: column;
 }
 
 .content-layout {
-  display: grid;
-  grid-template-columns: 300px 1fr;
-  gap: 24px;
+  display: flex;
+  gap: 20px;
   flex: 1;
   overflow: hidden;
 }
@@ -398,8 +391,9 @@ onMounted(async () => {
   flex-direction: column;
   background: white;
   border-radius: 0;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  border: 1px solid #eee;
   overflow: hidden;
+  width: 300px;
 }
 
 .list-header {
@@ -439,7 +433,7 @@ onMounted(async () => {
 .search-input {
   width: 100%;
   padding: 8px 12px;
-  border: 1px solid #ddd;
+  border: 1px solid #eee;
   border-radius: 0;
   font-size: 14px;
 }
@@ -457,7 +451,7 @@ onMounted(async () => {
 
 .list-item {
   padding: 12px;
-  border-bottom: 1px solid #f0f0f0;
+  border-bottom: 1px solid #eee;
   cursor: pointer;
   transition: background 0.2s;
 }
@@ -527,9 +521,9 @@ onMounted(async () => {
 .detail-panel {
   background: white;
   border-radius: 0;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  border: 1px solid #eee;
   overflow-y: auto;
-  padding: 24px;
+  flex: 1;
 }
 
 .empty-detail {
@@ -540,34 +534,7 @@ onMounted(async () => {
   color: #999;
 }
 
-.detail-content {
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
-}
-
-.detail-section {
-  padding: 16px;
-  background: #f9f9f9;
-  border-radius: 0;
-  border: 1px solid #f0f0f0;
-}
-
-.detail-section h3 {
-  margin: 0 0 16px 0;
-  font-size: 16px;
-}
-
-.section-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 16px;
-}
-
-.section-header h3 {
-  margin: 0;
-}
+/* ============ Cluster-Specific Styles ============ */
 
 
 
@@ -602,7 +569,7 @@ onMounted(async () => {
 
 .kubeconfig-display {
   background: white;
-  border: 1px solid #e0e0e0;
+  border: 1px solid #eee;
   border-radius: 0;
   padding: 12px;
   max-height: 300px;
@@ -692,7 +659,7 @@ onMounted(async () => {
 .form-textarea {
   width: 100%;
   padding: 10px 12px;
-  border: 1px solid #ddd;
+  border: 1px solid #eee;
   border-radius: 0;
   font-size: 14px;
 }
@@ -708,6 +675,8 @@ onMounted(async () => {
   resize: vertical;
   font-family: 'Courier New', monospace;
 }
+
+/* ============ Cluster-Specific Styles ============ */
 
 /* Status Badge */
 .status-badge {

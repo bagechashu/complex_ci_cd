@@ -292,20 +292,13 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-.release-detail {
-  max-width: 1000px;
-  margin: 0 auto;
-}
+/* ============ Release Detail-Specific Styles ============ */
 
 .card-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
   width: 100%;
-}
-
-.content {
-  padding: 20px 0;
 }
 
 .section {
@@ -316,19 +309,8 @@ onUnmounted(() => {
   margin: 0 0 16px 0;
   font-size: 16px;
   font-weight: 600;
-  border-bottom: 2px solid #667eea;
+  border-bottom: 2px solid var(--color-primary);
   padding-bottom: 8px;
-}
-
-.section-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 16px;
-}
-
-.section-header h3 {
-  margin: 0;
 }
 
 .progress-item {
@@ -336,14 +318,14 @@ onUnmounted(() => {
 }
 
 .events {
-  background-color: #ffffff;
+  background-color: var(--color-bg-card);
   border-radius: 0;
   padding: 12px;
 }
 
 .event {
   padding: 12px;
-  border-bottom: 1px solid #e8e8e8;
+  border-bottom: 1px solid var(--color-border);
   margin-bottom: 12px;
 }
 
@@ -361,30 +343,30 @@ onUnmounted(() => {
 
 .event-header .time {
   font-size: 12px;
-  color: #999;
+  color: var(--color-text-muted);
   font-family: monospace;
   min-width: 180px;
 }
 
 .event-message {
   font-size: 14px;
-  color: #333;
+  color: var(--color-text-primary);
   margin-bottom: 4px;
 }
 
 .event-details {
   font-size: 12px;
-  color: #666;
-  background-color: white;
+  color: var(--color-text-secondary);
+  background-color: var(--color-bg-card);
   padding: 8px;
-  border-left: 2px solid #667eea;
+  border-left: 2px solid var(--color-primary);
   margin-top: 4px;
   overflow-x: auto;
 }
 
 .no-events {
   text-align: center;
-  color: #999;
+  color: var(--color-text-muted);
   padding: 30px;
 }
 

@@ -2,6 +2,9 @@
  * main.css - 全局样式
  */
 
+/* ============ 导入公共样式 ============ */
+@import './views.css';
+
 /* ============ 字体导入 ============ */
 @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
@@ -73,14 +76,14 @@ body {
 
 /* ============ Common Classes ============ */
 .container {
-  max-width: 1200px;
-  margin: 0 auto;
+  width: 100%;
+  margin: 0;
 }
 
 .card {
   background: white;
   border-radius: 0;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  border: 1px solid #eee;
   padding: 20px;
   margin-bottom: 20px;
 }
@@ -90,7 +93,7 @@ body {
   font-weight: 600;
   margin-bottom: 16px;
   padding-bottom: 12px;
-  border-bottom: 1px solid #e8e8e8;
+  border-bottom: 1px solid #eee;
 }
 
 /* ============ Responsive ============ */

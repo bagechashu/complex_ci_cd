@@ -1,63 +1,145 @@
 <template>
   <div class="shell-tasks-page">
-    <div class="main-content">
-      <!-- Page Header -->
-      <div class="page-header">
-        <div class="header-title">
-          <h1>🐚 Shell 任务管理</h1>
+    <div class="content-layout">
+      <!-- Left Panel: Shell Tasks List -->
+      <div class="list-panel">
+        <div class="list-header">
+          <div class="list-header-top">
+            <h2>任务列表</h2>
+            <div class="header-menu">
+              <n-dropdown trigger="click" :options="headerMenuOptions" @select="handleHeaderMenuSelect">
+                <n-button text type="primary" class="menu-btn">⋮</n-button>
+              </n-dropdown>
+            </div>
+          </div>
+          <input
+            v-model="searchQuery"
+            type="text"
+            class="search-input"
+            placeholder="搜索任务..."
+          />
+          <div class="sort-controls">
+            <button
+              :class="{ active: true }"
+              disabled
+              title="按名称排序"
+            >
+              名称
+            </button>
+            <button
+              :class="{ 'order-btn': true, active: true }"
+              @click="sortOrder = sortOrder === 'asc' ? 'desc' : 'asc'"
+              :title="`${sortOrder === 'asc' ? '升序' : '降序'}`"
+            >
+              {{ sortOrder === 'asc' ? '↑' : '↓' }}
+            </button>
+          </div>
         </div>
-        <div class="header-actions">
-          <n-button type="primary" @click="openCreateModal" :loading="createLoading">
-            + 创建任务
-          </n-button>
-          <n-button
-            v-if="selectedRowKeys.length > 0"
-            type="error"
-            @click="deleteBatch"
-            :loading="deleteLoading"
+
+        <div class="list-container">
+          <div v-if="filteredTasks.length === 0" class="empty-state">
+            <p>暂无任务，点击上方"+"创建</p>
+          </div>
+
+          <div
+            v-for="task in filteredTasks"
+            :key="task.id"
+            class="list-item"
+            :class="{ active: selectedTaskId === task.id }"
+            @click="selectTask(task)"
           >
-            批量删除
-          </n-button>
+            <div class="list-item-header">
+              <div class="task-name">{{ task.name }}</div>
+            </div>
+            <div class="task-info">
+              <span class="badge">{{ getExecutionMethodLabel(task.execution_method) }}</span>
+              <span class="badge-server">{{ task.server_ids?.length || 0 }} 台服务器</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Pagination -->
+        <div v-if="totalPages > 1" class="pagination-controls">
+          <button
+            :disabled="currentPage === 1"
+            class="pagination-btn"
+            @click="previousPage"
+          >
+            ← 上一页
+          </button>
+          <span class="pagination-info">
+            第 {{ currentPage }} / {{ totalPages }} 页 (共 {{ totalTasks }} 个任务)
+          </span>
+          <button
+            :disabled="currentPage === totalPages"
+            class="pagination-btn"
+            @click="nextPage"
+          >
+            下一页 →
+          </button>
         </div>
       </div>
 
-      <!-- Error Message -->
-      <n-alert v-if="error" type="error" closable @close="clearError" class="mb-4">
-        {{ error }}
-      </n-alert>
+      <!-- Right Panel: Task Details -->
+      <div class="detail-panel">
+        <div v-if="!selectedTask" class="empty-detail">
+          <p>请选择一个任务开始配置</p>
+        </div>
 
-      <!-- Table Section (Toolbar + Table + Pagination) -->
-      <div class="table-section">
-        <!-- Tasks Table -->
-        <n-card class="tasks-table">
-          <n-spin :show="tasksLoading">
-            <n-data-table
-              :columns="columns"
-              :data="shellTasks"
-              :bordered="false"
-              :single-line="false"
-              :loading="tasksLoading"
-              :row-key="(row) => row.id"
-              v-model:checked-row-keys="selectedRowKeys"
-              :scroll-x="1200"
-              striped
-              class="shell-tasks-table"
-            />
-          </n-spin>
-        </n-card>
+        <div v-else class="detail-content">
+          <!-- Task Info -->
+          <div class="detail-section">
+            <div class="section-header">
+              <h3>任务信息</h3>
+              <div class="header-actions">
+                <n-button @click="openEditModal(selectedTask)">
+                  编辑
+                </n-button>
+                <n-button type="error" @click="deleteTask(selectedTask.id)">
+                  删除
+                </n-button>
+              </div>
+            </div>
 
-        <!-- Pagination -->
-        <div class="pagination-container">
-          <n-pagination
-            v-model:page="currentPage"
-            :page-count="pagination.totalPages"
-            :page-size="pagination.pageSize"
-            show-size-picker
-            :page-sizes="[5, 10, 20, 50]"
-            @update:page="handlePageChange"
-            @update:page-size="handlePageSizeChange"
-            style="text-align: right"
-          />
+            <div class="info-grid">
+              <div class="info-item">
+                <label>任务名称:</label>
+                <span>{{ selectedTask.name }}</span>
+              </div>
+              <div class="info-item">
+                <label>任务描述:</label>
+                <span>{{ selectedTask.description || '无' }}</span>
+              </div>
+              <div class="info-item">
+                <label>执行方式:</label>
+                <span>{{ getExecutionMethodLabel(selectedTask.execution_method) }}</span>
+              </div>
+              <div class="info-item">
+                <label>关联命令:</label>
+                <span class="code">{{ getCommandName(selectedTask.command_id) }}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Servers -->
+          <div class="detail-section">
+            <div class="section-header">
+              <h3>目标服务器</h3>
+            </div>
+
+            <div v-if="selectedTask.server_ids && selectedTask.server_ids.length > 0" class="servers-list">
+              <p class="servers-summary">已配置 <strong>{{ selectedTask.server_ids.length }}</strong> 台服务器</p>
+              <div class="servers-grid">
+                <div v-for="serverId in selectedTask.server_ids" :key="serverId" class="server-item">
+                  <span class="server-badge">🖥️ {{ getServerName(serverId) }}</span>
+                </div>
+              </div>
+            </div>
+
+            <div v-else class="empty-state">
+              <p>暂无服务器配置</p>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -150,8 +232,7 @@
     <!-- Delete Confirmation -->
     <n-modal
       v-model:show="showDeleteConfirm"
-      title="确认删除"
-      preset="dialog"
+      title="删除任务"
       positive-text="删除"
       negative-text="取消"
       type="error"
@@ -164,16 +245,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, h, watch } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useShellStore } from '@/stores/shellStore'
-import type { DataTableColumn } from 'naive-ui'
 import type { ShellTask } from '@/types/api'
-import { formatDateTime } from '@/utils/format'
 import {
   NButton,
   NTag,
   NSpace,
-  NPopconfirm,
   useMessage
 } from 'naive-ui'
 
@@ -186,8 +264,11 @@ const showCreateModal = ref(false)
 const showDeleteConfirm = ref(false)
 const editingTaskId = ref<number | null>(null)
 const taskToDelete = ref<ShellTask | null>(null)
+const selectedTaskId = ref<number | null>(null)
 const currentPage = ref(1)
-const selectedRowKeys = ref<(string | number)[]>([])
+const pageSize = 10
+const searchQuery = ref('')
+const sortOrder = ref<'asc' | 'desc'>('asc')
 
 const taskForm = ref<Partial<ShellTask>>({
   name: '',
@@ -222,14 +303,12 @@ const formRules = {
 }
 
 // ============ Computed ============
-const pagination = computed(() => shellStore.pagination)
 const tasksLoading = computed(() => shellStore.tasksLoading)
 const createLoading = computed(() => shellStore.createLoading)
 const updateLoading = computed(() => shellStore.updateLoading)
 const deleteLoading = computed(() => shellStore.deleteLoading)
 const error = computed(() => shellStore.error)
 const shellTasks = computed(() => shellStore.shellTasks)
-const selectedTaskIds = computed(() => shellStore.selectedTaskIds)
 const shellServers = computed(() => shellStore.shellServers)
 const shellCommands = computed(() => shellStore.shellCommands)
 
@@ -251,135 +330,58 @@ const serverTreeOptions = computed(() => {
   }))
 })
 
-// Watch selectedRowKeys changes and sync with shellStore
-watch(selectedRowKeys, (newKeys) => {
-  // Update selectedTaskIds in store based on table selection
-  shellStore.selectedTaskIds.value = newKeys as number[]
-})
-
-watch(selectedTaskIds, (newIds) => {
-  // Update selectedRowKeys based on store changes
-  selectedRowKeys.value = newIds
-})
-
-// ============ Table Columns ============
-const columns: DataTableColumn<ShellTask>[] = [
+// Header Menu Options
+const headerMenuOptions = computed(() => [
   {
-    type: 'selection',
-    key: 'selection',
-    width: 40,
-    align: 'center'
-  },
-  {
-    title: '任务 ID',
-    key: 'id',
-    width: 80,
-    align: 'center',
-    render: (row) => row.id
-  },
-  {
-    title: '任务名称',
-    key: 'name',
-    width: 200,
-    ellipsis: true,
-    render: (row) => h('span', { class: 'font-semibold' }, row.name)
-  },
-  {
-    title: '描述',
-    key: 'description',
-    width: 220,
-    ellipsis: true,
-    render: (row) =>
-      row.description ? h('span', { class: 'text-gray-600' }, row.description) : h('span', { class: 'text-gray-400' }, '无')
-  },
-  {
-    title: '执行方式',
-    key: 'execution_method',
-    width: 120,
-    align: 'center',
-    render: (row) => {
-      const isSerial = row.execution_method === 'serial'
-      return h(
-        NTag,
-        { type: isSerial ? 'warning' : 'success', round: true },
-        () => isSerial ? '🔄 串行' : '⚡ 并行'
-      )
-    }
-  },
-  {
-    title: '目标服务器',
-    key: 'server_ids',
-    width: 150,
-    align: 'center',
-    render: (row) =>
-      h('span', { class: 'font-mono' }, `${row.server_ids?.length || 0} 台`)
-  },
-  {
-    title: '需要审批',
-    key: 'requires_approval',
-    width: 100,
-    align: 'center',
-    render: (row) => {
-      if (row.requires_approval) {
-        return h(NTag, { type: 'error', round: true }, () => '⚠️ 是')
-      } else {
-        return h(NTag, { type: 'default', round: true }, () => '否')
-      }
-    }
-  },
-  {
-    title: '创建时间',
-    key: 'created_at',
-    width: 180,
-    align: 'center',
-    render: (row) => formatDateTime(row.created_at)
-  },
-  {
-    title: '操作',
-    key: 'actions',
-    width: 150,
-    align: 'center',
-    fixed: 'right',
-    render: (row) =>
-      h(
-        NSpace,
-        { size: 'small', justify: 'center' },
-        () => [
-          h(
-            NButton,
-            {
-              text: true,
-              type: 'primary',
-              size: 'small',
-              onClick: () => openEditModal(row)
-            },
-            () => '✏️ 编辑'
-          ),
-          h(
-            NPopconfirm,
-            {
-              onPositiveClick: () => handleDeleteTask(row)
-            },
-            {
-              default: () => `确定删除 "${row.name}" 吗？`,
-              trigger: () =>
-                h(
-                  NButton,
-                  {
-                    text: true,
-                    type: 'error',
-                    size: 'small'
-                  },
-                  () => '🗑️ 删除'
-                )
-            }
-          )
-        ]
-      )
+    label: '+ 创建任务',
+    key: 'create-task'
   }
-]
+])
+
+const handleHeaderMenuSelect = (key: string) => {
+  if (key === 'create-task') {
+    openCreateModal()
+  }
+}
+
+// Filtered tasks
+const filteredTasks = computed(() => {
+  let filtered = shellTasks.value.filter(task =>
+    task.name.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
+    task.description?.toLowerCase().includes(searchQuery.value.toLowerCase())
+  )
+
+  // Sort by name
+  filtered.sort((a, b) => {
+    const compareVal = a.name.localeCompare(b.name)
+    return sortOrder.value === 'asc' ? compareVal : -compareVal
+  })
+
+  return filtered
+})
+
+// Pagination
+const totalTasks = computed(() => filteredTasks.value.length)
+const totalPages = computed(() => Math.ceil(totalTasks.value / pageSize))
+const paginatedTasks = computed(() => {
+  const start = (currentPage.value - 1) * pageSize
+  const end = start + pageSize
+  return filteredTasks.value.slice(start, end)
+})
+
+// Selected task
+const selectedTask = computed(() => {
+  return shellTasks.value.find(task => task.id === selectedTaskId.value)
+})
 
 // ============ Methods ============
+
+/**
+ * Select task
+ */
+const selectTask = (task: ShellTask) => {
+  selectedTaskId.value = task.id
+}
 
 /**
  * Open create modal
@@ -421,26 +423,16 @@ const handleSaveTask = async () => {
     // Update mode
     const result = await shellStore.updateShellTaskAction(editingTaskId.value, taskForm.value)
     if (result) {
-      message.success('任务更新成功')
+      message.success('任务已更新')
       showCreateModal.value = false
     }
   } else {
     // Create mode
-    const result = await shellStore.createShellTaskAction({
-      name: taskForm.value.name || '',
-      description: taskForm.value.description || '',
-      command_id: taskForm.value.command_id || 0,
-      execution_method: taskForm.value.execution_method || 'serial',
-      server_ids: taskForm.value.server_ids || [],
-      requires_approval: taskForm.value.requires_approval || false
-    })
+    const result = await shellStore.createShellTaskAction(taskForm.value)
     if (result) {
-      message.success('任务创建成功')
+      message.success('任务已创建')
       showCreateModal.value = false
-      // Refresh list if on first page
-      if (currentPage.value === 1) {
-        await shellStore.fetchShellTasks(1, pagination.value.pageSize)
-      }
+      currentPage.value = 1
     }
   }
 }
@@ -454,57 +446,68 @@ const handleCancelModal = () => {
 }
 
 /**
- * Delete single task
+ * Delete task
  */
-const handleDeleteTask = async (task: ShellTask) => {
-  const result = await shellStore.deleteShellTaskAction(task.id)
-  if (result) {
-    message.success(`任务 "${task.name}" 已删除`)
-    await shellStore.fetchShellTasks(currentPage.value, pagination.value.pageSize)
-  }
+const deleteTask = async (taskId: number) => {
+  const task = shellTasks.value.find(t => t.id === taskId)
+  if (!task) return
+  taskToDelete.value = task
+  showDeleteConfirm.value = true
 }
 
 /**
- * Confirm delete from modal
+ * Confirm delete
  */
 const confirmDelete = async () => {
   if (taskToDelete.value) {
-    await handleDeleteTask(taskToDelete.value)
-    showDeleteConfirm.value = false
-    taskToDelete.value = null
+    const result = await shellStore.deleteShellTaskAction(taskToDelete.value.id)
+    if (result) {
+      message.success('任务已删除')
+      if (selectedTaskId.value === taskToDelete.value.id) {
+        selectedTaskId.value = null
+      }
+      showDeleteConfirm.value = false
+      taskToDelete.value = null
+      // Reload list
+      await shellStore.fetchShellTasks(currentPage.value, pageSize)
+    }
   }
-}
-
-/**
- * Batch delete
- */
-const deleteBatch = async () => {
-  if (selectedRowKeys.value.length === 0) {
-    message.warning('请先选择要删除的任务')
-    return
-  }
-
-  const count = await shellStore.deleteMultipleShellTasks(selectedRowKeys.value as number[])
-  message.success(`已删除 ${count} 个任务`)
-  shellStore.clearSelection()
-  selectedRowKeys.value = []
-  await shellStore.fetchShellTasks(currentPage.value, pagination.value.pageSize)
 }
 
 /**
  * Handle page change
  */
-const handlePageChange = async (page: number) => {
-  currentPage.value = page
-  await shellStore.fetchShellTasks(page, pagination.value.pageSize)
+const previousPage = async () => {
+  if (currentPage.value > 1) {
+    currentPage.value--
+  }
+}
+
+const nextPage = async () => {
+  if (currentPage.value < totalPages.value) {
+    currentPage.value++
+  }
 }
 
 /**
- * Handle page size change
+ * Helper functions
  */
-const handlePageSizeChange = async (pageSize: number) => {
-  currentPage.value = 1
-  await shellStore.fetchShellTasks(1, pageSize)
+const getExecutionMethodLabel = (method: string): string => {
+  const map: Record<string, string> = {
+    serial: '🔄 串行执行',
+    parallel: '⚡ 并行执行'
+  }
+  return map[method] || method
+}
+
+const getCommandName = (commandId: number): string => {
+  const cmd = shellCommands.value.find(c => c.id === commandId)
+  return cmd ? (cmd.description || cmd.command) : '未知命令'
+}
+
+const getServerName = (serverId: number): string => {
+  const server = shellServers.value.find(s => s.id === serverId)
+  return server ? `${server.name} (${server.host})` : `服务器 ${serverId}`
 }
 
 /**
@@ -522,86 +525,153 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-.shell-tasks-page {
-  padding: 24px;
-  min-height: 100vh;
-  background: white;
+/* ============ Task-Specific Styles ============ */
+
+/* 任务名称 */
+.task-name {
+  font-weight: 500;
+  color: var(--color-text-primary);
 }
 
-.main-content {
-  max-width: 1400px;
-  margin: 0 auto;
+/* 任务操作按钮 */
+.task-actions {
+  display: flex;
+  gap: 4px;
+}
+
+/* 图标按钮 */
+.icon-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 16px;
+  padding: 0;
+  opacity: 0.6;
+  transition: opacity 0.2s;
+}
+
+.icon-btn:hover {
+  opacity: 1;
+}
+
+/* 任务信息标签 */
+.task-info {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 12px;
+}
+
+/* 徽章样式 */
+.badge {
+  background-color: var(--color-bg-light);
+  padding: 3px 8px;
+  border-radius: 0;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+.badge-server {
+  background-color: var(--color-bg-list-active);
+  color: var(--color-primary);
+  padding: 3px 8px;
+  border-radius: 0;
+}
+
+/* 服务器列表 */
+.servers-list {
   display: flex;
   flex-direction: column;
-  gap: 0;
+  gap: 12px;
 }
 
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 20px 0;
-  /* border-bottom: 1px solid #e0e6ed; */
-}
-
-.header-title h1 {
-  margin: 0;
-  font-size: 24px;
-  font-weight: 600;
-  color: #333;
-}
-
-.subtitle {
-  margin: 8px 0 0 0;
+.servers-summary {
   font-size: 14px;
-  color: #666;
+  color: var(--color-text-primary);
+  margin: 0;
 }
 
-.header-actions {
+.servers-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 8px;
+}
+
+.server-item {
+  display: flex;
+  align-items: center;
+  padding: 8px 12px;
+  background-color: var(--color-bg-light);
+  border-radius: 0;
+  border: 1px solid var(--color-border);
+}
+
+.server-badge {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 审批信息 */
+.approval-info {
   display: flex;
   gap: 12px;
 }
 
-.mb-4 {
-  margin: 16px 0;
+.approval-badge {
+  padding: 8px 16px;
+  border-radius: 0;
+  font-size: 14px;
+  font-weight: 500;
 }
 
-.table-section {
+.approval-required {
+  background-color: #fff3cd;
+  color: #856404;
+  border: 1px solid #ffeaa7;
+}
+
+.approval-not-required {
+  background-color: #d4edda;
+  color: #155724;
+  border: 1px solid #c3e6cb;
+}
+
+/* 操作按钮 */
+.action-buttons {
   display: flex;
   flex-direction: column;
-  background: transparent;
+  gap: 12px;
+}
+
+/* 覆盖 views.css 中的 sort-controls 按钮样式 */
+.sort-controls button {
+  flex: 1;
+  padding: 6px 8px;
+  border: 1px solid var(--color-border);
   border-radius: 0;
-  box-shadow: none;
+  background: var(--color-bg-card);
+  cursor: pointer;
+  font-size: 12px;
+  transition: all 0.2s;
 }
 
-.tasks-table {
-  box-shadow: none;
-  border-radius: 0;
-  border-bottom: 1px solid #e0e6ed;
+.sort-controls button:hover {
+  background-color: var(--color-bg-list-hover);
+  border-color: var(--color-primary);
+  color: var(--color-primary);
 }
 
-.pagination-container {
-  display: flex;
-  justify-content: flex-end;
-  padding: 16px 0;
-  background: transparent;
-  box-shadow: none;
-  border-radius: 0;
+.sort-controls button.active {
+  background-color: var(--color-bg-list-active);
+  border-color: var(--color-primary);
+  color: var(--color-primary);
 }
 
-.font-semibold {
-  font-weight: 600;
-}
-
-.font-mono {
-  font-family: 'Courier New', monospace;
-}
-
-.text-gray-600 {
-  color: #666;
-}
-
-.text-gray-400 {
-  color: #999;
+.sort-controls button.order-btn {
+  flex: 0 1 auto;
+  width: 40px;
 }
 </style>

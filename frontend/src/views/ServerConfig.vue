@@ -1,18 +1,17 @@
 <template>
   <div class="server-config-page">
-    <div class="page-header">
-      <h1>🖥️ 服务器配置</h1>
-      <p class="description">管理 Shell 执行的目标服务器和可执行命令</p>
-      <n-button type="primary" @click="openCreateServerModal">
-        + 添加服务器
-      </n-button>
-    </div>
-
     <div class="content-layout">
       <!-- Left Panel: Servers List -->
       <div class="list-panel">
         <div class="list-header">
-          <h2>服务器列表</h2>
+          <div class="list-header-top">
+            <h2>服务器列表</h2>
+            <div class="header-menu">
+              <n-dropdown trigger="click" :options="headerMenuOptions" @select="handleHeaderMenuSelect">
+                <n-button text type="primary" class="menu-btn">⋮</n-button>
+              </n-dropdown>
+            </div>
+          </div>
           <input
             v-model="searchQuery"
             type="text"
@@ -302,7 +301,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import type { ShellServer, ShellCommand } from '@/types/api'
-import { NButton } from 'naive-ui'
+import { NButton, NDropdown } from 'naive-ui'
 import {
   listShellServers,
   createShellServer,
@@ -329,6 +328,19 @@ const filteredServers = computed(() =>
     s.host.includes(searchQuery.value)
   )
 )
+
+const headerMenuOptions = computed(() => [
+  {
+    label: '+ 添加服务器',
+    key: 'add-server'
+  }
+])
+
+const handleHeaderMenuSelect = (key: string) => {
+  if (key === 'add-server') {
+    openCreateServerModal()
+  }
+}
 
 const showServerModal = ref(false)
 const showCommandModal = ref(false)
@@ -500,119 +512,15 @@ function formatDate(dateString: string | null): string {
 </script>
 
 <style scoped>
-.server-config-page {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  gap: 20px;
-}
+/* ============ Server-Specific Styles ============ */
 
-.page-header {
-  margin-bottom: 24px;
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-}
-
-.page-header h1 {
-  margin: 0 0 8px 0;
-  font-size: 28px;
-  color: #1a1a1a;
-}
-
-.page-header .description {
-  margin: 0;
-  color: #666;
-  font-size: 14px;
-}
-
-.content-layout {
-  display: flex;
-  gap: 20px;
-  flex: 1;
-  overflow: hidden;
-}
-
-.list-panel,
-.detail-panel {
-  border: 1px solid #e0e0e0;
-  border-radius: 0;
-  background: white;
-  display: flex;
-  flex-direction: column;
-}
-
-.list-panel {
-  width: 300px;
-  overflow: hidden;
-}
-
-.detail-panel {
-  flex: 1;
-  overflow: hidden;
-}
-
-.list-header,
-.section-header {
-  padding: 16px;
-  border-bottom: 1px solid #e0e0e0;
-}
-
-.list-header h2,
-.section-header h3 {
-  margin: 0 0 12px 0;
-  font-size: 16px;
-}
-
-.search-input {
-  width: 100%;
-  padding: 8px 12px;
-  border: 1px solid #e0e0e0;
-  border-radius: 0;
-  font-size: 14px;
-}
-
-.list-container {
-  flex: 1;
-  overflow-y: auto;
-}
-
-.empty-state {
-  padding: 40px 20px;
-  text-align: center;
-  color: #999;
-}
-
-.list-item {
-  padding: 12px 16px;
-  border-bottom: 1px solid #f0f0f0;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.list-item:hover,
-.list-item.active {
-  background-color: #f5f5f5;
-}
-
-.list-item.active {
-  background-color: #e8f4f8;
-  border-left: 3px solid #667eea;
-  padding-left: 13px;
-}
-
-.list-item-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 8px;
-}
-
+/* 服务器名称 */
 .server-name {
   font-weight: 500;
-  color: #333;
+  color: var(--color-text-primary);
 }
 
+/* 状态徽章 */
 .status-badge {
   padding: 2px 8px;
   border-radius: 0;
@@ -635,98 +543,28 @@ function formatDate(dateString: string | null): string {
   color: #721c24;
 }
 
+/* 服务器信息 */
 .server-info {
   display: flex;
   gap: 8px;
   font-size: 12px;
-  color: #666;
+  color: var(--color-text-secondary);
 }
 
 .auth-type {
-  background-color: #f0f0f0;
+  background-color: var(--color-bg-light);
   padding: 2px 6px;
   border-radius: 0;
 }
 
-.detail-content {
-  flex: 1;
-  overflow-y: auto;
-  padding: 20px;
-}
-
-.empty-detail {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 100%;
-  color: #999;
-}
-
-.detail-section {
-  margin-bottom: 30px;
-  padding-bottom: 30px;
-  border-bottom: 1px solid #e0e0e0;
-}
-
-.detail-section:last-child {
-  border-bottom: none;
-}
-
-.section-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0;
-  margin: 0 0 16px 0;
-  border: none;
-}
-
-.section-header h3 {
-  margin: 0;
-  font-size: 16px;
-}
-
-.header-actions {
-  display: flex;
-  gap: 8px;
-}
-
-.info-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 16px;
-}
-
-.info-item {
-  display: flex;
-  flex-direction: column;
-}
-
-.info-item label {
-  font-size: 12px;
-  color: #666;
-  margin-bottom: 4px;
-}
-
-.info-item span {
-  font-size: 14px;
-  color: #333;
-  font-weight: 500;
-}
-
-.info-item .code {
-  font-family: 'Courier New', monospace;
-  background-color: #f5f5f5;
-  padding: 4px 8px;
-  border-radius: 0;
-}
-
+/* 空命令提示 */
 .empty-commands {
   padding: 20px;
   text-align: center;
-  color: #999;
+  color: var(--color-text-muted);
 }
 
+/* 命令列表 */
 .commands-list {
   display: flex;
   flex-direction: column;
@@ -734,7 +572,7 @@ function formatDate(dateString: string | null): string {
 }
 
 .command-item {
-  border: 1px solid #e0e0e0;
+  border: 1px solid var(--color-border);
   border-radius: 0;
   padding: 12px;
   background-color: #fafafa;
@@ -755,19 +593,20 @@ function formatDate(dateString: string | null): string {
 .command-text {
   font-family: 'Courier New', monospace;
   font-size: 13px;
-  color: #333;
+  color: var(--color-text-primary);
   background-color: white;
   padding: 6px 8px;
   border-radius: 0;
-  border: 1px solid #e0e0e0;
+  border: 1px solid var(--color-border);
   margin-bottom: 4px;
 }
 
 .command-desc {
   font-size: 12px;
-  color: #666;
+  color: var(--color-text-secondary);
 }
 
+/* 命令操作按钮 */
 .command-actions {
   display: flex;
   gap: 6px;
@@ -811,6 +650,7 @@ function formatDate(dateString: string | null): string {
   background-color: #f5c6cb;
 }
 
+/* 命令状态 */
 .command-status {
   font-size: 12px;
 }
@@ -824,113 +664,4 @@ function formatDate(dateString: string | null): string {
   color: #856404;
   font-weight: 500;
 }
-
-.modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-}
-
-.modal {
-  background: white;
-  border-radius: 0;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
-  max-width: 500px;
-  width: 90%;
-  max-height: 80vh;
-  overflow-y: auto;
-}
-
-.modal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 20px;
-  border-bottom: 1px solid #e0e0e0;
-}
-
-.modal-header h2 {
-  margin: 0;
-  font-size: 18px;
-}
-
-.close-btn {
-  background: none;
-  border: none;
-  font-size: 24px;
-  cursor: pointer;
-  color: #999;
-}
-
-.modal-body {
-  padding: 20px;
-}
-
-.form-group {
-  margin-bottom: 16px;
-}
-
-.form-group label {
-  display: block;
-  margin-bottom: 6px;
-  font-weight: 500;
-  font-size: 14px;
-  color: #333;
-}
-
-.form-input,
-.form-select,
-.form-textarea {
-  width: 100%;
-  padding: 8px 12px;
-  border: 1px solid #e0e0e0;
-  border-radius: 0;
-  font-size: 14px;
-  font-family: inherit;
-}
-
-.form-input:focus,
-.form-select:focus,
-.form-textarea:focus {
-  outline: none;
-  border-color: #667eea;
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-}
-
-.form-textarea {
-  resize: vertical;
-  min-height: 80px;
-}
-
-.form-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-}
-
-.form-tip {
-  background-color: #e7f3ff;
-  border-left: 3px solid #667eea;
-  padding: 12px;
-  border-radius: 0;
-  font-size: 13px;
-  color: #666;
-  margin: 16px 0;
-}
-
-.form-actions {
-  display: flex;
-  gap: 12px;
-  justify-content: flex-end;
-  margin-top: 20px;
-}
-
-
 </style>

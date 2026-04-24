@@ -304,4 +304,307 @@ app.use(naive)
 **问题5：表格排版错乱**
 - 原因：列没有指定宽度
 - 解决：为所有列添加 `width` 属性
+
+---
+
+## 与中央 CSS 架构（views.css）协作
+
+### 架构背景
+
+发布控制系统采用**样式统一化**架构，避免样式重复：
+- 所有页面共用样式统一定义在 `frontend/src/styles/views.css`
+- Naive UI 组件的默认样式保持不变
+- 页面的布局、列表、表单等容器样式已在 views.css 中预定义
+
+详见 `frontend-css-architecture` SKILL。
+
+### Naive UI 组件的合理使用
+
+#### ✅ 推荐做法
+
+```vue
+<!-- 在预定义的 .page-container 中使用 Naive UI 组件 -->
+<template>
+  <div class="page-container">
+    <div class="content-layout">
+      <!-- 左侧列表面板 -->
+      <div class="list-panel">
+        <div class="list-header">
+          <h2>应用列表</h2>
+        </div>
+        <div class="list-container">
+          <div 
+            v-for="app in apps"
+            class="list-item"
+            :class="{ active: app.id === selectedId }"
+            @click="selectApp(app)"
+          >
+            {{ app.name }}
+          </div>
+        </div>
+      </div>
+      
+      <!-- 右侧详情面板 -->
+      <div class="detail-panel" v-if="selectedApp">
+        <div class="detail-content">
+          <!-- 详情区块 -->
+          <div class="detail-section">
+            <div class="section-header">
+              <h3>应用信息</h3>
+              <div class="header-actions">
+                <!-- 在 .header-actions 中使用 Naive UI 按钮 -->
+                <n-button type="primary" @click="handleEdit">编辑</n-button>
+                <n-button @click="handleDelete">删除</n-button>
+              </div>
+            </div>
+            
+            <!-- 信息网格 - 使用预定义的 .info-grid 布局 -->
+            <div class="info-grid">
+              <div class="info-item">
+                <label>应用名称</label>
+                <span>{{ selectedApp.name }}</span>
+              </div>
+              <div class="info-item">
+                <label>镜像名称</label>
+                <span>{{ selectedApp.image }}</span>
+              </div>
+            </div>
+          </div>
+          
+          <!-- 表单示例 -->
+          <div class="detail-section">
+            <div class="section-header">
+              <h3>配置</h3>
+            </div>
+            <n-form :model="form" :rules="rules">
+              <n-form-item label="集群" path="cluster_id">
+                <n-select 
+                  v-model:value="form.cluster_id" 
+                  :options="clusterOptions"
+                  placeholder="选择集群"
+                />
+              </n-form-item>
+              <n-form-item label="环境" path="env_id">
+                <n-select 
+                  v-model:value="form.env_id" 
+                  :options="envOptions"
+                  placeholder="选择环境"
+                />
+              </n-form-item>
+            </n-form>
+          </div>
+          
+          <!-- 数据表格示例 -->
+          <div class="detail-section">
+            <div class="section-header">
+              <h3>发布历史</h3>
+            </div>
+            <n-data-table
+              :columns="columns"
+              :data="releases"
+              :scroll-x="1000"
+              :pagination="pagination"
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
+
+<style scoped>
+/* 仅定义页面特定的自定义样式，不重复定义 views.css 中的样式 */
+
+/* 示例：自定义按钮颜色 */
+.special-btn {
+  --n-color: #f77f00;  /* Naive UI color variable */
+}
+
+/* 示例：页面特定动画 */
+.fade-enter-active {
+  transition: opacity 0.3s ease;
+}
+</style>
+```
+
+#### ❌ 避免做法
+
+```vue
+<template>
+  <!-- ❌ 不要覆盖预定义的布局类 -->
+  <div class="page-container" style="padding: 32px;">
+  
+  <!-- ❌ 不要使用内联样式定义布局 -->
+  <div style="display: flex; gap: 20px; flex: 1;">
+  
+  <!-- ❌ 不要重复定义 CSS 中的容器样式 -->
+  <div class="list-panel" style="width: 300px;">
+  
+  <!-- ❌ 不要对 Naive UI 组件添加不必要的样式 -->
+  <n-button style="padding: 10px 20px; background: #2d8659;">
+</template>
+
+<style scoped>
+/* ❌ 不要在页面中重新定义 views.css 中已有的样式 */
+.page-container {
+  padding: 24px;
+  display: flex;
+}
+
+.list-item {
+  padding: 12px 16px;
+  border-bottom: 1px solid #eee;
+  cursor: pointer;
+}
+
+.list-item.active {
+  background: #e8f5f0;
+  border-left: 3px solid #2d8659;
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+</style>
+```
+
+### 布局与表单的混合使用
+
+```vue
+<!-- 表单验证 + 预定义布局 -->
+<n-form :model="clusterForm" :rules="clusterRules">
+  <!-- 单列表单 -->
+  <n-form-item label="集群名称" path="name">
+    <n-input v-model:value="clusterForm.name" />
+  </n-form-item>
+  
+  <!-- 两列表单（使用 .form-row） -->
+  <div class="form-row">
+    <n-form-item label="环境" path="env_id">
+      <n-select v-model:value="clusterForm.env_id" :options="envOptions" />
+    </n-form-item>
+    <n-form-item label="类型" path="type">
+      <n-select v-model:value="clusterForm.type" :options="typeOptions" />
+    </n-form-item>
+  </div>
+</n-form>
+```
+
+### 模态框与预定义样式
+
+```vue
+<!-- Naive UI 模态框 + views.css 样式 -->
+<n-modal v-model:show="showModal" title="编辑应用">
+  <div class="detail-section">
+    <div class="info-grid">
+      <div class="info-item">
+        <label>应用名称</label>
+        <span>{{ app.name }}</span>
+      </div>
+      <div class="info-item">
+        <label>镜像</label>
+        <span>{{ app.image }}</span>
+      </div>
+    </div>
+  </div>
+  
+  <!-- 模态框底部操作按钮 -->
+  <template #footer>
+    <div class="modal-footer">
+      <n-button @click="showModal = false">取消</n-button>
+      <n-button type="primary" @click="handleSave">保存</n-button>
+    </div>
+  </template>
+</n-modal>
+```
+
+### 样式优先级处理
+
+Naive UI 组件可能有自己的样式，处理方法：
+
+1. **使用 Naive UI props 定制** (推荐)
+   ```vue
+   <n-button type="primary" size="small" round>按钮</n-button>
+   <n-select :options="options" clearable searchable />
+   ```
+
+2. **使用 CSS 变量** (Naive UI 支持)
+   ```css
+   :root {
+     --n-color: #2d8659;        /* Naive UI 按钮颜色 */
+     --n-text-color: #1a1a1a;   /* Naive UI 文本颜色 */
+   }
+   ```
+
+3. **必要时使用 scoped 样式覆盖**
+   ```css
+   /* 仅当无法通过 props 或 CSS 变量实现时 */
+   :deep(.n-button) {
+     /* 仅覆盖特定页面的样式 */
+   }
+   ```
+
+### 常见场景
+
+#### 1. 列表 + 详情布局（推荐用自定义 .list-item）
+```vue
+<div class="content-layout">
+  <div class="list-panel">
+    <div class="list-header"><h2>应用</h2></div>
+    <div class="list-container">
+      <div 
+        v-for="app in apps" 
+        class="list-item"
+        :class="{ active: app.id === selectedId }"
+      >
+        {{ app.name }}
+      </div>
+    </div>
+  </div>
+  
+  <div class="detail-panel">
+    <!-- 详情内容 -->
+  </div>
+</div>
+```
+
+#### 2. 数据表格（推荐用 n-data-table）
+```vue
+<div class="detail-section">
+  <div class="section-header">
+    <h3>发布历史</h3>
+  </div>
+  <n-data-table
+    :columns="columns"
+    :data="releases"
+    :scroll-x="1200"
+  />
+</div>
+```
+
+#### 3. 复杂表单（推荐用 n-form）
+```vue
+<n-form :model="form" :rules="rules">
+  <n-form-item label="应用" path="app_id">
+    <n-select v-model:value="form.app_id" />
+  </n-form-item>
+  <!-- 更多表单项 -->
+</n-form>
+```
+
+### 总结
+
+| 场景 | 推荐方案 |
+|------|---------|
+| 页面布局 (两列、padding等) | 使用 views.css 的 `.page-container`, `.content-layout` 等 |
+| 简单列表 | 使用 views.css 的 `.list-item`, `.list-panel` |
+| 复杂表格 | 使用 `<n-data-table>` + views.css 容器样式 |
+| 简单表单 | 使用 views.css 的 `.form-group`, `.form-row` |
+| 复杂表单 | 使用 `<n-form>` + views.css 容器样式 |
+| 状态徽章 | 使用 views.css 的 `.status-badge` |
+| 通用徽章 | 使用 `<n-tag>` 或 views.css 的 `.badge` |
+| 模态框 | 使用 `<n-modal>` + views.css 的容器样式 |
+
 - 动态内容列可用 `ellipsis: true` 处理溢出

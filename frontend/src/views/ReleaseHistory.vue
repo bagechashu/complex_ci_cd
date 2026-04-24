@@ -1,6 +1,6 @@
 <template>
   <div class="release-history">
-    <n-card title="发布历史" size="large">
+    <n-card size="large">
       <!-- Filters -->
       <div class="filters">
         <n-space>
@@ -303,28 +303,11 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.release-history {
-  max-width: 1200px;
-  margin: 0 auto;
-}
+/* ============ Release History-Specific Styles ============ */
 
-.filters {
-  margin-bottom: 20px;
-  padding-bottom: 20px;
-  border-bottom: 1px solid #e8e8e8;
-}
-
-.pagination {
-  margin-top: 20px;
-  text-align: center;
-}
-
-.detail-content {
-  padding: 20px 0;
-}
-
+/* 事件列表容器 */
 .events {
-  background-color: #ffffff;
+  background-color: var(--color-bg-card);
   border-radius: 0;
   padding: 12px;
   margin-top: 12px;
@@ -332,12 +315,13 @@ onMounted(() => {
   overflow-y: auto;
 }
 
+/* 事件项 */
 .event {
   display: flex;
   gap: 12px;
   padding: 8px 0;
   font-size: 13px;
-  border-bottom: 1px solid #e8e8e8;
+  border-bottom: 1px solid var(--color-border);
 }
 
 .event:last-child {
@@ -345,25 +329,25 @@ onMounted(() => {
 }
 
 .event .time {
-  color: #999;
+  color: var(--color-text-muted);
   min-width: 70px;
   font-family: monospace;
 }
 
 .event .type {
-  color: #667eea;
+  color: var(--color-primary);
   font-weight: 600;
   min-width: 100px;
 }
 
 .event .message {
   flex: 1;
-  color: #333;
+  color: var(--color-text-primary);
 }
 
 .no-events {
   text-align: center;
-  color: #999;
+  color: var(--color-text-muted);
   padding: 20px;
 }
 </style>
