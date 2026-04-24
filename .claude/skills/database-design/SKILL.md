@@ -55,9 +55,9 @@ CREATE TABLE environment (
 CREATE TABLE cluster (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   name TEXT NOT NULL UNIQUE,
-  type TEXT NOT NULL,  -- 'kubernetes', 'salt', 'ansible'
+  type TEXT NOT NULL,  -- 仅支持 'kubernetes'，其他部署方式通过 shell_server 实现
   kubeconfig BLOB,     -- 加密存储
-  k8s_connection_status TEXT,  -- 'unknown', 'connected', 'error'
+  k8s_connection_status TEXT,  -- 'connected', 'disconnected', 'unknown'
   description TEXT,
   created_at DATETIME NOT NULL,
   updated_at DATETIME NOT NULL

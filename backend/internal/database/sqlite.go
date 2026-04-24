@@ -75,7 +75,6 @@ func migrateSchemaV1(db *sql.DB) error {
 		labels TEXT,
 		kubeconfig TEXT,
 		k8s_connection_status TEXT DEFAULT 'unknown',
-		ansible_hosts TEXT,
 		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 		updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 	);

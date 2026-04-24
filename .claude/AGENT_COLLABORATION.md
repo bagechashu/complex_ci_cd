@@ -26,6 +26,8 @@
 
 ## API 契约规范
 
+> 📌 **API 响应格式的完整定义详见**: `skills/api-design/SKILL.md`
+
 ### 1. 统一的 Request 格式
 
 ```typescript
@@ -40,30 +42,28 @@
 
 ### 2. 统一的 Response 格式
 
-#### 成功 (200/202)
+> 响应格式详见 `skills/api-design/SKILL.md`
+
+#### 成功 (200/201/202)
 
 ```typescript
 interface SuccessResponse<T> {
-  code: "SUCCESS"        // 固定值
+  code: 0                // HTTP 状态码或固定 0 表示成功
   message: string        // 用户可读消息
   data: T               // 实际数据
-  timestamp: string     // ISO 8601 时间戳
-  request_id: string    // 链路追踪 ID (来自请求头)
 }
 ```
 
 例:
 ```json
 {
-  "code": "SUCCESS",
-  "message": "release created successfully",
+  "code": 0,
+  "message": "success",
   "data": {
-    "release_id": 123,
-    "status": "pending",
-    "request_id": "req_xxxx-xxxx"
-  },
-  "timestamp": "2026-04-10T10:00:00Z",
-  "request_id": "req_xxxx-xxxx"
+    "id": 123,
+    "app_id": 1,
+    "status": "pending"
+  }
 }
 ```
 
@@ -71,25 +71,17 @@ interface SuccessResponse<T> {
 
 ```typescript
 interface ErrorResponse {
-  code: string          // 错误码 (ERROR_CODE 枚举)
+  code: number          // HTTP 状态码 (400, 404, 500 等)
   message: string       // 用户可读错误信息
-  details?: any         // 错误上下文
-  timestamp: string
-  request_id: string
+  error?: any           // 错误详情（可选）
 }
 ```
 
 例:
 ```json
 {
-  "code": "VALIDATION_FAILED",
-  "message": "invalid app_id",
-  "details": {
-    "field": "app_id",
-    "reason": "not found"
-  },
-  "timestamp": "2026-04-10T10:00:00Z",
-  "request_id": "req_xxxx-xxxx"
+  "code": 400,
+  "message": "invalid app_id"
 }
 ```
 
@@ -153,12 +145,14 @@ event_type: "workload_started" | "pod_updated" | "rollout_complete" | "error"
 **响应** (202 Accepted):
 ```json
 {
-  "code": "SUCCESS",
-  "message": "workload accepted",
+  "code": 0,
+  "message": "accepted",
   "data": {
-    "release_id": 123,
-    "status": "accepted",
-    "request_id": "req_xxxx"
+    "id": 123,
+    "app_id": 1,
+    "env_id": 2,
+    "cluster_id": 1,
+    "status": "pending"
   }
 }
 ```
@@ -175,14 +169,15 @@ event_type: "workload_started" | "pod_updated" | "rollout_complete" | "error"
 **响应** (200):
 ```json
 {
-  "code": "SUCCESS",
+  "code": 0,
+  "message": "success",
   "data": {
     "id": 123,
     "app_id": 1,
     "env_id": 2,
     "cluster_id": 1,
     "image": "harbor.com/project/service:v1.2.3",
-    "status": "deploying",  // 或 success / failed
+    "status": "deploying",
     "started_at": "2026-04-10T10:00:00Z",
     "completed_at": null,
     "operator": "user@example.com",
@@ -224,7 +219,8 @@ GET /api/v1/release?app_id=1&env_id=2&limit=20&offset=0
 **响应** (200):
 ```json
 {
-  "code": "SUCCESS",
+  "code": 0,
+  "message": "success",
   "data": {
     "total": 50,
     "limit": 20,
@@ -264,10 +260,11 @@ GET /api/v1/release?app_id=1&env_id=2&limit=20&offset=0
 **响应** (202 Accepted):
 ```json
 {
-  "code": "SUCCESS",
+  "code": 0,
+  "message": "accepted",
   "data": {
-    "rollback_release_id": 124,
-    "message": "rollback in progress"
+    "id": 124,
+    "status": "pending"
   }
 }
 ```
@@ -288,22 +285,22 @@ GET /api/v1/workload-target?app_id=1&env_id=2
 **响应** (200):
 ```json
 {
-  "code": "SUCCESS",
-  "data": {
-    "workload_targets": [
-      {
-        "id": 1,
-        "app_id": 1,
-        "env_id": 2,
-        "cluster_id": 1,
-        "cluster_name": "prod-cluster",
-        "k8s_namespace": "prod",
-        "k8s_workload": "user-service",
-        "registry_domain": "harbor.com",
-        "image_repo": "project/user-service"
-      }
-    ]
-  }
+  "code": 0,
+  "message": "success",
+  "data": [
+    {
+      "id": 1,
+      "app_id": 1,
+      "env_id": 2,
+      "cluster_id": 1,
+      "namespace": "prod",
+      "workload_name": "user-service",
+      "workload_type": "Deployment",
+      "container_name": "user-service",
+      "registry_domain": "harbor.com",
+      "image_repo": "project/user-service"
+    }
+  ]
 }
 ```
 
@@ -401,17 +398,26 @@ interface Environment {
 interface Cluster {
   id: number
   name: string
-  type: string  // kubernetes / salt / ansible
+  type: string  // 仅支持 kubernetes，其他部署方式通过 shell_server 实现
 }
 
 // ============ API Response Wrappers ============
 
 interface ApiResponse<T> {
-  code: 'SUCCESS' | string
+  code: 0 | number       // 0 表示成功，HTTP 状态码表示错误
   message: string
-  data: T
-  timestamp: string
-  request_id: string
+  data?: T
+  error?: {
+    type?: string
+    details?: string
+  }
+}
+
+interface ListResponse<T> {
+  total: number
+  limit: number
+  offset: number
+  items: T[]
 }
 
 interface ListResponse<T> {
