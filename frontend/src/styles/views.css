@@ -474,6 +474,16 @@
   padding: 20px;
 }
 
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 12px;
+  padding: 20px;
+  border-top: 1px solid var(--color-border);
+  background: var(--color-bg-card);
+}
+
 /* ============ Badges & Tags ============ */
 .badge {
   display: inline-block;
