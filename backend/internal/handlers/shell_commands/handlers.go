@@ -59,9 +59,7 @@ func ListShellCommandsHandler(commandRepo repository.ShellCommandRepository, log
 
 		totalPages := (total + pageSize - 1) / pageSize
 
-		resp := map[string]interface{}{
-			"code":       0,
-			"message":    "success",
+		data := map[string]interface{}{
 			"data":       commands,
 			"page":       page,
 			"pageSize":   pageSize,
@@ -69,8 +67,7 @@ func ListShellCommandsHandler(commandRepo repository.ShellCommandRepository, log
 			"totalPages": totalPages,
 		}
 
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(resp)
+		responses.SuccessResponse(w, data)
 	}
 }
 
@@ -93,14 +90,7 @@ func GetShellCommandHandler(commandRepo repository.ShellCommandRepository, log *
 			return
 		}
 
-		resp := map[string]interface{}{
-			"code":    0,
-			"message": "success",
-			"data":    command,
-		}
-
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(resp)
+		responses.SuccessResponse(w, command)
 	}
 }
 
@@ -142,14 +132,7 @@ func CreateShellCommandHandler(commandRepo repository.ShellCommandRepository, lo
 			return
 		}
 
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusCreated)
-		resp := map[string]interface{}{
-			"code":    0,
-			"message": "created",
-			"data":    command,
-		}
-		json.NewEncoder(w).Encode(resp)
+		responses.CreatedResponse(w, command)
 	}
 }
 
@@ -178,14 +161,7 @@ func PublishShellCommandHandler(commandRepo repository.ShellCommandRepository, l
 			return
 		}
 
-		resp := map[string]interface{}{
-			"code":    0,
-			"message": "success",
-			"data":    command,
-		}
-
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(resp)
+		responses.SuccessResponse(w, command)
 	}
 }
 

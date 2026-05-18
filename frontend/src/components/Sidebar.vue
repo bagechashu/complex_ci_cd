@@ -83,7 +83,7 @@ const router = useRouter()
 const route = useRoute()
 const isCollapsed = ref(false)
 const showUserMenu = ref(false)
-const expandedGroups = ref<Set<string>>(new Set(['k8s-release', 'shell-tasks']))
+const expandedGroups = ref<Set<string>>(new Set(['k8s-release', 'shell-command-execution']))
 
 // Menu groups configuration
 const menuGroups: MenuGroup[] = [
@@ -116,16 +116,16 @@ const menuGroups: MenuGroup[] = [
     ]
   },
   {
-    id: 'shell-tasks',
-    label: 'Shell 任务管理',
+    id: 'shell-command-execution',
+    label: 'Shell 命令管理',
     icon: '🐚',
     items: [
       {
-        name: 'ShellTasks',
-        path: '/shell-tasks',
-        label: 'Shell 任务',
+        name: 'ShellCommandExecution',
+        path: '/shell-command-execution',
+        label: '命令执行',
         icon: '🐚',
-        meta: { title: 'Shell 任务' }
+        meta: { title: 'Shell 命令执行' }
       },
       {
         name: 'ServerConfig',

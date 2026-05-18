@@ -5,6 +5,8 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import type { ShellTask, ShellServer, ShellCommand, ShellTaskExecution } from '@/types/api'
+import { getErrorMessage, isBusinessError } from '@/utils/error-handler'
+import type { BusinessError } from '@/api/request'
 import {
   listShellTasks,
   getShellTask,
@@ -22,6 +24,7 @@ export const useShellStore = defineStore('shell', () => {
   const shellTasks = ref<ShellTask[]>([])
   const shellServers = ref<ShellServer[]>([])
   const shellCommands = ref<ShellCommand[]>([])
+  const shellTaskExecutions = ref<ShellTaskExecution[]>([])
   
   const currentShellTask = ref<ShellTask | null>(null)
   const selectedTaskIds = ref<number[]>([])
@@ -44,6 +47,7 @@ export const useShellStore = defineStore('shell', () => {
 
   // Error state
   const error = ref<string | null>(null)
+  const errorCode = ref<number | null>(null)
 
   // ============ Computed ============
   
@@ -97,17 +101,23 @@ export const useShellStore = defineStore('shell', () => {
   const fetchShellTasks = async (page: number = 1, pageSize: number = 10) => {
     tasksLoading.value = true
     error.value = null
+    errorCode.value = null
     try {
       const response = await listShellTasks(page, pageSize)
-      shellTasks.value = response.data
+      // 后端返回 {data: [...], page, pageSize, total, totalPages}
+      shellTasks.value = Array.isArray(response.data) ? response.data : []
       pagination.value = {
-        page: response.page,
-        pageSize: response.pageSize,
-        total: response.total,
-        totalPages: Math.ceil(response.total / pageSize)
+        page: response.page || 1,
+        pageSize: response.pageSize || 10,
+        total: response.total || 0,
+        totalPages: response.totalPages || 0
       }
     } catch (err) {
-      error.value = err instanceof Error ? err.message : '获取 Shell 任务列表失败'
+      const message = getErrorMessage(err)
+      error.value = message
+      if (isBusinessError(err)) {
+        errorCode.value = (err as BusinessError).code
+      }
       console.error('Error fetching shell tasks:', err)
     } finally {
       tasksLoading.value = false
@@ -135,13 +145,18 @@ export const useShellStore = defineStore('shell', () => {
   const createShellTaskAction = async (data: Omit<ShellTask, 'id' | 'created_at' | 'updated_at'>) => {
     createLoading.value = true
     error.value = null
+    errorCode.value = null
     try {
       const response = await createShellTask(data)
       shellTasks.value.unshift(response)
       pagination.value.total += 1
       return response
     } catch (err) {
-      error.value = err instanceof Error ? err.message : '创建 Shell 任务失败'
+      const message = getErrorMessage(err)
+      error.value = message
+      if (isBusinessError(err)) {
+        errorCode.value = (err as BusinessError).code
+      }
       console.error('Error creating shell task:', err)
       return null
     } finally {
@@ -155,6 +170,7 @@ export const useShellStore = defineStore('shell', () => {
   const updateShellTaskAction = async (id: number, data: Partial<ShellTask>) => {
     updateLoading.value = true
     error.value = null
+    errorCode.value = null
     try {
       const response = await updateShellTask(id, data)
       const index = shellTasks.value.findIndex(t => t.id === id)
@@ -166,7 +182,11 @@ export const useShellStore = defineStore('shell', () => {
       }
       return response
     } catch (err) {
-      error.value = err instanceof Error ? err.message : `更新 Shell 任务 ${id} 失败`
+      const message = getErrorMessage(err)
+      error.value = message
+      if (isBusinessError(err)) {
+        errorCode.value = (err as BusinessError).code
+      }
       console.error(`Error updating shell task ${id}:`, err)
       return null
     } finally {
@@ -180,6 +200,7 @@ export const useShellStore = defineStore('shell', () => {
   const deleteShellTaskAction = async (id: number) => {
     deleteLoading.value = true
     error.value = null
+    errorCode.value = null
     try {
       await deleteShellTask(id)
       shellTasks.value = shellTasks.value.filter(t => t.id !== id)
@@ -190,7 +211,11 @@ export const useShellStore = defineStore('shell', () => {
       }
       return true
     } catch (err) {
-      error.value = err instanceof Error ? err.message : `删除 Shell 任务 ${id} 失败`
+      const message = getErrorMessage(err)
+      error.value = message
+      if (isBusinessError(err)) {
+        errorCode.value = (err as BusinessError).code
+      }
       console.error(`Error deleting shell task ${id}:`, err)
       return false
     } finally {
@@ -215,11 +240,18 @@ export const useShellStore = defineStore('shell', () => {
    */
   const fetchShellServers = async (page: number = 1, pageSize: number = 100) => {
     serversLoading.value = true
+    error.value = null
+    errorCode.value = null
     try {
       const response = await listShellServers(page, pageSize)
-      shellServers.value = response.data
+      // 后端返回 {data: [...], page, pageSize, total, totalPages}
+      shellServers.value = Array.isArray(response.data) ? response.data : []
     } catch (err) {
-      error.value = err instanceof Error ? err.message : '获取 Shell 服务器列表失败'
+      const message = getErrorMessage(err)
+      error.value = message
+      if (isBusinessError(err)) {
+        errorCode.value = (err as BusinessError).code
+      }
       console.error('Error fetching shell servers:', err)
     } finally {
       serversLoading.value = false
@@ -231,11 +263,18 @@ export const useShellStore = defineStore('shell', () => {
    */
   const fetchShellCommands = async (page: number = 1, pageSize: number = 100) => {
     commandsLoading.value = true
+    error.value = null
+    errorCode.value = null
     try {
       const response = await listShellCommands(page, pageSize)
-      shellCommands.value = response.data
+      // 后端返回 {data: [...], page, pageSize, total, totalPages}
+      shellCommands.value = Array.isArray(response.data) ? response.data : []
     } catch (err) {
-      error.value = err instanceof Error ? err.message : '获取 Shell 命令列表失败'
+      const message = getErrorMessage(err)
+      error.value = message
+      if (isBusinessError(err)) {
+        errorCode.value = (err as BusinessError).code
+      }
       console.error('Error fetching shell commands:', err)
     } finally {
       commandsLoading.value = false
@@ -248,9 +287,15 @@ export const useShellStore = defineStore('shell', () => {
   const fetchShellTaskExecutions = async (page: number = 1, pageSize: number = 10) => {
     try {
       const response = await listShellTaskExecutions(page, pageSize)
-      return response.data
+      // 后端返回 {data: [...], page, pageSize, total, totalPages}
+      shellTaskExecutions.value = Array.isArray(response.data) ? response.data : []
+      return shellTaskExecutions.value
     } catch (err) {
-      error.value = err instanceof Error ? err.message : '获取 Shell 任务执行历史失败'
+      const message = getErrorMessage(err)
+      error.value = message
+      if (isBusinessError(err)) {
+        errorCode.value = (err as BusinessError).code
+      }
       console.error('Error fetching shell task executions:', err)
       return []
     }
@@ -322,10 +367,12 @@ export const useShellStore = defineStore('shell', () => {
     shellTasks,
     shellServers,
     shellCommands,
+    shellTaskExecutions,
     currentShellTask,
     selectedTaskIds,
     pagination,
     error,
+    errorCode,
 
     // Loading states
     tasksLoading,

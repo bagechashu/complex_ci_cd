@@ -20,13 +20,27 @@ export const getApplications = async (page: number = 1, pageSize: number = 10, s
   if (search) {
     params.append('search', search)
   }
-  const response: any = await request.get(`/v1/applications?${params.toString()}`)
-  return {
-    page: response?.page || 1,
-    pageSize: response?.pageSize || 10,
-    total: response?.total || 0,
-    totalPages: response?.totalPages || 1,
-    data: response?.data || []
+  
+  try {
+    const response: any = await request.get(`/v1/applications?${params.toString()}`)
+    console.log('[DEBUG] getApplications raw response:', response)
+    
+    const result = {
+      page: response?.page || 1,
+      pageSize: response?.pageSize || 10,
+      total: response?.total || 0,
+      totalPages: response?.totalPages || 1,
+      data: response?.data || []
+    }
+    
+    console.log('[DEBUG] getApplications final result:', result)
+    console.log('[DEBUG] applications data:', result.data)
+    console.log('[DEBUG] applications count:', result.data?.length || 0)
+    
+    return result
+  } catch (error) {
+    console.error('[DEBUG] getApplications error:', error)
+    throw error
   }
 }
 
@@ -44,6 +58,13 @@ export const getApplication = (appId: number): Promise<Application> => {
  */
 export const getEnvironments = async (): Promise<Environment[]> => {
   const response: any = await request.get('/v1/environments')
+  console.log('[DEBUG] getEnvironments response:', response)
+  // 响应拦截器已经返回了 data 字段，对于直接数组响应，response 就是数组
+  if (Array.isArray(response)) {
+    console.log('[DEBUG] getEnvironments is array, length:', response.length)
+    return response
+  }
+  console.warn('[DEBUG] getEnvironments unexpected format:', typeof response)
   return response?.data || []
 }
 
@@ -61,6 +82,13 @@ export const getEnvironment = (envId: number): Promise<Environment> => {
  */
 export const getClusters = async (): Promise<Cluster[]> => {
   const response: any = await request.get('/v1/clusters')
+  console.log('[DEBUG] getClusters response:', response)
+  // 响应拦截器已经返回了 data 字段，对于直接数组响应，response 就是数组
+  if (Array.isArray(response)) {
+    console.log('[DEBUG] getClusters is array, length:', response.length)
+    return response
+  }
+  console.warn('[DEBUG] getClusters unexpected format:', typeof response)
   return response?.data || []
 }
 
@@ -99,6 +127,13 @@ export const deleteCluster = (clusterId: number): Promise<void> => {
  */
 export const getWorkloadTargets = async (): Promise<WorkloadTarget[]> => {
   const response: any = await request.get('/v1/workload-targets')
+  console.log('[DEBUG] getWorkloadTargets response:', response)
+  // 响应拦截器已经返回了 data 字段，对于直接数组响应，response 就是数组
+  if (Array.isArray(response)) {
+    console.log('[DEBUG] getWorkloadTargets is array, length:', response.length)
+    return response
+  }
+  console.warn('[DEBUG] getWorkloadTargets unexpected format:', typeof response)
   return response?.data || []
 }
 

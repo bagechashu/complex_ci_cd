@@ -13,6 +13,7 @@ package applications
 import (
 	"encoding/json"
 	"net/http"
+	"strconv"
 
 	"built-and-deploy/internal/services"
 	"built-and-deploy/pkg/handlers"
@@ -102,11 +103,39 @@ func Create(appService *services.ApplicationService, log *logger.Logger) http.Ha
 //	]
 func List(appService *services.ApplicationService, log *logger.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		apps, err := appService.ListApplications(r.Context(), 0, 100)
+		// Get pagination parameters
+		page := 1
+		pageSize := 10
+		
+		if p := r.URL.Query().Get("page"); p != "" {
+			if parsedP, err := strconv.Atoi(p); err == nil && parsedP > 0 {
+				page = parsedP
+			}
+		}
+		if ps := r.URL.Query().Get("pageSize"); ps != "" {
+			if parsedPS, err := strconv.Atoi(ps); err == nil && parsedPS > 0 {
+				pageSize = parsedPS
+			}
+		}
+		
+		offset := (page - 1) * pageSize
+		apps, total, err := appService.ListApplicationsWithPagination(r.Context(), offset, pageSize)
 		if err != nil {
-			responses.InternalErrorResponse(w, err.Error())
+			log.Error("Failed to list applications", "error", err)
+			responses.InternalErrorResponse(w, "Failed to retrieve applications")
 			return
 		}
-		responses.SuccessResponse(w, apps)
+		
+		totalPages := (total + pageSize - 1) / pageSize
+		
+		data := map[string]interface{}{
+			"data":       apps,
+			"page":       page,
+			"pageSize":   pageSize,
+			"total":      total,
+			"totalPages": totalPages,
+		}
+		
+		responses.SuccessResponse(w, data)
 	}
 }

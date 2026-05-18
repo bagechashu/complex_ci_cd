@@ -13,8 +13,8 @@ ShellService 提供通过SSH执行远程Shell命令的能力，用于处理Salt�
 **设计原则**:
 - 只执行预定义的**白名单命令**（shell_command表）
 - 支持密钥和密码两种认证方式（均使用AES加密存储）
-- 支持单服务器和多服务器执行（串行/并行）
-- 所有执行结果完整记录到shell_exec_task表
+- **单服务器单命令执行模型**（前端直接选择已发布命令执行）
+- 所有执行结果完整记录到shell_task_execution表
 - SSH连接支持缓存和复用
 
 ---
@@ -30,16 +30,19 @@ shell_server (SSH服务器配置)
   ├─ password/private_key (AES加密)
   └─ status: 'active', 'inactive', 'error'
        ↓ (1:N)
-shell_command (命令白名单)
+shell_command (命令白名单，按服务器归组)
+  ├─ server_id: 该命令绑定的服务器
   ├─ command: 实际执行的命令
   ├─ description: 命令说明
-  └─ is_published: 是否已发布（未发布不能执行）
+  └─ is_published: 是否已发布（未发布不能在UI显示）
        ↓ (1:N)
-shell_exec_task (执行记录)
-  ├─ status: 'running', 'success', 'failed'
+shell_task_execution (执行记录)
+  ├─ command_id, server_id: 关联的命令和服务器
+  ├─ status: 'pending', 'running', 'success', 'failed'
   ├─ output: 命令输出
   ├─ exit_code: Unix退出码
-  └─ error_message: 执行错误信息
+  ├─ error_message: 执行错误信息
+  └─ command_params: 执行参数（如镜像版本等）
 ```
 
 ---
@@ -76,137 +79,68 @@ if err != nil {
 log.Printf("Exit code: %d\nOutput: %s", exitCode, output)
 ```
 
-### 2. 并行执行（多服务器）
+### 2. 执行历史查询
 
 ```go
-// ExecuteTaskParallel 在多个服务器上并行执行同一命令
-func (s *ShellService) ExecuteTaskParallel(
+// GetTaskExecutions 查询执行历史
+func (r *ShellTaskExecutionRepository) GetExecutionsByPage(
     ctx context.Context,
-    commandID int,
-    serverIDs []int,    // 服务器ID列表
-    taskID *int,        // 可选：关联的shell_exec ID
-) (results map[int]ExecutionResult, err error)
+    page, pageSize int,
+) ([]ShellTaskExecution, int, error)
 ```
 
 **特性**:
-- 为每个服务器启动独立的Goroutine
-- 所有执行并行进行（受系统资源限制）
-- 单个服务器失败不影响其他服务器
-- 返回所有服务器的执行结果
+- 按时间倒序获取执行记录
+- 包含完整的输出和错误信息
+- 支持前端分页展示
 
 **示例**:
 ```go
-results, err := shellService.ExecuteTaskParallel(
-    ctx,
-    commandID=10,
-    serverIDs=[]int{1, 2, 3, 4},
-    nil,
-)
-
-for serverID, result := range results {
-    if result.Error != nil {
-        log.Printf("Server %d failed: %v", serverID, result.Error)
-    } else {
-        log.Printf("Server %d: exit_code=%d, output_size=%d", 
-            serverID, result.ExitCode, len(result.Output))
-    }
+executions, total, err := execRepo.GetExecutionsByPage(ctx, page=1, pageSize=20)
+for _, exec := range executions {
+    log.Printf("[%s] Task %d: %s (exit=%d)", 
+        exec.UpdatedAt, exec.ID, exec.Status, exec.ExitCode)
 }
-```
-
-### 3. 串行执行（多服务器）
-
-```go
-// ExecuteTaskSerial 在多个服务器上串行执行同一命令
-func (s *ShellService) ExecuteTaskSerial(
-    ctx context.Context,
-    commandID int,
-    serverIDs []int,    // 服务器ID列表
-    taskID *int,        // 可选：关联的shell_exec ID
-) (results map[int]ExecutionResult, err error)
-```
-
-**特性**:
-- 按顺序在服务器上执行命令
-- 单个服务器失败后继续执行下一个
-- 适合对执行顺序有依赖的场景
-- Context取消时立即停止
-
-**示例**:
-```go
-// 先在dev环境验证，再在prod环境部署
-results, err := shellService.ExecuteTaskSerial(
-    ctx,
-    commandID=15,
-    serverIDs=[]int{devServerID, prodServerID},
-    nil,
-)
 ```
 
 ---
 
 ## 使用场景
 
-### 场景1: 执行Salt命令
+### 场景1: 直接执行已发布命令
 
+**流程**:
+1. 前端显示已发布的Shell命令列表（按服务器分组）
+2. 用户点击"执行"按钮
+3. 创建shell_task_execution记录，状态=pending
+4. 后端异步执行命令，更新状态
+5. 前端轮询查询执行结果
+
+**代码示例**:
 ```go
 // 1. 数据库中预定义命令
 // INSERT INTO shell_command (server_id, command, is_published)
 // VALUES (1, 'salt "prod-*" state.apply webserver', true)
 
-// 2. 在代码中执行
-exitCode, output, err := shellService.ExecuteCommand(ctx, commandID=1, serverID=1, nil)
+// 2. 前端调用执行端点
+// POST /v1/shell-commands/execute
+// { "command_id": 1, "server_id": 1 }
 
-// 示例输出:
-// exit_code: 0
-// output: "summary: {...}, duration: 45.123s"
-```
-
-### 场景2: 执行Ansible Playbook
-
-```go
-// 1. 服务器上已准备好playbook
-// /opt/playbooks/deploy.yml
-// /opt/inventory/production
-
-// 2. 数据库中预定义命令
-// INSERT INTO shell_command (server_id, command, is_published)
-// VALUES (2, 'ansible-playbook /opt/playbooks/deploy.yml -i /opt/inventory/production -e image=myapp:v1.2.3', true)
-
-// 3. 在代码中执行
-exitCode, output, err := shellService.ExecuteCommand(ctx, commandID=3, serverID=2, nil)
-```
-
-### 场景3: 在多个集群并行部署
-
-```go
-// 在4个集群上并行执行相同的部署脚本
-results, err := shellService.ExecuteTaskParallel(
-    ctx,
-    commandID=20,  // 部署脚本命令
-    serverIDs=[]int{clusterA, clusterB, clusterC, clusterD},
-    nil,
-)
-
-// 检查所有结果
-successCount := 0
-for _, result := range results {
-    if result.IsSuccess() {
-        successCount++
-    }
+// 3. 后端创建执行记录
+exec := &models.ShellTaskExecution{
+    CommandID: 1,
+    ServerID: 1,
+    Status: "pending",
 }
+execRepo.Create(ctx, exec)  // 返回带ID的执行记录
 
-if successCount == len(results) {
-    log.Printf("All clusters deployed successfully")
-} else {
-    log.Printf("Deployment failed on some clusters: %d/%d", successCount, len(results))
-}
+// 4. 异步执行（后台任务）
+exitCode, output, err := shellService.ExecuteCommand(ctx, 1, 1, &exec.ID)
 ```
 
----
+### 认证方式
 
-## 认证方式
-
-### 1. 密码认证
+#### 1. 密码认证
 
 ```go
 server := &models.ShellServer{

@@ -3,6 +3,7 @@
  */
 
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios'
+import { APIResponse, ErrorCode } from '@/types/api'
 
 // 在开发模式下使用相对路径（通过Vite代理），生产模式下使用完整URL
 const baseURL = import.meta.env.DEV 
@@ -77,33 +78,95 @@ export function clearAuthToken(): void {
   sessionStorage.removeItem('auth_token')
 }
 
-// 响应拦截器
+// 业务错误类
+export class BusinessError extends Error {
+  constructor(
+    public code: number,
+    message: string,
+    public data?: any
+  ) {
+    super(message)
+    this.name = 'BusinessError'
+  }
+}
+
+// 响应拦截器：处理 {code, message, data} 格式
 request.interceptors.response.use(
-  (response: AxiosResponse) => {
-    // 202 Accepted - 异步处理的响应
-    if (response.status === 202 || response.status === 200) {
-      return response.data
+  (response: AxiosResponse<APIResponse>) => {
+    const { code, message, data } = response.data
+    
+    console.log('[DEBUG] response interceptor received:', {
+      url: response.config.url,
+      code,
+      message,
+      hasData: data !== undefined,
+      dataType: data ? typeof data : 'undefined'
+    })
+
+    // 成功响应 (code === 0)
+    if (code === 0) {
+      console.log('[DEBUG] response interceptor returning data field')
+      return data || response.data
     }
-    return response.data
+
+    // 业务错误 (code !== 0)
+    // 后端返回 HTTP 200 + code 字段区分业务错误
+    console.error(`[API Business Error] Code: ${code}, Message: ${message}`)
+    return Promise.reject(new BusinessError(code, message, data))
   },
   (error) => {
-    // 错误处理
-    const errorResponse = error.response?.data
+    // 网络错误、超时等非 HTTP 200 的情况
+    if (error instanceof BusinessError) {
+      return Promise.reject(error)
+    }
 
-    if (errorResponse?.error) {
-      const { code, message } = errorResponse.error
-      console.error(`[API Error] ${code}: ${message}`)
-      return Promise.reject(new Error(message))
+    const httpStatus = error.response?.status
+    const errorData = error.response?.data
+
+    // 尝试解析服务器返回的错误信息
+    if (errorData?.code) {
+      const { code, message } = errorData
+      console.error(`[API Server Error] HTTP ${httpStatus}, Code: ${code}, Message: ${message}`)
+      return Promise.reject(new BusinessError(code, message, errorData.data))
+    }
+
+    // 处理特定 HTTP 状态码
+    if (httpStatus === 400) {
+      console.error('[HTTP 400] 请求格式错误')
+      return Promise.reject(new BusinessError(ErrorCode.INVALID_REQUEST, '请求格式错误'))
+    }
+
+    if (httpStatus === 401) {
+      console.error('[HTTP 401] 未授权')
+      // 清除 token 并跳转到登录
+      clearAuthToken()
+      window.location.href = '/login'
+      return Promise.reject(new BusinessError(ErrorCode.UNAUTHORIZED, '未授权，请重新登录'))
+    }
+
+    if (httpStatus === 403) {
+      console.error('[HTTP 403] 禁止访问')
+      return Promise.reject(new BusinessError(ErrorCode.FORBIDDEN, '禁止访问'))
+    }
+
+    if (httpStatus === 404) {
+      console.error('[HTTP 404] 未找到')
+      return Promise.reject(new BusinessError(ErrorCode.NOT_FOUND, '请求的资源不存在'))
+    }
+
+    if (httpStatus === 500) {
+      console.error('[HTTP 500] 服务器错误')
+      return Promise.reject(new BusinessError(ErrorCode.INTERNAL_ERROR, '服务器内部错误'))
     }
 
     if (error.message === 'Network Error') {
       console.error('[Network Error] 无法连接到服务器')
-      return Promise.reject(new Error('网络连接失败，请检查后端服务'))
+      return Promise.reject(new BusinessError(ErrorCode.INTERNAL_ERROR, '网络连接失败，请检查后端服务'))
     }
 
     if (error.code === 'ECONNABORTED') {
       console.error('[Timeout Error] 请求超时')
-      return Promise.reject(new Error('请求超时'))
+      return Promise.reject(new BusinessError(ErrorCode.INTERNAL_ERROR, '请求超时'))
     }
 
     console.error('[Unknown Error]', error.message)

@@ -19,6 +19,13 @@
             style="width: 150px"
           />
           <n-select
+            v-model:value="filterClusterId"
+            :options="clusterFilterOptions"
+            placeholder="筛选集群"
+            clearable
+            style="width: 150px"
+          />
+          <n-select
             v-model:value="filterStatus"
             :options="statusFilterOptions"
             placeholder="筛选状态"
@@ -137,6 +144,7 @@ const currentPage = ref(1)
 const pageSize = 20
 const filterAppId = ref<number | null>(null)
 const filterEnvId = ref<number | null>(null)
+const filterClusterId = ref<number | null>(null)
 const filterStatus = ref<string | null>(null)
 const showDetailModal = ref(false)
 const selectedRelease = ref<ReleaseResponse | null>(null)
@@ -157,6 +165,13 @@ const envFilterOptions = computed(() =>
   }))
 )
 
+const clusterFilterOptions = computed(() =>
+  appStore.clusters.map(cluster => ({
+    label: cluster.name,
+    value: cluster.id
+  }))
+)
+
 const statusFilterOptions = computed(() => [
   { label: '待发布', value: 'pending' },
   { label: '验证中', value: 'validating' },
@@ -174,6 +189,9 @@ const filteredHistory = computed(() => {
   }
   if (filterEnvId.value) {
     result = result.filter(r => r.env_id === filterEnvId.value)
+  }
+  if (filterClusterId.value) {
+    result = result.filter(r => r.cluster_id === filterClusterId.value)
   }
   if (filterStatus.value) {
     result = result.filter(r => r.status === filterStatus.value)

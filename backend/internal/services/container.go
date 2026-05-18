@@ -13,6 +13,7 @@ type ServiceContainer struct {
 	// Service instances
 	applicationService *ApplicationService
 	clusterService     *ClusterService
+	releaseService     *ReleaseService  // ← 添加 ReleaseService
 	shellService       *ShellService
 
 	// Repository instances
@@ -69,6 +70,14 @@ func NewServiceContainer(
 	// ClusterService
 	if c.clusterRepo != nil {
 		c.clusterService = NewClusterService(c.clusterRepo, c.deployerFact, "default-key", log)
+	}
+
+	// ReleaseService - 新增
+	if c.releaseRepo != nil && c.workloadRepo != nil && c.clusterRepo != nil && c.appRepo != nil && c.eventRepo != nil {
+		c.releaseService = NewReleaseService(
+			c.releaseRepo, c.workloadRepo, c.clusterRepo, c.appRepo, c.eventRepo,
+			c.deployerFact, log, db,
+		)
 	}
 
 	// ShellService
@@ -242,6 +251,7 @@ func WithApplicationClusterConfigRepository(repo repository.ApplicationClusterCo
 
 func (c *ServiceContainer) Application() *ApplicationService { return c.applicationService }
 func (c *ServiceContainer) Cluster() *ClusterService { return c.clusterService }
+func (c *ServiceContainer) Release() *ReleaseService { return c.releaseService }  // 新增
 func (c *ServiceContainer) Shell() *ShellService { return c.shellService }
 func (c *ServiceContainer) Workload() *WorkloadService { 
 	return NewWorkloadService(c.workloadRepo, c.appRepo, c.envRepo, c.clusterRepo, c.log)

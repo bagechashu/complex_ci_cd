@@ -77,7 +77,7 @@ func TestIntegration_CreateShellTask(t *testing.T) {
 	handler.ServeHTTP(w, req)
 
 	// Assert
-	assert.Equal(t, http.StatusCreated, w.Code)
+	assert.Equal(t, http.StatusAccepted, w.Code)
 
 	var result map[string]interface{}
 	err := json.Unmarshal(w.Body.Bytes(), &result)

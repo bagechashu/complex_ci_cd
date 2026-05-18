@@ -10,9 +10,183 @@ keywords: Pinia, 状态管理, Store, Composition API, 类型安全, 异步操�
 
 使用Pinia (v2.1+) 管理应用全局状态，采用Composition API风格，提供类型安全和出色的开发体验。
 
+## 四个核心Store
+
+### 0. shellStore - Shell 命令执行（临时执行 + 历史查询）
+
+**职责**: 管理 Shell 命令的发布、执行、历史查询
+
+```typescript
+// src/stores/shellStore.ts
+
+export const useShellStore = defineStore('shell', () => {
+  // 状态
+  const shellServers = ref<ShellServer[]>([])
+  const shellCommands = ref<ShellCommand[]>([])  // 已发布的命令
+  const shellTaskExecutions = ref<ShellTaskExecution[]>([])
+  
+  // ============ 命令执行相关 ============
+  
+  /**
+   * executeShellCommand - 直接执行已发布命令
+   * 用途：ShellCommandExecution.vue 中用户选择命令后执行
+   * 工作流：选择命令 → 点击执行 → 获得 execution_id → 显示加载状态
+   * 返回：新的 ShellTaskExecution 记录（status=pending）
+   */
+  const executeShellCommand = async (commandId: number, serverId: number) => {
+    const result = await api.post('/shell-commands/execute', {
+      command_id: commandId,
+      server_id: serverId
+    })
+    return result.data  // { id, status: 'pending', started_at }
+  }
+  
+  /**
+   * getCommandExecutions - 获取某条命令的执行历史
+   * 用途：ShellCommandExecution.vue 中右侧面板显示该命令的最近执行
+   * 限制：只返回最近 5 条，用于快速查看
+   */
+  const getCommandExecutions = async (commandId: number, limit = 5) => {
+    const result = await api.get('/shell-tasks/executions', {
+      command_id: commandId,
+      limit
+    })
+    return result.data
+  }
+  
+  // ============ 全局执行历史相关 ============
+  
+  /**
+   * listAllExecutions - 查询全局执行历史（分页）
+   * 用途：ExecutionHistory.vue 中显示所有执行记录表格
+   * 支持过滤：按命令、状态、服务器过滤
+   * 返回：分页列表 { data, pagination }
+   */
+  const listAllExecutions = async (filters: {
+    limit?: number
+    offset?: number
+    command_id?: number
+    status?: string
+    server_id?: number
+  }) => {
+    const result = await api.get('/shell-tasks/executions', filters)
+    return result.data
+  }
+  
+  /**
+   * getExecutionDetail - 获取单条执行的详细信息
+   * 用途：ExecutionHistory.vue 中模态框显示执行详情（输出、错误、耗时等）
+   */
+  const getExecutionDetail = async (executionId: number) => {
+    const result = await api.get(`/shell-tasks/${executionId}`)
+    return result.data
+  }
+  
+  // ============ 发布命令相关 ============
+  
+  /**
+   * fetchPublishedCommands - 获取已发布的 Shell 命令列表
+   * 用途：ShellCommandExecution.vue 初始化时加载
+   * 返回：按服务器分组的已发布命令
+   */
+  const fetchPublishedCommands = async () => {
+    const result = await api.get('/shell-commands/published')
+    shellCommands.value = result.data
+  }
+  
+  /**
+   * fetchShellServers - 获取 Shell 服务器列表
+   * 用途：ShellCommandExecution.vue 显示命令执行的目标服务器
+   */
+  const fetchShellServers = async () => {
+    const result = await api.get('/shell-servers')
+    shellServers.value = result.data
+  }
+  
+  return {
+    // 状态
+    shellServers,
+    shellCommands,
+    shellTaskExecutions,
+    
+    // 命令执行方法
+    executeShellCommand,
+    getCommandExecutions,
+    
+    // 全局历史方法
+    listAllExecutions,
+    getExecutionDetail,
+    
+    // 数据加载方法
+    fetchPublishedCommands,
+    fetchShellServers
+  }
+})
+```
+
+**使用场景**:
+
+```typescript
+// ===== ShellCommandExecution.vue 中的使用 =====
+const shellStore = useShellStore()
+
+// 1. 初始化：加载已发布命令列表
+onMounted(async () => {
+  await shellStore.fetchPublishedCommands()
+  await shellStore.fetchShellServers()
+})
+
+// 2. 用户选择命令后：加载该命令的执行历史
+const selectCommand = async (cmd: ShellCommand) => {
+  const executions = await shellStore.getCommandExecutions(cmd.id, 5)
+  // 显示最近 5 次执行
+}
+
+// 3. 用户点击执行按钮
+const executeCommand = async () => {
+  const execution = await shellStore.executeShellCommand(cmd.id, server.id)
+  // execution.id 用于轮询获取执行结果
+}
+
+// ===== ExecutionHistory.vue 中的使用 =====
+const shellStore = useShellStore()
+
+// 1. 加载执行历史（支持分页和过滤）
+const loadExecutions = async () => {
+  const result = await shellStore.listAllExecutions({
+    limit: 20,
+    offset: (currentPage.value - 1) * 20,
+    command_id: selectedCommandFilter.value,
+    status: selectedStatusFilter.value,
+    server_id: selectedServerFilter.value
+  })
+  executions.value = result.data
+  totalCount.value = result.pagination.total
+}
+
+// 2. 用户点击查看详情
+const showDetail = async (executionId: number) => {
+  const detail = await shellStore.getExecutionDetail(executionId)
+  // 在模态框显示完整的输出、错误、耗时等信息
+}
+```
+
+**职责分工总结**:
+
+| 方法 | 页面 | 用途 | 频率 |
+|------|------|------|------|
+| `executeShellCommand()` | ShellCommandExecution | 直接执行命令 | 用户点击时 |
+| `getCommandExecutions()` | ShellCommandExecution | 查看该命令的历史 | 选择命令时 |
+| `listAllExecutions()` | ExecutionHistory | 查看全局执行记录 | 分页查询 |
+| `getExecutionDetail()` | ExecutionHistory | 查看执行详情 | 点击详情时 |
+
+---
+
 ## 三个核心Store
 
 ### 1. appStore - 应用元数据（只读、缓存）
+
+**职责**: 管理应用、环境、集群的元数据，一次性加载缓存
 
 **职责**: 管理应用、环境、集群的元数据，一次性加载缓存
 

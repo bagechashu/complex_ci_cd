@@ -2,6 +2,52 @@
  * api.ts - API 的请求和响应类型定义
  */
 
+// ============ 通用响应格式 ============
+
+/** 统一 API 响应格式 */
+export interface APIResponse<T = any> {
+  code: number        // 0: 成功, 1000-1999: 不存在, 2000-2999: 冲突, 3000-3999: 验证错误, 4000-4999: 权限错误, 5000-5999: 业务状态错误, 9999: 服务器错误
+  message: string     // 错误/成功消息
+  data?: T            // 返回数据
+}
+
+/** 业务错误码常量 */
+export const ErrorCode = {
+  // 成功
+  SUCCESS: 0,
+  
+  // 1000-1999: 资源不存在
+  NOT_FOUND: 1001,
+  APP_NOT_FOUND: 1001,
+  CLUSTER_NOT_FOUND: 1002,
+  ENVIRONMENT_NOT_FOUND: 1003,
+  SHELL_SERVER_NOT_FOUND: 1004,
+  SHELL_COMMAND_NOT_FOUND: 1005,
+  RELEASE_NOT_FOUND: 1006,
+  
+  // 2000-2999: 业务冲突
+  CONFLICT: 2001,
+  DUPLICATE_RESOURCE: 2002,
+  
+  // 3000-3999: 参数/验证错误
+  INVALID_REQUEST: 3001,
+  VALIDATION_ERROR: 3002,
+  MISSING_REQUIRED_FIELD: 3003,
+  INVALID_PARAMETER: 3004,
+  
+  // 4000-4999: 权限/认证错误
+  UNAUTHORIZED: 4001,
+  FORBIDDEN: 4002,
+  
+  // 5000-5999: 业务状态错误
+  INVALID_STATE: 5001,
+  OPERATION_NOT_ALLOWED: 5002,
+  RELEASE_FAILED: 5003,
+  
+  // 9999: 服务器内部错误
+  INTERNAL_ERROR: 9999
+}
+
 // 发布状态枚举
 export type ReleaseStatus =
   | 'pending'

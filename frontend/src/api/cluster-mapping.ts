@@ -13,6 +13,13 @@ import request from './request'
 export const getClusterMappings = async (): Promise<ClusterMapping[]> => {
   try {
     const response: any = await request.get('/v1/app-cluster-configs')
+    console.log('[DEBUG] getClusterMappings response:', response)
+    // 响应拦截器已经返回了 data 字段，对于直接数组响应，response 就是数组
+    if (Array.isArray(response)) {
+      console.log('[DEBUG] getClusterMappings is array, length:', response.length)
+      return response
+    }
+    console.warn('[DEBUG] getClusterMappings unexpected format:', typeof response)
     return response?.data || []
   } catch (error) {
     console.error('Failed to fetch cluster mappings:', error)
@@ -27,6 +34,13 @@ export const getClusterMappings = async (): Promise<ClusterMapping[]> => {
 export const getClusterMappingsByApp = async (appId: number): Promise<ClusterMapping[]> => {
   try {
     const response: any = await request.get(`/v1/app-cluster-configs/by-app/${appId}`)
+    console.log('[DEBUG] getClusterMappingsByApp response:', response)
+    // 响应拦截器已经返回了 data 字段，对于直接数组响应，response 就是数组
+    if (Array.isArray(response)) {
+      console.log('[DEBUG] getClusterMappingsByApp is array, length:', response.length)
+      return response
+    }
+    console.warn('[DEBUG] getClusterMappingsByApp unexpected format:', typeof response)
     return response?.data || []
   } catch (error) {
     console.error(`Failed to fetch cluster mappings for app ${appId}:`, error)
@@ -41,6 +55,8 @@ export const getClusterMappingsByApp = async (appId: number): Promise<ClusterMap
 export const getClusterMapping = async (mappingId: number): Promise<ClusterMapping> => {
   try {
     const response: any = await request.get(`/v1/app-cluster-configs/${mappingId}`)
+    console.log('[DEBUG] getClusterMapping response:', response)
+    // 响应拦截器已经返回了 data 字段，response 应该直接是对象
     return response
   } catch (error) {
     console.error(`Failed to fetch cluster mapping ${mappingId}:`, error)

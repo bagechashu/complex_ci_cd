@@ -435,34 +435,231 @@ POST /api/v1/shell-tasks/{id}/execute
 }
 ```
 
-## HTTP 状态码规范
+#### 获取已发布命令列表
+```
+GET /api/v1/shell-commands/published
 
-| 状态码 | 含义 | 用途 |
-|--------|------|------|
-| 200 | OK | 同步操作成功 |
-| 201 | Created | 资源创建成功 |
-| 202 | Accepted | 异步操作接受(发布、回滚、Shell执行) |
-| 204 | No Content | 删除成功 |
-| 400 | Bad Request | 请求参数错误 |
-| 401 | Unauthorized | 缺少认证 |
-| 403 | Forbidden | 无权限 |
-| 404 | Not Found | 资源不存在 |
-| 409 | Conflict | 冲突(如重复的唯一键) |
-| 500 | Internal Server Error | 服务器错误 |
+响应: 200 OK
+{
+  "code": 0,
+  "message": "success",
+  "data": [
+    {
+      "id": 1,
+      "server_id": 1,
+      "server_name": "prod-server-1",
+      "command": "systemctl status api-service",
+      "description": "Check API service status",
+      "is_published": true,
+      "created_at": "2024-01-15T10:00:00Z"
+    },
+    {
+      "id": 2,
+      "server_id": 1,
+      "server_name": "prod-server-1",
+      "command": "docker logs -f api-service",
+      "description": "View API service logs",
+      "is_published": true,
+      "created_at": "2024-01-15T10:00:00Z"
+    }
+  ]
+}
+```
 
-## 错误响应格式
+#### 执行已发布命令
+```
+POST /api/v1/shell-commands/execute
+
+请求体:
+{
+  "command_id": 1,
+  "server_id": 1
+}
+
+响应: 202 Accepted
+{
+  "code": 0,
+  "message": "command execution accepted",
+  "data": {
+    "execution_id": 101,
+    "command_id": 1,
+    "server_id": 1,
+    "status": "pending",
+    "started_at": "2024-01-15T10:30:00Z"
+  }
+}
+```
+
+#### 查询Shell命令执行状态
+```
+GET /api/v1/shell-tasks/{execution_id}
+
+响应: 200 OK
+{
+  "code": 0,
+  "message": "success",
+  "data": {
+    "id": 101,
+    "command_id": 1,
+    "server_id": 1,
+    "server_name": "prod-server-1",
+    "command": "systemctl status api-service",
+    "status": "success",
+    "output": "● api-service.service - API Service\n   Loaded: loaded (/etc/systemd/system/api-service.service; enabled)\n   Active: active (running) since Mon 2024-01-15 10:30:00 UTC; 5 days ago",
+    "error": null,
+    "started_at": "2024-01-15T10:30:00Z",
+    "completed_at": "2024-01-15T10:30:05Z",
+    "duration_seconds": 5
+  }
+}
+```
+
+#### 查询Shell命令执行历史
+```
+GET /api/v1/shell-tasks/executions?limit=20&offset=0&command_id=1&server_id=1
+
+响应: 200 OK
+{
+  "code": 0,
+  "message": "success",
+  "data": [
+    {
+      "id": 105,
+      "command_id": 1,
+      "server_id": 1,
+      "server_name": "prod-server-1",
+      "command": "systemctl status api-service",
+      "status": "success",
+      "output": "● api-service.service - API Service\n   Active: active (running)",
+      "error": null,
+      "started_at": "2024-01-15T11:00:00Z",
+      "completed_at": "2024-01-15T11:00:02Z",
+      "duration_seconds": 2
+    },
+    {
+      "id": 104,
+      "command_id": 1,
+      "server_id": 1,
+      "server_name": "prod-server-1",
+      "command": "systemctl status api-service",
+      "status": "failed",
+      "output": null,
+      "error": "SSH connection timeout",
+      "started_at": "2024-01-15T10:45:00Z",
+      "completed_at": "2024-01-15T10:45:30Z",
+      "duration_seconds": 30
+    }
+  ],
+  "pagination": {
+    "total": 256,
+    "limit": 20,
+    "offset": 0
+  }
+}
+```
+
+## 响应格式规范 (方案 B: 业务码模式)
+
+**设计原则**：
+- ✅ **总是返回 HTTP 200** - 简化客户端处理
+- ✅ **用 `code` 字段表示业务状态** - 便于细粒度错误处理
+- ✅ **避免冗余** - 不混合 HTTP 状态码和业务码
+
+### 标准响应结构
 
 ```json
 {
-  "code": 400,
-  "message": "Invalid cluster name",
-  "data": null,
-  "error": {
-    "type": "ValidationError",
-    "details": "Cluster name must not be empty",
-    "timestamp": "2024-01-15T10:30:00Z",
-    "request_id": "550e8400-e29b-41d4-a716-446655440000"
+  "code": 0,              // 业务状态码: 0=成功, 其他=各种错误
+  "message": "success",  // 可读的错误/成功消息
+  "data": {...}          // 响应数据(成功时) 或 null(失败时)
+}
+```
+
+### 业务状态码表
+
+| 状态码 | 含义 | HTTP原映射 | 用途 | 示例 |
+|--------|------|-----------|------|------|
+| **0** | **成功** | 200/201/202/204 | 所有成功操作 | 列表、创建、更新、删除 |
+| **1001** | 应用不存在 | 404 | 应用查询/操作 | GET /applications/999 |
+| **1002** | 集群不存在 | 404 | 集群查询/操作 | GET /clusters/999 |
+| **1003** | 环境不存在 | 404 | 环境查询/操作 | GET /environments/999 |
+| **1004** | 发布不存在 | 404 | 发布查询 | GET /releases/999 |
+| **2001** | 应用名重复 | 409 | 应用创建 | POST /applications (重名) |
+| **2002** | 集群名重复 | 409 | 集群创建 | POST /clusters (重名) |
+| **2003** | 环境名重复 | 409 | 环境创建 | POST /environments (重名) |
+| **3001** | 参数验证失败 | 400 | 所有请求 | 缺少必要字段 |
+| **3002** | 无效的参数值 | 400 | 所有请求 | 格式错误的 JSON |
+| **3003** | 非法的参数组合 | 400 | 业务逻辑检查 | 环境优先级冲突 |
+| **4001** | 权限不足 | 403 | 敏感操作 | 删除生产环境 |
+| **4002** | 认证失败 | 401 | 所有请求 | 缺少认证凭证 |
+| **5001** | 发布进行中 | 409 | 发布状态检查 | 无法回滚进行中的发布 |
+| **5002** | 发布已完成 | 409 | 发布状态检查 | 无法修改已完成的发布 |
+| **5003** | 集群连接失败 | 503 | 部署执行 | Kubernetes 连接超时 |
+| **5004** | 部署执行失败 | 500 | 部署执行 | Pod 创建失败 |
+| **5005** | Shell 执行失败 | 500 | Shell 命令执行 | SSH 连接错误 |
+| **9999** | 服务器内部错误 | 500 | 数据库错误或异常 | 数据库连接失败 |
+
+### 响应示例
+
+**成功响应 (code=0)**
+```json
+{
+  "code": 0,
+  "message": "success",
+  "data": {
+    "id": 1,
+    "name": "production",
+    "priority": 3
   }
+}
+```
+
+**参数错误 (code=3001)**
+```json
+{
+  "code": 3001,
+  "message": "Validation failed: cluster_name is required",
+  "data": null
+}
+```
+
+**资源不存在 (code=1002)**
+```json
+{
+  "code": 1002,
+  "message": "Cluster not found",
+  "data": null
+}
+```
+
+**业务冲突 (code=5001)**
+```json
+{
+  "code": 5001,
+  "message": "Release in progress, cannot perform rollback",
+  "data": null
+}
+```
+
+### 错误处理指南
+
+**所有响应都是 HTTP 200**，客户端需要检查 `code` 字段来判断成功/失败：
+
+```typescript
+// 正确的错误处理
+const response = await api.get('/applications')
+if (response.data.code === 0) {
+  // 成功 - 使用 response.data.data
+  console.log(response.data.data)
+} else if (response.data.code === 1001) {
+  // 应用不存在
+  toast.error('应用已删除')
+} else if (response.data.code === 3001) {
+  // 参数验证失败
+  toast.error(response.data.message)
+} else {
+  // 其他业务错误
+  toast.error(`错误(${response.data.code}): ${response.data.message}`)
 }
 ```
 

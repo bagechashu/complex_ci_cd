@@ -1,5 +1,5 @@
 <template>
-  <div class="shell-tasks-page">
+  <div class="shell-command-execution-page">
     <div class="content-layout">
       <!-- Left Panel: Published Commands List -->
       <div class="list-panel">
@@ -224,9 +224,9 @@ const selectCommand = (cmd: ShellCommand, server: any) => {
  */
 const loadExecutionHistory = async (commandId: number) => {
   try {
-    // For now, we'll get the latest 5 executions
-    const response = await shellStore.fetchShellTaskExecutions(1, 5)
-    commandExecutions.value = response.filter(exec => exec.command_id === commandId)
+    // Fetch the latest 5 executions
+    const executions = await shellStore.fetchShellTaskExecutions(1, 5)
+    commandExecutions.value = executions.filter((exec: ShellTaskExecution) => exec.command_id === commandId)
   } catch (err) {
     console.error('Failed to load execution history:', err)
   }

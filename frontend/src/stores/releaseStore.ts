@@ -9,6 +9,8 @@ import type { ReleaseRecord } from '@/types/models'
 import { releaseAPI } from '@/api/release'
 import { useAppStore } from './appStore'
 import { getCurrentUser } from '@/utils/auth'
+import { getErrorMessage, isBusinessError } from '@/utils/error-handler'
+import type { BusinessError } from '@/api/request'
 
 export const useReleaseStore = defineStore('release', () => {
   // ============ State ============
@@ -22,6 +24,7 @@ export const useReleaseStore = defineStore('release', () => {
   const isRollingBack = ref(false)
 
   const error = ref<string | null>(null)
+  const errorCode = ref<number | null>(null)
   const pollingInterval = ref<NodeJS.Timeout | null>(null)
 
   // ============ Getters ============
@@ -85,6 +88,7 @@ export const useReleaseStore = defineStore('release', () => {
   }) => {
     isCreatingRelease.value = true
     error.value = null
+    errorCode.value = null
     try {
       const response = await releaseAPI.createRelease({
         ...data,
@@ -93,7 +97,11 @@ export const useReleaseStore = defineStore('release', () => {
       currentRelease.value = response
       return response
     } catch (err) {
-      error.value = err instanceof Error ? err.message : '发起发布失败'
+      const message = getErrorMessage(err)
+      error.value = message
+      if (isBusinessError(err)) {
+        errorCode.value = (err as BusinessError).code
+      }
       throw err
     } finally {
       isCreatingRelease.value = false
@@ -111,7 +119,11 @@ export const useReleaseStore = defineStore('release', () => {
       await fetchReleaseEvents(releaseId)
       return response
     } catch (err) {
-      error.value = err instanceof Error ? err.message : '获取发布状态失败'
+      const message = getErrorMessage(err)
+      error.value = message
+      if (isBusinessError(err)) {
+        errorCode.value = (err as BusinessError).code
+      }
       throw err
     }
   }
@@ -136,12 +148,17 @@ export const useReleaseStore = defineStore('release', () => {
   const fetchReleaseHistory = async (limit = 20, offset = 0) => {
     isLoadingHistory.value = true
     error.value = null
+    errorCode.value = null
     try {
       const response = await releaseAPI.listReleases(limit, offset)
       releaseHistory.value = response.data
       return response
     } catch (err) {
-      error.value = err instanceof Error ? err.message : '获取发布历史失败'
+      const message = getErrorMessage(err)
+      error.value = message
+      if (isBusinessError(err)) {
+        errorCode.value = (err as BusinessError).code
+      }
       throw err
     } finally {
       isLoadingHistory.value = false
@@ -198,6 +215,7 @@ export const useReleaseStore = defineStore('release', () => {
   const rollback = async (releaseId: number) => {
     isRollingBack.value = true
     error.value = null
+    errorCode.value = null
     try {
       const response = await releaseAPI.rollbackRelease(releaseId)
       currentRelease.value = response
@@ -206,7 +224,11 @@ export const useReleaseStore = defineStore('release', () => {
       await startPolling(response.id)
       return response
     } catch (err) {
-      error.value = err instanceof Error ? err.message : '回滚失败'
+      const message = getErrorMessage(err)
+      error.value = message
+      if (isBusinessError(err)) {
+        errorCode.value = (err as BusinessError).code
+      }
       throw err
     } finally {
       isRollingBack.value = false
@@ -232,6 +254,7 @@ export const useReleaseStore = defineStore('release', () => {
     isLoadingHistory,
     isRollingBack,
     error,
+    errorCode,
 
     // Getters
     progressPercentage,

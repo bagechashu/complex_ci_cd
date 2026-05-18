@@ -6,6 +6,25 @@ tools: Read, Grep, Glob, Bash, Create, Edit
 
 # 🎨 前端高级开发 Agent
 
+## 📚 相关文档
+
+**系统级规划**（必读）：
+- [架构设计](../../prompt/架构设计.md) - 系统 4 阶段建设路线（MVP/增强/优化/进阶）
+- [核心问题和目标](../../prompt/核心问题和目标.md) - 为什么要做这个系统
+
+**协作指南**：
+- [前后端协作约定](../AGENT_COLLABORATION.md) - 分工、沟通、质量标准
+- [BE Agent](./be.agent.md) - 后端同步实现计划
+
+**本文档关注**：⚡ **Day 1-6 MVP 代码实现路线**
+
+### 📌 设计新业务域时
+
+若要从零设计新的页面、组件或状态管理（如权限审批流程、通知中心等），
+使用 [System Architecture Design Prompt](../prompts/design.prompt.md) 获得完整的架构提案。
+
+---
+
 ## 核心职责
 
 实现一个**直观易用的发布控制界面**，支持一键发布、实时进度、历史管理、快速回滚。
@@ -37,8 +56,9 @@ tools: Read, Grep, Glob, Bash, Create, Edit
   ├─ KubernetesRelease.vue (K8s发布页)
   ├─ ClusterConfig.vue (集群配置)
   ├─ ServerConfig.vue (服务器配置)
-  ├─ ShellExec.vue (Shell执行)
-  └─ ExecutionHistory.vue (执行历史)
+  ├─ ShellCommandExecution.vue (Shell命令执行 - 直接执行已发布命令的工作流)
+  ├─ ExecutionHistory.vue (执行历史 - 全局查询执行记录)
+  └─ ReleaseHistory.vue (发布历史)
   
 组件层 (Components)
   ├─ Sidebar.vue (侧边栏)
@@ -57,7 +77,7 @@ API层 (Services / API)
   ├─ api/release.ts (发布相关API)
   ├─ api/metadata.ts (应用/环境/集群元数据API)
   ├─ api/cluster-mapping.ts (集群映射API)
-  ├─ api/shell.ts (Shell执行API)
+  ├─ api/shell.ts (Shell 命令执行 API - 直接执行已发布命令、查询执行历史)
   └─ api/index.ts (统一导出)
   
 类型定义层 (Types)
@@ -112,8 +132,8 @@ API层 (Services / API)
 | 发布详情 | ReleaseDetail.vue | 发布详情 + 事件日志 | P1 | ✅ |
 | 集群配置 | ClusterConfig.vue | 集群信息管理 | P1 | ✅ |
 | 服务器配置 | ServerConfig.vue | Shell服务器配置 | P2 | ✅ |
-| Shell执行 | ShellExec.vue | 预定义命令执行 | P2 | ✅ |
-| 执行历史 | ExecutionHistory.vue | 命令执行历史 | P2 | ✅ |
+| Shell命令执行 | ShellCommandExecution.vue | **命令执行界面**<br/>① 显示已发布命令列表（按服务器分组）<br/>② 用户选择→执行→查看历史（短期工作流）<br/>③ 显示该命令的最近执行记录 | P2 | ✅ |
+| 全局执行历史 | ExecutionHistory.vue | **执行历史界面**<br/>① 显示所有命令的执行记录（分页）<br/>② 支持多维度过滤（任务/状态/服务器）<br/>③ 可查看任意执行的详细输出与错误 | P2 | ✅ |
 
 ---
 
@@ -523,26 +543,66 @@ request.interceptors.request.use(config => {
   return config
 })
 
-// 响应拦截器：处理业务错误
+// 响应拦截器：处理业务码（http 200 + code 字段模式）
 request.interceptors.response.use(
-  response => response.data,
-  error => {
-    const errorData = error.response?.data
+  response => {
+    const { code, message, data } = response.data
     
-    // 标准错误格式
-    const errorMsg = errorData?.message || error.message
-    const errorCode = errorData?.code || 'UNKNOWN_ERROR'
+    // 成功响应 (code = 0)
+    if (code === 0) {
+      return data
+    }
+    
+    // 业务错误（所有错误情况都返回 HTTP 200，但 code != 0）
+    // code 范围：
+    // 1000-1999: 资源不存在
+    // 2000-2999: 业务冲突
+    // 3000-3999: 参数/验证错误
+    // 4000-4999: 权限/认证错误
+    // 5000-5999: 业务状态错误
+    // 9999: 服务器内部错误
+    
+    throw new BusinessError(code, message)
+  },
+  error => {
+    // 网络错误、超时等非 HTTP 200 的情况
+    const status = error.response?.status
+    const data = error.response?.data
+    
+    let errorCode = 9999
+    let errorMsg = error.message || 'Network error'
+    
+    if (data?.code) {
+      errorCode = data.code
+      errorMsg = data.message
+    } else if (status === 400) {
+      errorCode = 3000
+      errorMsg = 'Invalid request'
+    } else if (status === 401) {
+      errorCode = 4002
+      errorMsg = 'Unauthorized'
+    } else if (status === 403) {
+      errorCode = 4001
+      errorMsg = 'Permission denied'
+    } else if (status === 404) {
+      errorCode = 1000
+      errorMsg = 'Not found'
+    } else if (status === 500) {
+      errorCode = 9999
+      errorMsg = 'Server error'
+    }
     
     throw new BusinessError(errorCode, errorMsg)
   }
 )
 
 export class BusinessError extends Error {
-  constructor(public code: string, message: string) {
+  constructor(public code: number, message: string) {
     super(message)
     this.name = 'BusinessError'
   }
 }
+```
 ```
 
 ### API 服务
@@ -564,6 +624,87 @@ export const releaseAPI = {
   
   rollback(releaseId: number, operator: string) {
     return request.post(`/v1/release/${releaseId}/rollback`, { operator })
+  }
+}
+```
+
+### 业务错误码处理
+
+```typescript
+// src/utils/errorHandler.ts
+
+export function handleBusinessError(error: unknown) {
+  if (!(error instanceof BusinessError)) {
+    return '网络错误，请重试'
+  }
+  
+  const { code, message } = error
+  
+  // 根据业务码返回用户友好的错误提示
+  switch (true) {
+    case code >= 1000 && code < 2000:
+      // 资源不存在
+      return `资源不存在: ${message}`
+    
+    case code >= 2000 && code < 3000:
+      // 业务冲突
+      return `操作冲突: ${message}`
+    
+    case code >= 3000 && code < 4000:
+      // 参数验证错误
+      return `输入错误: ${message}`
+    
+    case code >= 4000 && code < 5000:
+      // 权限认证错误
+      return `权限不足: ${message}`
+    
+    case code >= 5000 && code < 6000:
+      // 业务状态错误
+      return `操作失败: ${message}`
+    
+    case code === 9999:
+      // 服务器错误
+      return `服务器错误，请联系管理员`
+    
+    default:
+      return message
+  }
+}
+
+// 在组件中使用
+export function useErrorHandler() {
+  const showError = (error: unknown) => {
+    const msg = handleBusinessError(error)
+    // 使用 Naive UI 的消息组件
+    window.$message.error(msg)
+  }
+  
+  return { showError }
+}
+```
+
+**在组件中捕获业务错误**:
+
+```typescript
+// src/pages/ReleaseFlow.vue
+
+import { useErrorHandler } from '@/utils/errorHandler'
+
+const { showError } = useErrorHandler()
+
+const submitRelease = async () => {
+  try {
+    const releaseId = await releaseStore.createRelease({
+      app_id: form.app_id,
+      env_id: form.env_id,
+      cluster_id: form.cluster_id,
+      image: form.image
+    })
+    
+    currentStep.value = 'progress'
+    startPolling(releaseId)
+  } catch (error) {
+    showError(error)
   }
 }
 ```

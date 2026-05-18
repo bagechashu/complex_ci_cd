@@ -97,9 +97,7 @@ func List(shellService *services.ShellService, log *logger.Logger) http.HandlerF
 
 		totalPages := (total + pageSize - 1) / pageSize
 
-		resp := map[string]interface{}{
-			"code":       0,
-			"message":    "success",
+		data := map[string]interface{}{
 			"data":       tasks,
 			"page":       page,
 			"pageSize":   pageSize,
@@ -107,8 +105,7 @@ func List(shellService *services.ShellService, log *logger.Logger) http.HandlerF
 			"totalPages": totalPages,
 		}
 
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(resp)
+		responses.SuccessResponse(w, data)
 	}
 }
 
@@ -196,14 +193,7 @@ func Create(shellService *services.ShellService, log *logger.Logger) http.Handle
 			return
 		}
 
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusCreated)
-		resp := map[string]interface{}{
-			"code":    0,
-			"message": "created",
-			"data":    task,
-		}
-		json.NewEncoder(w).Encode(resp)
+		responses.AcceptedResponse(w, "task accepted", task)
 	}
 }
 
@@ -228,13 +218,7 @@ func Get(shellService *services.ShellService, log *logger.Logger) http.HandlerFu
 			return
 		}
 
-		w.Header().Set("Content-Type", "application/json")
-		resp := map[string]interface{}{
-			"code":    0,
-			"message": "success",
-			"data":    task,
-		}
-		json.NewEncoder(w).Encode(resp)
+		responses.SuccessResponse(w, task)
 	}
 }
 
@@ -419,13 +403,6 @@ func Execute(shellService *services.ShellService, log *logger.Logger) http.Handl
 			return
 		}
 
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusCreated)
-		resp := map[string]interface{}{
-			"code":    0,
-			"message": "execution_initiated",
-			"data":    execution,
-		}
-		json.NewEncoder(w).Encode(resp)
+		responses.AcceptedResponse(w, "execution accepted", execution)
 	}
 }

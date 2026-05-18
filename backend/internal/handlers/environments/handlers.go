@@ -31,6 +31,6 @@ func CreateEnvironmentHandler(envRepo *repository.EnvironmentRepository, log *lo
 		}
 
 		// For now, just return success (full implementation would validate and save)
-		responses.SuccessResponse(w, map[string]string{"message": "created"})
+		responses.CreatedResponse(w, map[string]string{"message": "created"})
 	}
 }

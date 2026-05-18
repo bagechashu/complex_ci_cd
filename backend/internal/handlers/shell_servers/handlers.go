@@ -45,9 +45,7 @@ func ListShellServersHandler(serverRepo repository.ShellServerRepository, log *l
 
 		totalPages := (total + pageSize - 1) / pageSize
 
-		resp := map[string]interface{}{
-			"code":       0,
-			"message":    "success",
+		data := map[string]interface{}{
 			"data":       servers,
 			"page":       page,
 			"pageSize":   pageSize,
@@ -55,8 +53,7 @@ func ListShellServersHandler(serverRepo repository.ShellServerRepository, log *l
 			"totalPages": totalPages,
 		}
 
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(resp)
+		responses.SuccessResponse(w, data)
 	}
 }
 
@@ -79,14 +76,7 @@ func GetShellServerHandler(serverRepo repository.ShellServerRepository, log *log
 			return
 		}
 
-		resp := map[string]interface{}{
-			"code":    0,
-			"message": "success",
-			"data":    server,
-		}
-
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(resp)
+		responses.SuccessResponse(w, server)
 	}
 }
 
@@ -139,14 +129,7 @@ func CreateShellServerHandler(serverRepo repository.ShellServerRepository, log *
 			return
 		}
 
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusCreated)
-		resp := map[string]interface{}{
-			"code":    0,
-			"message": "created",
-			"data":    server,
-		}
-		json.NewEncoder(w).Encode(resp)
+		responses.CreatedResponse(w, server)
 	}
 }
 
@@ -216,14 +199,7 @@ func UpdateShellServerHandler(serverRepo repository.ShellServerRepository, log *
 			return
 		}
 
-		resp := map[string]interface{}{
-			"code":    0,
-			"message": "success",
-			"data":    server,
-		}
-
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(resp)
+		responses.SuccessResponse(w, server)
 	}
 }
 

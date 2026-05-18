@@ -195,6 +195,22 @@ func (s *ApplicationService) ListApplications(ctx context.Context, offset, limit
 	return apps, nil
 }
 
+// ListApplicationsWithPagination lists applications with pagination info
+func (s *ApplicationService) ListApplicationsWithPagination(ctx context.Context, offset, limit int) ([]*models.Application, int, error) {
+	if limit <= 0 || limit > 100 {
+		limit = 10
+	}
+	if offset < 0 {
+		offset = 0
+	}
+
+	apps, total, err := s.appRepo.List(ctx, offset, limit)
+	if err != nil {
+		return nil, 0, errors.NewServiceErrorWithCause("DATABASE", "Failed to list applications", err)
+	}
+	return apps, total, nil
+}
+
 // UpdateApplication updates an existing application.
 //
 // Parameters:

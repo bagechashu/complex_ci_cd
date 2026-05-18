@@ -365,16 +365,19 @@ onMounted(async () => {
 async function loadServers() {
   try {
     const res = await listShellServers(1, 100)
-    servers.value = res.data
+    // 后端返回 {data: [...], page, pageSize, total, totalPages}
+    servers.value = Array.isArray(res.data) ? res.data : []
   } catch (error) {
     console.error('Failed to load servers:', error)
+    servers.value = []
   }
 }
 
 async function loadCommands(serverId: number) {
   try {
     const res = await listShellCommands(1, 100, serverId)
-    commands.value = res.data
+    // 后端返回 {data: [...], page, pageSize, total, totalPages}
+    commands.value = Array.isArray(res.data) ? res.data : []
   } catch (error) {
     console.error('Failed to load commands:', error)
     commands.value = []

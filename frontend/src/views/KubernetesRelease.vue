@@ -1035,16 +1035,50 @@ const quickAddClusterInManageModal = (cluster: Cluster) => {
 
 const loadApplications = async (page: number = 1) => {
   try {
+    console.log('[DEBUG] loadApplications: starting load for page', page)
     const response = await getApplications(page, pageSize.value, searchQuery.value)
-    applications.value = response.data
+    console.log('[DEBUG] loadApplications: received response', response)
+    console.log('[DEBUG] response structure:', {
+      hasPage: response?.page !== undefined,
+      hasPageSize: response?.pageSize !== undefined,
+      hasTotal: response?.total !== undefined,
+      hasTotalPages: response?.totalPages !== undefined,
+      hasData: response?.data !== undefined,
+      dataIsArray: Array.isArray(response?.data),
+      dataLength: response?.data?.length || 0
+    })
+    
+    // 确保数据是数组
+    if (!Array.isArray(response?.data)) {
+      console.warn('[DEBUG] ⚠️ response.data is not an array!', typeof response?.data, response?.data)
+      applications.value = []
+    } else {
+      applications.value = response.data
+      console.log('[DEBUG] ✅ applications.value set to array of length', applications.value.length)
+      if (applications.value.length > 0) {
+        console.log('[DEBUG] first app:', applications.value[0])
+        console.log('[DEBUG] all app names:', applications.value.map(a => a.name).join(', '))
+      }
+    }
+    
     currentPage.value = response.page
     totalApplications.value = response.total
     totalPages.value = response.totalPages
+    
+    console.log('[DEBUG] loadApplications: state assigned')
+    console.log('[DEBUG] applications.value:', applications.value)
+    console.log('[DEBUG] applications.value.length:', applications.value.length)
+    
     // IMPORTANT: Do NOT pre-load cluster mappings here
     // They will be loaded on-demand when user clicks to view details
   } catch (error) {
-    console.error('Failed to load applications:', error)
-    alert('加载应用列表失败')
+    console.error('[DEBUG] loadApplications error:', error)
+    console.error('[DEBUG] error details:', {
+      message: error instanceof Error ? error.message : String(error),
+      type: error instanceof Error ? error.constructor.name : typeof error,
+      stack: error instanceof Error ? error.stack : 'no stack'
+    })
+    alert('加载应用列表失败: ' + (error instanceof Error ? error.message : String(error)))
   }
 }
 

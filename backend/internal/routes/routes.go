@@ -7,6 +7,7 @@ import (
 	"built-and-deploy/internal/handlers/applications"
 	"built-and-deploy/internal/handlers/clusters"
 	"built-and-deploy/internal/handlers/environments"
+	"built-and-deploy/internal/handlers/releases"
 	"built-and-deploy/internal/handlers/shell_commands"
 	"built-and-deploy/internal/handlers/shell_servers"
 	"built-and-deploy/internal/handlers/shell_tasks"
@@ -31,6 +32,14 @@ func NewRouter(container *services.ServiceContainer, log *logger.Logger) http.Ha
     r.Route("/api/v1", func(r chi.Router) {
         r.Get("/applications", applications.List(container.Application(), log))
         r.Post("/applications", applications.Create(container.Application(), log))
+        
+        // Releases endpoints
+        r.Get("/releases", releases.List(container.Release(), log))
+        r.Post("/releases", releases.Create(container.Release(), log))
+        r.Get("/releases/{id}", releases.Get(container.Release(), log))
+        r.Get("/releases/{id}/events", releases.ListEvents(container.Release(), log))
+        r.Post("/releases/{id}/rollback", releases.Rollback(container.Release(), log))
+        
         r.Get("/clusters", clusters.ListClustersHandler(container.Cluster(), log))
         r.Post("/clusters", clusters.CreateClusterHandler(container.Cluster(), log))
         r.Get("/clusters/{id}", clusters.GetClusterHandler(container.Cluster(), log))
