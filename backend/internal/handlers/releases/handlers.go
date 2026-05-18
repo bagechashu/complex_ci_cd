@@ -198,9 +198,10 @@ func List(releaseService *services.ReleaseService, log *logger.Logger) http.Hand
 // @Description Retrieves all events (audit trail) for a specific release deployment
 // @Tags Releases
 // @Produce json
-// @Param id path string true "Release ID"
-// @Success 200 {array} object "List of release events retrieved successfully"
+// @Param id path int true "Release ID"
+// @Success 200 {array} models.ReleaseEvent "List of release events retrieved successfully"
 // @Failure 400 {object} responses.ErrorResponse "Invalid release ID format"
+// @Failure 404 {object} responses.ErrorResponse "Release not found"
 // @Failure 500 {object} responses.ErrorResponse "Internal server error"
 // @Router /releases/{id}/events [get]
 //
@@ -209,17 +210,19 @@ func List(releaseService *services.ReleaseService, log *logger.Logger) http.Hand
 //	[
 //	  {
 //	    "id": 1,
-//	    "release_id": "1",
-//	    "event_type": "deployment_started",
+//	    "release_id": 1,
+//	    "type": "DEPLOYING",
 //	    "message": "Starting deployment to production cluster",
-//	    "timestamp": "2026-04-21T10:00:00Z"
+//	    "details": "{\"cluster\":\"prod\"}",
+//	    "created_at": "2026-04-21T10:00:00Z"
 //	  },
 //	  {
 //	    "id": 2,
-//	    "release_id": "1",
-//	    "event_type": "deployment_success",
+//	    "release_id": 1,
+//	    "type": "COMPLETED",
 //	    "message": "Deployment completed successfully",
-//	    "timestamp": "2026-04-21T10:05:00Z"
+//	    "details": "{}",
+//	    "created_at": "2026-04-21T10:05:00Z"
 //	  }
 //	]
 func ListEvents(releaseService *services.ReleaseService, log *logger.Logger) http.HandlerFunc {
@@ -230,7 +233,13 @@ func ListEvents(releaseService *services.ReleaseService, log *logger.Logger) htt
 			return
 		}
 
-		events, err := releaseService.ListReleaseEvents(r.Context(), idStr)
+		id, err := strconv.Atoi(idStr)
+		if err != nil {
+			responses.BadRequestResponse(w, "invalid release id format")
+			return
+		}
+
+		events, err := releaseService.ListReleaseEvents(r.Context(), id)
 		if err != nil {
 			responses.InternalErrorResponse(w, err.Error())
 			return

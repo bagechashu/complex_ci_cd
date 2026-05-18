@@ -151,7 +151,8 @@ export const useReleaseStore = defineStore('release', () => {
     errorCode.value = null
     try {
       const response = await releaseAPI.listReleases(limit, offset)
-      releaseHistory.value = response.data
+      // 响应拦截器已经提取了 data 字段，response 直接是 ReleaseResponse[] 数组
+      releaseHistory.value = Array.isArray(response) ? response : response.data || []
       return response
     } catch (err) {
       const message = getErrorMessage(err)

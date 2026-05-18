@@ -111,6 +111,50 @@ func (m *MockShellCommandRepository) Unpublish(ctx context.Context, id int) erro
 	return args.Error(0)
 }
 
+// MockShellTaskRepository 模拟 shell 任务存储库
+type MockShellTaskRepository struct {
+	mock.Mock
+}
+
+func (m *MockShellTaskRepository) Create(ctx context.Context, task *models.ShellTask) error {
+	args := m.Called(ctx, task)
+	return args.Error(0)
+}
+
+func (m *MockShellTaskRepository) GetByID(ctx context.Context, id int) (*models.ShellTask, error) {
+	args := m.Called(ctx, id)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*models.ShellTask), args.Error(1)
+}
+
+func (m *MockShellTaskRepository) List(ctx context.Context, offset, limit int) ([]*models.ShellTask, int, error) {
+	args := m.Called(ctx, offset, limit)
+	if args.Get(0) == nil {
+		return nil, args.Int(1), args.Error(2)
+	}
+	return args.Get(0).([]*models.ShellTask), args.Int(1), args.Error(2)
+}
+
+func (m *MockShellTaskRepository) Update(ctx context.Context, task *models.ShellTask) error {
+	args := m.Called(ctx, task)
+	return args.Error(0)
+}
+
+func (m *MockShellTaskRepository) Delete(ctx context.Context, id int) error {
+	args := m.Called(ctx, id)
+	return args.Error(0)
+}
+
+func (m *MockShellTaskRepository) ListByServer(ctx context.Context, serverID int, offset, limit int) ([]*models.ShellTask, int, error) {
+	args := m.Called(ctx, serverID, offset, limit)
+	if args.Get(0) == nil {
+		return nil, args.Int(1), args.Error(2)
+	}
+	return args.Get(0).([]*models.ShellTask), args.Int(1), args.Error(2)
+}
+
 // MockShellTaskExecutionRepository 模拟 shell 执行任务存储库
 type MockShellTaskExecutionRepository struct {
 	mock.Mock
@@ -174,6 +218,7 @@ func (m *MockShellTaskExecutionRepository) GetLatestByTaskAndServer(ctx context.
 // TestShellService_Creation tests shell service initialization
 func TestShellService_Creation(t *testing.T) {
 	// Setup
+	mockTaskRepo := new(MockShellTaskRepository)
 	mockServerRepo := new(MockShellServerRepository)
 	mockCommandRepo := new(MockShellCommandRepository)
 	mockExecRepo := new(MockShellTaskExecutionRepository)
@@ -181,6 +226,7 @@ func TestShellService_Creation(t *testing.T) {
 
 	// Create service
 	service := NewShellService(
+		mockTaskRepo,
 		mockServerRepo,
 		mockCommandRepo,
 		mockExecRepo,
@@ -194,12 +240,14 @@ func TestShellService_Creation(t *testing.T) {
 
 // TestShellService_ShellServerRepo tests server repository accessor
 func TestShellService_ShellServerRepo(t *testing.T) {
+	mockTaskRepo := new(MockShellTaskRepository)
 	mockServerRepo := new(MockShellServerRepository)
 	mockCommandRepo := new(MockShellCommandRepository)
 	mockExecRepo := new(MockShellTaskExecutionRepository)
 	log := logger.NewLogger()
 
 	service := NewShellService(
+		mockTaskRepo,
 		mockServerRepo,
 		mockCommandRepo,
 		mockExecRepo,
@@ -213,12 +261,14 @@ func TestShellService_ShellServerRepo(t *testing.T) {
 
 // TestShellService_ShellCommandRepo tests command repository accessor
 func TestShellService_ShellCommandRepo(t *testing.T) {
+	mockTaskRepo := new(MockShellTaskRepository)
 	mockServerRepo := new(MockShellServerRepository)
 	mockCommandRepo := new(MockShellCommandRepository)
 	mockExecRepo := new(MockShellTaskExecutionRepository)
 	log := logger.NewLogger()
 
 	service := NewShellService(
+		mockTaskRepo,
 		mockServerRepo,
 		mockCommandRepo,
 		mockExecRepo,
@@ -232,12 +282,14 @@ func TestShellService_ShellCommandRepo(t *testing.T) {
 
 // TestShellService_ShellTaskRepo tests exec repository accessor
 func TestShellService_ShellTaskRepo(t *testing.T) {
+	mockTaskRepo := new(MockShellTaskRepository)
 	mockServerRepo := new(MockShellServerRepository)
 	mockCommandRepo := new(MockShellCommandRepository)
 	mockExecRepo := new(MockShellTaskExecutionRepository)
 	log := logger.NewLogger()
 
 	service := NewShellService(
+		mockTaskRepo,
 		mockServerRepo,
 		mockCommandRepo,
 		mockExecRepo,

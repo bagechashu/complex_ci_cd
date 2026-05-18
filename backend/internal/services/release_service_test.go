@@ -191,7 +191,7 @@ func TestReleaseService_Rollback(t *testing.T) {
 	}
 
 	mockReleaseRepo.On("GetByID", mock.Anything, 1).Return(originalRelease, nil)
-	mockReleaseRepo.On("Create", mock.Anything, mock.Anything).Return(nil)
+	mockReleaseRepo.On("Update", mock.Anything, mock.Anything).Return(nil)
 	mockEventRepo.On("Create", mock.Anything, mock.Anything).Return(nil)
 
 	service := NewReleaseService(
@@ -211,5 +211,6 @@ func TestReleaseService_Rollback(t *testing.T) {
 	// Assert
 	require.NoError(t, err)
 	assert.NotNil(t, release)
+	assert.Equal(t, "rolled_back", release.Status)
 	mockReleaseRepo.AssertExpectations(t)
 }

@@ -138,25 +138,41 @@ func (s *ReleaseService) Release(ctx context.Context, appID, clusterID int, imag
 //
 // Parameters:
 //   - ctx: Context for cancellation and deadline
-//   - releaseID: The string ID of the release
+//   - releaseID: The integer ID of the release
 //
 // Returns:
-//   - []interface{}: Slice of release events (format TBD)
+//   - []interface{}: Slice of release events
 //   - error: Non-nil if retrieval fails
 //
-// Note:
-//   - TODO: Implement full event recording and retrieval
-//   - Current implementation returns empty slice
+// Errors:
+//   - "NOT_FOUND": If release does not have any events
+//   - "DATABASE": If database query fails
 //
 // Example:
 //
-//	events, err := service.ListReleaseEvents(ctx, "release-123")
+//	events, err := service.ListReleaseEvents(ctx, 123)
 //	if err != nil {
 //	    log.Error("Failed to list events", "error", err)
 //	}
-func (s *ReleaseService) ListReleaseEvents(ctx context.Context, releaseID string) ([]interface{}, error) {
-	// TODO: Implement properly
-	return []interface{}{}, nil
+func (s *ReleaseService) ListReleaseEvents(ctx context.Context, releaseID int) ([]interface{}, error) {
+	events, err := s.eventRepo.ListByRelease(ctx, releaseID)
+	if err != nil {
+		s.log.Error("Failed to list release events", "releaseID", releaseID, "error", err)
+		return nil, errors.NewServiceErrorWithCause("DATABASE", "Failed to list release events", err)
+	}
+
+	if events == nil {
+		events = make([]*models.ReleaseEvent, 0)
+	}
+
+	// Convert to []interface{} for compatibility with response handlers
+	result := make([]interface{}, len(events))
+	for i, event := range events {
+		result[i] = event
+	}
+
+	s.log.Info("Release events retrieved", "releaseID", releaseID, "count", len(events))
+	return result, nil
 }
 
 // Rollback reverts a release to a previous state.

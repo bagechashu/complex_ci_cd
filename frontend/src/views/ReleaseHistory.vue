@@ -315,7 +315,38 @@ const handleRollback = async (releaseId: number) => {
 }
 
 // ============ Lifecycle ============
-onMounted(() => {
+onMounted(async () => {
+  // 初始化元数据（应用、环境、集群）
+  if (appStore.applications.length === 0) {
+    try {
+      await appStore.fetchApplications()
+    } catch (error) {
+      console.error('Failed to fetch applications:', error)
+    }
+  }
+  if (appStore.environments.length === 0) {
+    try {
+      await appStore.fetchEnvironments()
+    } catch (error) {
+      console.error('Failed to fetch environments:', error)
+    }
+  }
+  if (appStore.clusters.length === 0) {
+    try {
+      await appStore.fetchClusters()
+    } catch (error) {
+      console.error('Failed to fetch clusters:', error)
+    }
+  }
+  if (appStore.workloadTargets.length === 0) {
+    try {
+      await appStore.fetchWorkloadTargets()
+    } catch (error) {
+      console.error('Failed to fetch workload targets:', error)
+    }
+  }
+  
+  // 获取发布历史
   fetchHistory()
 })
 </script>
