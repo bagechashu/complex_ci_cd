@@ -136,9 +136,10 @@ func TestCreate_ValidRequest(t *testing.T) {
 
 	// Create request
 	reqBody := map[string]interface{}{
-		"command":     "ls -la",
-		"description": "List files",
-		"server_ids":  []int{1, 2},
+		"name":        "test-task",
+		"description": "Test shell task",
+		"command_id":  1,
+		"server_id":   1,
 	}
 	bodyBytes, _ := json.Marshal(reqBody)
 	req := httptest.NewRequest("POST", "/shell-tasks", bytes.NewReader(bodyBytes))

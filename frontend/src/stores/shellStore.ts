@@ -4,7 +4,7 @@
 
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import type { ShellTask, ShellServer, ShellCommand } from '@/types/api'
+import type { ShellTask, ShellServer, ShellCommand, ShellTaskExecution } from '@/types/api'
 import {
   listShellTasks,
   getShellTask,
@@ -12,7 +12,9 @@ import {
   updateShellTask,
   deleteShellTask,
   listShellServers,
-  listShellCommands
+  listShellCommands,
+  listShellTaskExecutions,
+  executeShellCommand
 } from '@/api/shell'
 
 export const useShellStore = defineStore('shell', () => {
@@ -53,20 +55,24 @@ export const useShellStore = defineStore('shell', () => {
   })
 
   /**
-   * 按执行方式分类
-   */
-  const tasksByExecutionMethod = computed(() => {
-    return {
-      serial: shellTasks.value.filter(t => t.execution_method === 'serial'),
-      parallel: shellTasks.value.filter(t => t.execution_method === 'parallel')
-    }
-  })
-
-  /**
    * 需要审批的任务
    */
   const tasksRequiringApproval = computed(() => {
     return shellTasks.value.filter(t => t.requires_approval)
+  })
+
+  /**
+   * 按服务器分类的任务
+   */
+  const tasksByServer = computed(() => {
+    const grouped: Record<number, ShellTask[]> = {}
+    shellTasks.value.forEach(task => {
+      if (!grouped[task.server_id]) {
+        grouped[task.server_id] = []
+      }
+      grouped[task.server_id].push(task)
+    })
+    return grouped
   })
 
   /**
@@ -207,10 +213,10 @@ export const useShellStore = defineStore('shell', () => {
   /**
    * 获取 Shell 服务器列表
    */
-  const fetchShellServers = async () => {
+  const fetchShellServers = async (page: number = 1, pageSize: number = 100) => {
     serversLoading.value = true
     try {
-      const response = await listShellServers(1, 100)
+      const response = await listShellServers(page, pageSize)
       shellServers.value = response.data
     } catch (err) {
       error.value = err instanceof Error ? err.message : '获取 Shell 服务器列表失败'
@@ -223,16 +229,46 @@ export const useShellStore = defineStore('shell', () => {
   /**
    * 获取 Shell 命令列表
    */
-  const fetchShellCommands = async () => {
+  const fetchShellCommands = async (page: number = 1, pageSize: number = 100) => {
     commandsLoading.value = true
     try {
-      const response = await listShellCommands(1, 100)
+      const response = await listShellCommands(page, pageSize)
       shellCommands.value = response.data
     } catch (err) {
       error.value = err instanceof Error ? err.message : '获取 Shell 命令列表失败'
       console.error('Error fetching shell commands:', err)
     } finally {
       commandsLoading.value = false
+    }
+  }
+
+  /**
+   * 获取 Shell 任务执行历史
+   */
+  const fetchShellTaskExecutions = async (page: number = 1, pageSize: number = 10) => {
+    try {
+      const response = await listShellTaskExecutions(page, pageSize)
+      return response.data
+    } catch (err) {
+      error.value = err instanceof Error ? err.message : '获取 Shell 任务执行历史失败'
+      console.error('Error fetching shell task executions:', err)
+      return []
+    }
+  }
+
+  /**
+   * 执行 Shell 命令
+   */
+  const executeShellCommandAction = async (
+    data: Omit<ShellTaskExecution, 'id' | 'created_at' | 'updated_at'>
+  ) => {
+    try {
+      const response = await executeShellCommand(data)
+      return response
+    } catch (err) {
+      error.value = err instanceof Error ? err.message : '执行命令失败'
+      console.error('Error executing shell command:', err)
+      return null
     }
   }
 
@@ -301,7 +337,7 @@ export const useShellStore = defineStore('shell', () => {
 
     // Computed
     selectedTasks,
-    tasksByExecutionMethod,
+    tasksByServer,
     tasksRequiringApproval,
     getCommandName,
     getServerName,
@@ -315,6 +351,8 @@ export const useShellStore = defineStore('shell', () => {
     deleteMultipleShellTasks,
     fetchShellServers,
     fetchShellCommands,
+    fetchShellTaskExecutions,
+    executeShellCommand: executeShellCommandAction,
     initializeData,
     clearSelection,
     toggleTaskSelection,

@@ -10,8 +10,8 @@ import (
 )
 
 const (
-	sqShellTaskExecutionInsert = "INSERT INTO shell_task_execution (task_id, server_id, command_id, status, output, error_message, exit_code, started_at, completed_at, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)"
-	sqShellTaskExecutionSelect = "SELECT id, task_id, server_id, command_id, status, output, error_message, exit_code, started_at, completed_at, created_at, updated_at FROM shell_task_execution"
+	sqShellTaskExecutionInsert = "INSERT INTO shell_task_execution (task_id, server_id, command_id, status, output, error_message, command_params, exit_code, started_at, completed_at, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)"
+	sqShellTaskExecutionSelect = "SELECT id, task_id, server_id, command_id, status, output, error_message, command_params, exit_code, started_at, completed_at, created_at, updated_at FROM shell_task_execution"
 	sqShellTaskExecutionUpdate = "UPDATE shell_task_execution SET status=?, output=?, error_message=?, exit_code=?, started_at=?, completed_at=?, updated_at=? WHERE id=?"
 	sqShellTaskExecutionDelete = "DELETE FROM shell_task_execution WHERE id=?"
 	sqShellTaskExecutionCount  = "SELECT COUNT(*) FROM shell_task_execution"
@@ -43,7 +43,7 @@ func (r *SQLiteShellTaskExecutionRepository) Create(ctx context.Context, executi
 
 	result, err := r.db.ExecContext(ctx, sqShellTaskExecutionInsert,
 		execution.TaskID, execution.ServerID, execution.CommandID, execution.Status,
-		execution.Output, execution.ErrorMessage, execution.ExitCode,
+		execution.Output, execution.ErrorMessage, execution.CommandParams, execution.ExitCode,
 		execution.StartedAt, execution.CompletedAt, execution.CreatedAt, execution.UpdatedAt)
 	if err != nil {
 		return err
@@ -62,7 +62,7 @@ func (r *SQLiteShellTaskExecutionRepository) GetByID(ctx context.Context, id int
 	var e models.ShellTaskExecution
 	err := r.db.QueryRowContext(ctx, sqShellTaskExecutionSelect+" WHERE id = ?", id).Scan(
 		&e.ID, &e.TaskID, &e.ServerID, &e.CommandID, &e.Status,
-		&e.Output, &e.ErrorMessage, &e.ExitCode,
+		&e.Output, &e.ErrorMessage, &e.CommandParams, &e.ExitCode,
 		&e.StartedAt, &e.CompletedAt, &e.CreatedAt, &e.UpdatedAt)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, errors.New("shell task execution not found")
@@ -141,7 +141,7 @@ func (r *SQLiteShellTaskExecutionRepository) GetLatestByTaskAndServer(ctx contex
 	err := r.db.QueryRowContext(ctx, sqShellTaskExecutionSelect+
 		" WHERE task_id = ? AND server_id = ? ORDER BY created_at DESC LIMIT 1", taskID, serverID).Scan(
 		&e.ID, &e.TaskID, &e.ServerID, &e.CommandID, &e.Status,
-		&e.Output, &e.ErrorMessage, &e.ExitCode,
+		&e.Output, &e.ErrorMessage, &e.CommandParams, &e.ExitCode,
 		&e.StartedAt, &e.CompletedAt, &e.CreatedAt, &e.UpdatedAt)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
@@ -159,7 +159,7 @@ func scanExecutions(rows *sql.Rows, total int) ([]*models.ShellTaskExecution, in
 		var e models.ShellTaskExecution
 		if err := rows.Scan(
 			&e.ID, &e.TaskID, &e.ServerID, &e.CommandID, &e.Status,
-			&e.Output, &e.ErrorMessage, &e.ExitCode,
+			&e.Output, &e.ErrorMessage, &e.CommandParams, &e.ExitCode,
 			&e.StartedAt, &e.CompletedAt, &e.CreatedAt, &e.UpdatedAt); err != nil {
 			return nil, 0, err
 		}

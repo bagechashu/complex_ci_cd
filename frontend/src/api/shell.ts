@@ -114,3 +114,9 @@ export const getShellTaskExecution = (id: number): Promise<ShellTaskExecution> =
   return request.get(`/v1/shell-task-executions/${id}`)
 }
 
+export const executeShellCommand = (
+  data: Omit<ShellTaskExecution, 'id' | 'created_at' | 'updated_at'>
+): Promise<ShellTaskExecution> => {
+  return request.post('/v1/shell-commands/execute', data)
+}
+

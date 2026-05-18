@@ -191,22 +191,13 @@ func migrateSchemaV1(db *sql.DB) error {
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		name TEXT NOT NULL,
 		description TEXT,
+		server_id INTEGER NOT NULL,
 		command_id INTEGER NOT NULL,
-		execution_method TEXT DEFAULT 'serial',
 		requires_approval BOOLEAN DEFAULT 0,
 		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 		updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		FOREIGN KEY (server_id) REFERENCES shell_server(id) ON DELETE CASCADE,
 		FOREIGN KEY (command_id) REFERENCES shell_command(id) ON DELETE RESTRICT
-	);
-
-	CREATE TABLE IF NOT EXISTS shell_task_server (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		task_id INTEGER NOT NULL,
-		server_id INTEGER NOT NULL,
-		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-		UNIQUE(task_id, server_id),
-		FOREIGN KEY (task_id) REFERENCES shell_task(id) ON DELETE CASCADE,
-		FOREIGN KEY (server_id) REFERENCES shell_server(id) ON DELETE CASCADE
 	);
 
 	CREATE TABLE IF NOT EXISTS shell_task_execution (
@@ -217,6 +208,7 @@ func migrateSchemaV1(db *sql.DB) error {
 		status TEXT DEFAULT 'pending',
 		output TEXT,
 		error_message TEXT,
+		command_params TEXT,
 		exit_code INTEGER,
 		started_at DATETIME,
 		completed_at DATETIME,
@@ -271,8 +263,9 @@ func migrateSchemaV1(db *sql.DB) error {
 	CREATE INDEX IF NOT EXISTS idx_shell_server_status ON shell_server(status);
 	CREATE INDEX IF NOT EXISTS idx_shell_command_server ON shell_command(server_id);
 	CREATE INDEX IF NOT EXISTS idx_shell_command_published ON shell_command(is_published);
+	CREATE INDEX IF NOT EXISTS idx_shell_task_server ON shell_task(server_id);
 	CREATE INDEX IF NOT EXISTS idx_shell_task_command ON shell_task(command_id);
-	CREATE INDEX IF NOT EXISTS idx_shell_task_server ON shell_task_server(task_id, server_id);
+	CREATE INDEX IF NOT EXISTS idx_shell_task_server_command ON shell_task(server_id, command_id);
 	CREATE INDEX IF NOT EXISTS idx_shell_taskution_task ON shell_task_execution(task_id);
 	CREATE INDEX IF NOT EXISTS idx_shell_taskution_status ON shell_task_execution(status);
 	CREATE INDEX IF NOT EXISTS idx_shell_taskution_created ON shell_task_execution(created_at DESC);

@@ -1,6 +1,7 @@
 package models
 
 import (
+	"fmt"
 	"time"
 )
 
@@ -53,6 +54,7 @@ type ShellTaskExecution struct {
 	Status       string     `json:"status" db:"status" example:"success" enum:"pending,running,success,failed"`
 	Output       string     `json:"output" db:"output" example:"...command output..."`
 	ErrorMessage string     `json:"error_message" db:"error_message" example:"Connection timeout"`
+	CommandParams string    `json:"command_params" db:"command_params" example:""`
 	ExitCode     *int       `json:"exit_code" db:"exit_code" example:"0"`
 	StartedAt    *time.Time `json:"started_at" db:"started_at" example:"2026-04-21T10:00:00Z"`
 	CompletedAt  *time.Time `json:"completed_at" db:"completed_at" example:"2026-04-21T10:01:00Z"`
@@ -75,4 +77,25 @@ func (e *ShellTaskExecution) GetDuration() int {
 		return 0
 	}
 	return int(e.CompletedAt.Sub(*e.StartedAt).Seconds())
+}
+
+// Validate validates the ShellTaskExecution model
+func (e *ShellTaskExecution) Validate() error {
+	if e.CommandID == 0 {
+		return fmt.Errorf("command_id is required")
+	}
+	if e.ServerID == 0 {
+		return fmt.Errorf("server_id is required")
+	}
+	if e.Status == "" {
+		e.Status = "pending"
+	}
+	// Valid statuses: pending, running, success, failed
+	switch e.Status {
+	case "pending", "running", "success", "failed":
+		// valid
+	default:
+		return fmt.Errorf("invalid status: %s", e.Status)
+	}
+	return nil
 }

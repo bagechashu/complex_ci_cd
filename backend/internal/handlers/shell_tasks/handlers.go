@@ -157,8 +157,7 @@ func Create(shellService *services.ShellService, log *logger.Logger) http.Handle
 			Name             string `json:"name"`
 			Description      string `json:"description"`
 			CommandID        int    `json:"command_id"`
-			ServerIDs        []int  `json:"server_ids"`
-			ExecutionMethod  string `json:"execution_method"`
+			ServerID         int    `json:"server_id"`
 			RequiresApproval bool   `json:"requires_approval"`
 		}
 
@@ -168,22 +167,16 @@ func Create(shellService *services.ShellService, log *logger.Logger) http.Handle
 		}
 
 		// Validate required fields
-		if req.Name == "" || req.CommandID == 0 || len(req.ServerIDs) == 0 {
-			responses.BadRequestResponse(w, "Missing required fields: name, command_id, server_ids")
+		if req.Name == "" || req.CommandID == 0 || req.ServerID == 0 {
+			responses.BadRequestResponse(w, "Missing required fields: name, command_id, server_id")
 			return
-		}
-
-		// Set default execution method
-		if req.ExecutionMethod == "" {
-			req.ExecutionMethod = "serial"
 		}
 
 		task := &models.ShellTask{
 			Name:             req.Name,
 			Description:      req.Description,
 			CommandID:        req.CommandID,
-			ServerIDs:        req.ServerIDs,
-			ExecutionMethod:  req.ExecutionMethod,
+			ServerID:         req.ServerID,
 			RequiresApproval: req.RequiresApproval,
 		}
 
@@ -259,8 +252,7 @@ func Update(shellService *services.ShellService, log *logger.Logger) http.Handle
 			Name             string `json:"name"`
 			Description      string `json:"description"`
 			CommandID        int    `json:"command_id"`
-			ServerIDs        []int  `json:"server_ids"`
-			ExecutionMethod  string `json:"execution_method"`
+			ServerID         int    `json:"server_id"`
 			RequiresApproval bool   `json:"requires_approval"`
 		}
 
@@ -289,11 +281,8 @@ func Update(shellService *services.ShellService, log *logger.Logger) http.Handle
 		if req.CommandID > 0 {
 			task.CommandID = req.CommandID
 		}
-		if len(req.ServerIDs) > 0 {
-			task.ServerIDs = req.ServerIDs
-		}
-		if req.ExecutionMethod != "" {
-			task.ExecutionMethod = req.ExecutionMethod
+		if req.ServerID > 0 {
+			task.ServerID = req.ServerID
 		}
 		task.RequiresApproval = req.RequiresApproval
 
@@ -340,5 +329,103 @@ func Delete(shellService *services.ShellService, log *logger.Logger) http.Handle
 		}
 
 		w.WriteHeader(http.StatusNoContent)
+	}
+}
+
+// Execute handles POST /v1/shell-commands/execute request to execute a shell command.
+//
+// Request body:
+//   - task_id: Optional task ID (can be 0 for direct command execution)
+//   - command_id: The shell command to execute
+//   - server_id: The target server
+//   - command_params: Optional execution parameters
+//
+// Response:
+//   - Returns the created ShellTaskExecution record with status "pending"
+//   - The actual command execution happens asynchronously
+//
+// Example request:
+//
+//	{
+//	  "task_id": 0,
+//	  "command_id": 123,
+//	  "server_id": 456,
+//	  "command_params": ""
+//	}
+//
+// Example response (201):
+//
+//	{
+//	  "code": 0,
+//	  "message": "execution_initiated",
+//	  "data": {
+//	    "id": 789,
+//	    "task_id": 0,
+//	    "command_id": 123,
+//	    "server_id": 456,
+//	    "status": "pending",
+//	    "output": "",
+//	    "error_message": "",
+//	    "command_params": "",
+//	    "created_at": "2025-01-14T10:00:00Z",
+//	    "updated_at": "2025-01-14T10:00:00Z"
+//	  }
+//	}
+func Execute(shellService *services.ShellService, log *logger.Logger) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var req struct {
+			TaskID        int    `json:"task_id"`
+			CommandID     int    `json:"command_id"`
+			ServerID      int    `json:"server_id"`
+			CommandParams string `json:"command_params"`
+		}
+
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			responses.BadRequestResponse(w, "Invalid request body")
+			return
+		}
+
+		// Validate required fields
+		if req.CommandID == 0 || req.ServerID == 0 {
+			responses.BadRequestResponse(w, "Missing required fields: command_id, server_id")
+			return
+		}
+
+		execution := &models.ShellTaskExecution{
+			TaskID:         req.TaskID,
+			CommandID:      req.CommandID,
+			ServerID:       req.ServerID,
+			Status:         "pending",
+			Output:         "",
+			ErrorMessage:   "",
+			CommandParams:  req.CommandParams,
+			CreatedAt:      time.Now(),
+			UpdatedAt:      time.Now(),
+		}
+
+		// Validate model
+		if err := execution.Validate(); err != nil {
+			responses.BadRequestResponse(w, err.Error())
+			return
+		}
+
+		ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
+		defer cancel()
+
+		executionRepo := shellService.ShellTaskExecutionRepo()
+		if err := executionRepo.Create(ctx, execution); err != nil {
+			log.Error("Failed to create shell task execution", "error", err)
+			responses.InternalErrorResponse(w, "Failed to create shell task execution")
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusCreated)
+		resp := map[string]interface{}{
+			"code":    0,
+			"message": "execution_initiated",
+			"data":    execution,
+		}
+		json.NewEncoder(w).Encode(resp)
 	}
 }

@@ -159,14 +159,14 @@ export interface ShellTask {
   id: number
   name: string
   description?: string
-  server_ids: number[]
+  server_id: number
   command_id: number
-  execution_method: 'serial' | 'parallel'
   requires_approval: boolean
   created_at: string
   updated_at: string
   command?: string // 用于前端显示
   command_description?: string
+  server_name?: string // 用于前端显示服务器名称
   executions?: ShellTaskExecution[]
 }
 

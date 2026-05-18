@@ -311,8 +311,8 @@ function handlePageChange() {
   // 分页变化时保持当前过滤状态
 }
 
-function getStatusType(status?: string): string {
-  const statusTypeMap: Record<string, string> = {
+function getStatusType(status?: string): 'default' | 'warning' | 'success' | 'error' {
+  const statusTypeMap: Record<string, 'default' | 'warning' | 'success' | 'error'> = {
     pending: 'default',
     running: 'warning',
     success: 'success',

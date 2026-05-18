@@ -135,37 +135,25 @@ INSERT OR IGNORE INTO shell_command (server_id, command, description, is_publish
 ((SELECT id FROM shell_server WHERE name='prod-server-cn2-01'), 'ps aux | grep java', 'Check running Java processes', 1, datetime('now'), datetime('now'));
 
 -- 11. Insert shell tasks (6 tasks)
-INSERT OR IGNORE INTO shell_task (name, description, command_id, execution_method, requires_approval, created_at, updated_at) VALUES 
-('health-check-dev', 'Perform health check on dev cluster', (SELECT id FROM shell_command WHERE description LIKE 'Check api-service%' LIMIT 1), 'parallel', 0, datetime('now'), datetime('now')),
-('restart-staging-web', 'Restart web-ui on staging server', (SELECT id FROM shell_command WHERE description='Restart web-ui service on staging'), 'serial', 0, datetime('now'), datetime('now')),
-('prod-list-deployments', 'List all production deployments', (SELECT id FROM shell_command WHERE description='List all deployments in prod'), 'serial', 1, datetime('now'), datetime('now')),
-('monitor-resources', 'Monitor disk and memory resources', (SELECT id FROM shell_command WHERE description='Check disk usage'), 'parallel', 0, datetime('now'), datetime('now')),
-('critical-restart-payment', 'Restart payment-gateway (CRITICAL)', (SELECT id FROM shell_command WHERE description='Check payment-gateway status'), 'serial', 1, datetime('now'), datetime('now')),
-('check-uptime', 'Check server uptime in production', (SELECT id FROM shell_command WHERE description='Check server uptime'), 'parallel', 0, datetime('now'), datetime('now'));
+INSERT OR IGNORE INTO shell_task (name, description, server_id, command_id, requires_approval, created_at, updated_at) VALUES 
+('health-check-dev', 'Perform health check on dev cluster', (SELECT id FROM shell_server WHERE name='dev-server-01'), (SELECT id FROM shell_command WHERE description LIKE 'Check api-service%' LIMIT 1), 0, datetime('now'), datetime('now')),
+('restart-staging-web', 'Restart web-ui on staging server', (SELECT id FROM shell_server WHERE name='staging-server-01'), (SELECT id FROM shell_command WHERE description='Restart web-ui service on staging'), 0, datetime('now'), datetime('now')),
+('prod-list-deployments', 'List all production deployments', (SELECT id FROM shell_server WHERE name='prod-server-cn1-01'), (SELECT id FROM shell_command WHERE description='List all deployments in prod'), 1, datetime('now'), datetime('now')),
+('monitor-resources', 'Monitor disk and memory resources', (SELECT id FROM shell_server WHERE name='prod-server-cn1-01'), (SELECT id FROM shell_command WHERE description='Check disk usage'), 0, datetime('now'), datetime('now')),
+('critical-restart-payment', 'Restart payment-gateway (CRITICAL)', (SELECT id FROM shell_server WHERE name='prod-server-cn1-01'), (SELECT id FROM shell_command WHERE description='Check payment-gateway status'), 1, datetime('now'), datetime('now')),
+('check-uptime', 'Check server uptime in production', (SELECT id FROM shell_server WHERE name='prod-server-cn2-01'), (SELECT id FROM shell_command WHERE description='Check server uptime'), 0, datetime('now'), datetime('now'));
 
--- 12. Insert shell task server associations (map tasks to servers)
-INSERT OR IGNORE INTO shell_task_server (task_id, server_id, created_at) VALUES 
-((SELECT id FROM shell_task WHERE name='health-check-dev'), (SELECT id FROM shell_server WHERE name='dev-server-01'), datetime('now')),
-((SELECT id FROM shell_task WHERE name='restart-staging-web'), (SELECT id FROM shell_server WHERE name='staging-server-01'), datetime('now')),
-((SELECT id FROM shell_task WHERE name='prod-list-deployments'), (SELECT id FROM shell_server WHERE name='prod-server-cn1-01'), datetime('now')),
-((SELECT id FROM shell_task WHERE name='prod-list-deployments'), (SELECT id FROM shell_server WHERE name='prod-server-cn1-02'), datetime('now')),
-((SELECT id FROM shell_task WHERE name='monitor-resources'), (SELECT id FROM shell_server WHERE name='prod-server-cn1-01'), datetime('now')),
-((SELECT id FROM shell_task WHERE name='monitor-resources'), (SELECT id FROM shell_server WHERE name='prod-server-cn1-02'), datetime('now')),
-((SELECT id FROM shell_task WHERE name='monitor-resources'), (SELECT id FROM shell_server WHERE name='prod-server-cn2-01'), datetime('now')),
-((SELECT id FROM shell_task WHERE name='critical-restart-payment'), (SELECT id FROM shell_server WHERE name='prod-server-cn1-01'), datetime('now')),
-((SELECT id FROM shell_task WHERE name='check-uptime'), (SELECT id FROM shell_server WHERE name='prod-server-cn2-01'), datetime('now'));
-
--- 13. Insert shell task executions (execution history)
+-- 12. Insert shell task executions (execution history)
+-- 12. Insert shell task executions (execution history)
 INSERT OR IGNORE INTO shell_task_execution (task_id, server_id, command_id, status, output, error_message, exit_code, started_at, completed_at, created_at, updated_at) VALUES 
 ((SELECT id FROM shell_task WHERE name='health-check-dev'), (SELECT id FROM shell_server WHERE name='dev-server-01'), (SELECT id FROM shell_command WHERE description LIKE 'Check api-service%' LIMIT 1), 'success', 'api-service is running (PID 12345)', NULL, 0, datetime('now', '-2 hours'), datetime('now', '-2 hours', '+10 seconds'), datetime('now', '-2 hours'), datetime('now', '-2 hours')),
 ((SELECT id FROM shell_task WHERE name='restart-staging-web'), (SELECT id FROM shell_server WHERE name='staging-server-01'), (SELECT id FROM shell_command WHERE description='Restart web-ui service on staging'), 'success', 'Service restarted successfully', NULL, 0, datetime('now', '-90 minutes'), datetime('now', '-90 minutes', '+15 seconds'), datetime('now', '-90 minutes'), datetime('now', '-90 minutes')),
 ((SELECT id FROM shell_task WHERE name='monitor-resources'), (SELECT id FROM shell_server WHERE name='prod-server-cn1-01'), (SELECT id FROM shell_command WHERE description='Check disk usage'), 'success', 'Filesystem: 82% used (410GB/500GB)', NULL, 0, datetime('now', '-45 minutes'), datetime('now', '-45 minutes', '+5 seconds'), datetime('now', '-45 minutes'), datetime('now', '-45 minutes')),
-((SELECT id FROM shell_task WHERE name='monitor-resources'), (SELECT id FROM shell_server WHERE name='prod-server-cn1-02'), (SELECT id FROM shell_command WHERE description='Check memory usage'), 'success', 'Memory: 78% used (15.6GB/20GB)', NULL, 0, datetime('now', '-45 minutes'), datetime('now', '-45 minutes', '+5 seconds'), datetime('now', '-45 minutes'), datetime('now', '-45 minutes')),
+((SELECT id FROM shell_task WHERE name='prod-list-deployments'), (SELECT id FROM shell_server WHERE name='prod-server-cn1-01'), (SELECT id FROM shell_command WHERE description='List all deployments in prod'), 'failed', NULL, 'Connection timeout after 30s', 1, datetime('now', '-10 minutes'), datetime('now', '-10 minutes', '+30 seconds'), datetime('now', '-10 minutes'), datetime('now', '-10 minutes')),
 ((SELECT id FROM shell_task WHERE name='health-check-dev'), (SELECT id FROM shell_server WHERE name='dev-server-01'), (SELECT id FROM shell_command WHERE description LIKE 'Check api-service%' LIMIT 1), 'success', 'api-service is running (PID 12346)', NULL, 0, datetime('now', '-30 minutes'), datetime('now', '-30 minutes', '+10 seconds'), datetime('now', '-30 minutes'), datetime('now', '-30 minutes')),
-((SELECT id FROM shell_task WHERE name='check-uptime'), (SELECT id FROM shell_server WHERE name='prod-server-cn2-01'), (SELECT id FROM shell_command WHERE description='Check server uptime'), 'success', 'up 45 days, 12 hours, 34 minutes', NULL, 0, datetime('now', '-20 minutes'), datetime('now', '-20 minutes', '+5 seconds'), datetime('now', '-20 minutes'), datetime('now', '-20 minutes')),
-((SELECT id FROM shell_task WHERE name='prod-list-deployments'), (SELECT id FROM shell_server WHERE name='prod-server-cn1-01'), (SELECT id FROM shell_command WHERE description='List all deployments in prod'), 'failed', NULL, 'Connection timeout after 30s', 1, datetime('now', '-10 minutes'), datetime('now', '-10 minutes', '+30 seconds'), datetime('now', '-10 minutes'), datetime('now', '-10 minutes'));
+((SELECT id FROM shell_task WHERE name='check-uptime'), (SELECT id FROM shell_server WHERE name='prod-server-cn2-01'), (SELECT id FROM shell_command WHERE description='Check server uptime'), 'success', 'up 45 days, 12 hours, 34 minutes', NULL, 0, datetime('now', '-20 minutes'), datetime('now', '-20 minutes', '+5 seconds'), datetime('now', '-20 minutes'), datetime('now', '-20 minutes'));
 
--- 14. Insert command approvals (for tasks requiring approval)
+-- 13. Insert command approvals (for tasks requiring approval)
 INSERT OR IGNORE INTO command_approval (id, request_id, approval_status, approved_by, approved_at, created_at, updated_at) VALUES 
 ('approval-001', 'req-prod-list-001', 'approved', 'admin@example.com', datetime('now', '-1 days'), datetime('now', '-1 days'), datetime('now', '-1 days')),
 ('approval-002', 'req-critical-restart-001', 'pending', NULL, NULL, datetime('now', '-30 minutes'), datetime('now', '-30 minutes')),
