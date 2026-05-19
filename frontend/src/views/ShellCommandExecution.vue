@@ -225,7 +225,7 @@ const selectCommand = (cmd: ShellCommand, server: any) => {
 const loadExecutionHistory = async (commandId: number) => {
   try {
     // Fetch executions for this specific command with backend filtering
-    const response = await shellStore.fetchShellCommandExecutions(1, 5, undefined, commandId)
+    const response = await shellStore.fetchShellCommandExecutions(1, 5, commandId)
     commandExecutions.value = response
   } catch (err) {
     console.error('Failed to load execution history:', err)

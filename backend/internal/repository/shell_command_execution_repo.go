@@ -18,7 +18,7 @@ const (
 		  e.id, e.server_id, e.command_id, e.status,
 		  e.output, e.error_message, e.command_params, e.exit_code,
 		  e.started_at, e.completed_at, e.created_at, e.updated_at,
-		  COALESCE(t.name, ''), COALESCE(s.name, ''), COALESCE(c.command, '')
+		  COALESCE(s.name, ''), COALESCE(c.command, '')
 		FROM shell_command_execution e
 		LEFT JOIN shell_server s ON e.server_id = s.id
 		LEFT JOIN shell_command c ON e.command_id = c.id
