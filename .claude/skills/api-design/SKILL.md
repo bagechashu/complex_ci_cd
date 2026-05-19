@@ -402,20 +402,30 @@ GET /api/v1/shell-servers
 }
 ```
 
-#### 创建Shell任务
+#### 添加Shell命令到服务器
 ```
 POST /api/v1/shell-commands
 
 请求体:
 {
-  "name": "Deploy backup",
-  "command": "cd /opt/backup && ./backup.sh",
-  "server_ids": [1, 2],
-  "execution_method": "parallel",
-  "requires_approval": true
+  "server_id": 1,
+  "command": "systemctl status api-service",
+  "description": "Check API service status"
 }
 
 响应: 201 Created
+{  
+  "code": 0,
+  "message": "success",
+  "data": {
+    "id": 1,
+    "server_id": 1,
+    "command": "systemctl status api-service",
+    "description": "Check API service status",
+    "is_published": false,
+    "created_at": "2024-01-15T10:00:00Z"
+  }
+}
 ```
 
 #### 执行Shell命令

@@ -212,12 +212,6 @@ type ExecuteShellCommandRequest struct {
 	ServerID  string `json:"server_id" validate:"required"`
 }
 
-type ExecuteShellBatchRequest struct {
-	CommandID string   `json:"command_id" validate:"required"`
-	ServerIDs []string `json:"server_ids" validate:"required,min=1"`
-	Mode      string   `json:"mode" validate:"required,oneof=parallel serial"`
-}
-
 type ExecuteShellResponse struct {
 	ExecutionID string     `json:"execution_id"`
 	Status      string     `json:"status"`

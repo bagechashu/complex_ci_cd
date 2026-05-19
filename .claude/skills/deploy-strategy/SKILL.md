@@ -372,14 +372,6 @@ exitCode, output, err := shellService.ExecuteCommand(
     serverID=2,    // Salt Master服务器
     nil,
 )
-
-// 在多个集群并行部署
-results, err := shellService.ExecuteCommandParallel(
-    ctx,
-    commandID=10,  // Ansible部署命令
-    serverIDs=[]int{clusterA, clusterB, clusterC},
-    nil,
-)
 ```
 
 **详细指南**: 参考 `shell-service` skill 获取完整的API文档和集成示例

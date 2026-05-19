@@ -184,16 +184,14 @@ CREATE TABLE shell_command (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   server_id INTEGER NOT NULL,
   command TEXT NOT NULL,
-  requires_approval INTEGER DEFAULT 0,  -- 0=false, 1=true
+  description TEXT,
+  is_published BOOLEAN DEFAULT 0,
   created_at DATETIME NOT NULL,
   FOREIGN KEY(server_id) REFERENCES shell_server(id)
 );
 ```
 
 **用途**: 定义服务器上允许执行的命令
-**requires_approval**: 是否需要审批(敏感命令)
-
-**用途**: 预定义可复用的Shell任务
 
 #### shell_command_execution (执行记录)
 ```sql
@@ -204,20 +202,6 @@ CREATE TABLE shell_command_execution (
   error_message TEXT,
   started_at DATETIME,
   completed_at DATETIME,
-  created_at DATETIME NOT NULL,
-  FOREIGN KEY(command_id) REFERENCES shell_command(id)
-);
-```
-
-#### command_approval (审批流)
-```sql
-CREATE TABLE command_approval (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  command_id INTEGER NOT NULL,
-  status TEXT,  -- 'pending', 'approved', 'rejected'
-  approver TEXT,
-  approved_at DATETIME,
-  rejection_reason TEXT,
   created_at DATETIME NOT NULL,
   FOREIGN KEY(command_id) REFERENCES shell_command(id)
 );

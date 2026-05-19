@@ -101,7 +101,6 @@ backend/
 - `shell_server` - SSH服务器配置(密钥加密)
 - `shell_command` - 允许执行的命令白名单(is_published安全标记)
 - `shell_command_execution` - 命令执行记录
-- `command_approval` - 命令审批流程
 
 **版本管理表**:
 - `schema_version` - 数据库版本追踪

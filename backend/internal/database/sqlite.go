@@ -138,16 +138,6 @@ func migrateSchemaV1(db *sql.DB) error {
 		created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 	);
 
-	CREATE TABLE IF NOT EXISTS command_approval (
-		id TEXT PRIMARY KEY,
-		request_id TEXT NOT NULL UNIQUE,
-		approval_status TEXT NOT NULL DEFAULT 'pending',
-		approved_by TEXT,
-		approved_at DATETIME,
-		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-		updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-	);
-
 	-- Shell server and command management tables
 	CREATE TABLE IF NOT EXISTS shell_server (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -220,11 +210,6 @@ func migrateSchemaV1(db *sql.DB) error {
 	CREATE INDEX IF NOT EXISTS idx_audit_log_user ON audit_log(user_id);
 	CREATE INDEX IF NOT EXISTS idx_audit_log_resource ON audit_log(resource_type, resource_id);
 	CREATE INDEX IF NOT EXISTS idx_audit_log_operation ON audit_log(operation, created_at DESC);
-
-	-- Command approval indexes
-	CREATE INDEX IF NOT EXISTS idx_command_approval_request ON command_approval(request_id);
-	CREATE INDEX IF NOT EXISTS idx_command_approval_status ON command_approval(approval_status);
-	CREATE INDEX IF NOT EXISTS idx_command_approval_created ON command_approval(created_at DESC);
 
 	-- Shell server and command execution indexes
 	CREATE INDEX IF NOT EXISTS idx_shell_server_name ON shell_server(name);

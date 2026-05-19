@@ -129,11 +129,3 @@ INSERT OR IGNORE INTO shell_command_execution (server_id, command_id, status, ou
 ((SELECT id FROM shell_server WHERE name='prod-server-cn1-01'), (SELECT id FROM shell_command WHERE description='List all deployments in prod'), 'failed', NULL, 'Connection timeout after 30s', 1, datetime('now', '-10 minutes'), datetime('now', '-10 minutes', '+30 seconds'), datetime('now', '-10 minutes'), datetime('now', '-10 minutes')),
 ((SELECT id FROM shell_server WHERE name='dev-server-01'), (SELECT id FROM shell_command WHERE description LIKE 'Check api-service%' LIMIT 1), 'success', 'api-service is running (PID 12346)', NULL, 0, datetime('now', '-30 minutes'), datetime('now', '-30 minutes', '+10 seconds'), datetime('now', '-30 minutes'), datetime('now', '-30 minutes')),
 ((SELECT id FROM shell_server WHERE name='prod-server-cn2-01'), (SELECT id FROM shell_command WHERE description='Check server uptime'), 'success', 'up 45 days, 12 hours, 34 minutes', NULL, 0, datetime('now', '-20 minutes'), datetime('now', '-20 minutes', '+5 seconds'), datetime('now', '-20 minutes'), datetime('now', '-20 minutes'));
-
--- 13. Insert command approvals (for shell command execution approval workflow)
-INSERT OR IGNORE INTO command_approval (id, request_id, approval_status, approved_by, approved_at, created_at, updated_at) VALUES 
-('approval-001', 'req-prod-list-001', 'approved', 'admin@example.com', datetime('now', '-1 days'), datetime('now', '-1 days'), datetime('now', '-1 days')),
-('approval-002', 'req-critical-restart-001', 'pending', NULL, NULL, datetime('now', '-30 minutes'), datetime('now', '-30 minutes')),
-('approval-003', 'req-prod-list-002', 'rejected', 'security@example.com', datetime('now', '-2 days'), datetime('now', '-2 days', '+2 hours'), datetime('now', '-2 days', '+2 hours')),
-('approval-004', 'req-critical-restart-002', 'approved', 'admin@example.com', datetime('now', '-12 hours'), datetime('now', '-12 hours', '-30 minutes'), datetime('now', '-12 hours')),
-('approval-005', 'req-prod-list-003', 'approved', 'ops-lead@example.com', datetime('now', '-6 hours'), datetime('now', '-6 hours', '-1 hour'), datetime('now', '-6 hours'));

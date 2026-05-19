@@ -223,38 +223,6 @@ export const deleteShellServer = (serverId: number): Promise<void> => {
   return request.delete(`/v1/shell-servers/${serverId}`)
 }
 
-// ==================== 命令批准 ====================
-
-/**
- * 获取所有命令批准
- */
-export const getCommandApprovals = async (status?: string): Promise<any[]> => {
-  const url = status ? `/v1/command-approvals?status=${status}` : '/v1/command-approvals'
-  const response: any = await request.get(url)
-  return response?.data || []
-}
-
-/**
- * 提交命令批准
- */
-export const submitCommandApproval = (payload: any): Promise<any> => {
-  return request.post('/v1/command-approvals', payload)
-}
-
-/**
- * 批准命令
- */
-export const approveCommand = (approvalId: number): Promise<any> => {
-  return request.put(`/v1/command-approvals/${approvalId}/approve`, {})
-}
-
-/**
- * 拒绝命令
- */
-export const rejectCommand = (approvalId: number, reason?: string): Promise<any> => {
-  return request.put(`/v1/command-approvals/${approvalId}/reject`, { reason })
-}
-
 // ==================== 发布 ====================
 
 /**
@@ -313,10 +281,6 @@ export const metadataAPI = {
   createShellServer,
   updateShellServer,
   deleteShellServer,
-  getCommandApprovals,
-  submitCommandApproval,
-  approveCommand,
-  rejectCommand,
   getReleases,
   getRelease,
   createRelease,

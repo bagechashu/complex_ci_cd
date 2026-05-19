@@ -286,7 +286,12 @@ duration := execution.GetDuration()  // 返回秒数
 ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 defer cancel()
 
-results, err := shellService.ExecuteCommandParallel(ctx, commandID, serverIDs, nil)
+// 执行单个命令
+execution, err := shellService.ShellCommandExecutionRepo().Create(ctx, &models.ShellCommandExecution{
+    CommandID: commandID,
+    ServerID:  serverID,
+    Status:    "pending",
+})
 ```
 
 ---
