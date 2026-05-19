@@ -8,7 +8,6 @@
 //   - Multi-environment deployment orchestration (Dev → Staging → Production)
 //   - Support for multiple deployment targets (Kubernetes, SSH, Ansible, Salt)
 //   - Comprehensive release event tracking and audit logging
-//   - Shell command execution with approval workflows
 //   - Workload-based deployment targeting
 //   - Cluster and application configuration management
 //
