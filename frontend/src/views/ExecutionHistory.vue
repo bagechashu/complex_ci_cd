@@ -281,9 +281,10 @@ async function loadAllData() {
       listShellTasks(1, 100),
       listShellServers(1, 100)
     ])
-    executions.value = execRes.data
-    tasks.value = tasksRes.data
-    servers.value = serversRes.data
+    // 响应拦截器已提取 data 字段，返回的是 PaginatedResponse<T>
+    executions.value = (execRes as any)?.data || []
+    tasks.value = (tasksRes as any)?.data || []
+    servers.value = (serversRes as any)?.data || []
   } catch (error) {
     console.error('Failed to load data:', error)
   }
@@ -291,8 +292,10 @@ async function loadAllData() {
 
 async function loadExecutions() {
   try {
-    const res = await listShellTaskExecutions(1, 100)
-    executions.value = res.data
+    const offset = (currentPage.value - 1) * pageSize
+    const res = await listShellTaskExecutions(currentPage.value, pageSize)
+    // 响应拦截器已提取 data 字段，返回的是 PaginatedResponse<ShellTaskExecution>
+    executions.value = (res as any)?.data || []
   } catch (error) {
     console.error('Failed to load executions:', error)
   }

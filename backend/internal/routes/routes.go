@@ -75,6 +75,8 @@ func NewRouter(container *services.ServiceContainer, log *logger.Logger) http.Ha
         r.Get("/shell-tasks/{id}", shell_tasks.Get(container.Shell(), log))
         r.Put("/shell-tasks/{id}", shell_tasks.Update(container.Shell(), log))
         r.Delete("/shell-tasks/{id}", shell_tasks.Delete(container.Shell(), log))
+        r.Get("/shell-task-executions", shell_tasks.ListExecutions(container.Shell(), log))
+        r.Get("/shell-task-executions/{id}", shell_tasks.GetExecution(container.Shell(), log))
         r.Post("/shell-commands/execute", shell_tasks.Execute(container.Shell(), log))
     })
 

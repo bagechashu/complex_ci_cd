@@ -284,9 +284,14 @@ export const useShellStore = defineStore('shell', () => {
   /**
    * 获取 Shell 任务执行历史
    */
-  const fetchShellTaskExecutions = async (page: number = 1, pageSize: number = 10) => {
+  const fetchShellTaskExecutions = async (
+    page: number = 1,
+    pageSize: number = 10,
+    taskID?: number,
+    commandID?: number
+  ) => {
     try {
-      const response = await listShellTaskExecutions(page, pageSize)
+      const response = await listShellTaskExecutions(page, pageSize, taskID, commandID)
       // 后端返回 {data: [...], page, pageSize, total, totalPages}
       shellTaskExecutions.value = Array.isArray(response.data) ? response.data : []
       return shellTaskExecutions.value

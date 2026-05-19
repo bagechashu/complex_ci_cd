@@ -103,10 +103,12 @@ export const deleteShellTask = (id: number): Promise<void> => {
 export const listShellTaskExecutions = (
   page: number = 1,
   pageSize: number = 10,
-  taskID?: number
+  taskID?: number,
+  commandID?: number
 ): Promise<PaginatedResponse<ShellTaskExecution>> => {
   const params: any = { page, pageSize }
   if (taskID) params.taskID = taskID
+  if (commandID) params.commandID = commandID
   return request.get('/v1/shell-task-executions', { params })
 }
 

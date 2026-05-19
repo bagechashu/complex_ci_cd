@@ -52,9 +52,9 @@ type ShellTaskExecution struct {
 	ServerID     int        `json:"server_id" db:"server_id" example:"1" binding:"required"`
 	CommandID    int        `json:"command_id" db:"command_id" example:"1" binding:"required"`
 	Status       string     `json:"status" db:"status" example:"success" enum:"pending,running,success,failed"`
-	Output       string     `json:"output" db:"output" example:"...command output..."`
-	ErrorMessage string     `json:"error_message" db:"error_message" example:"Connection timeout"`
-	CommandParams string    `json:"command_params" db:"command_params" example:""`
+	Output       *string    `json:"output" db:"output" example:"...command output..."`
+	ErrorMessage *string    `json:"error_message" db:"error_message" example:"Connection timeout"`
+	CommandParams *string   `json:"command_params" db:"command_params" example:""`
 	ExitCode     *int       `json:"exit_code" db:"exit_code" example:"0"`
 	StartedAt    *time.Time `json:"started_at" db:"started_at" example:"2026-04-21T10:00:00Z"`
 	CompletedAt  *time.Time `json:"completed_at" db:"completed_at" example:"2026-04-21T10:01:00Z"`

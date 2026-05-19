@@ -22,6 +22,8 @@ import (
 	"built-and-deploy/internal/services"
 	"built-and-deploy/pkg/logger"
 	"built-and-deploy/pkg/responses"
+
+	"github.com/go-chi/chi/v5"
 )
 
 // List handles GET /shell-tasks request to retrieve all shell tasks.
@@ -376,15 +378,15 @@ func Execute(shellService *services.ShellService, log *logger.Logger) http.Handl
 		}
 
 		execution := &models.ShellTaskExecution{
-			TaskID:         req.TaskID,
-			CommandID:      req.CommandID,
-			ServerID:       req.ServerID,
-			Status:         "pending",
-			Output:         "",
-			ErrorMessage:   "",
-			CommandParams:  req.CommandParams,
-			CreatedAt:      time.Now(),
-			UpdatedAt:      time.Now(),
+			TaskID:        req.TaskID,
+			CommandID:     req.CommandID,
+			ServerID:      req.ServerID,
+			Status:        "pending",
+			Output:        nil,
+			ErrorMessage:  nil,
+			CommandParams: getStringPtr(req.CommandParams),
+			CreatedAt:     time.Now(),
+			UpdatedAt:     time.Now(),
 		}
 
 		// Validate model
@@ -405,4 +407,149 @@ func Execute(shellService *services.ShellService, log *logger.Logger) http.Handl
 
 		responses.AcceptedResponse(w, "execution accepted", execution)
 	}
+}
+
+// ListExecutions handles GET /shell-task-executions request to retrieve all shell task executions.
+//
+// @Summary List Shell Task Executions
+// @Description Retrieves a list of all shell task executions with pagination support
+// @Tags ShellTaskExecutions
+// @Produce json
+// @Param page query int false "Page number (default: 1)"
+// @Param pageSize query int false "Page size (default: 10)"
+// @Param taskID query int false "Filter by task ID"
+// @Success 200 {object} PaginatedResponse "List of shell task executions retrieved successfully"
+// GetExecution retrieves a single shell task execution by ID
+//
+// @Summary Get shell task execution
+// @Description Get details of a single shell task execution
+// @Tags Shell Task Executions
+// @Param id path int true "Execution ID"
+// @Success 200 {object} responses.SuccessResponseData[models.ShellTaskExecution]
+// @Failure 400 {object} responses.ErrorResponse "Invalid execution ID"
+// @Failure 404 {object} responses.ErrorResponse "Execution not found"
+// @Failure 500 {object} responses.ErrorResponse "Internal server error"
+// @Router /shell-task-executions/{id} [get]
+func GetExecution(shellService *services.ShellService, log *logger.Logger) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		// Get ID from URL parameters
+		idStr := chi.URLParam(r, "id")
+		if idStr == "" {
+			log.Error("Invalid execution ID parameter")
+			responses.BadRequestResponse(w, "Invalid execution ID")
+			return
+		}
+
+		id, err := strconv.Atoi(idStr)
+		if err != nil || id <= 0 {
+			log.Error("Invalid execution ID format", "id", idStr, "error", err)
+			responses.BadRequestResponse(w, "Invalid execution ID")
+			return
+		}
+
+		ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
+		defer cancel()
+
+		executionRepo := shellService.ShellTaskExecutionRepo()
+		execution, err := executionRepo.GetByID(ctx, id)
+		if err != nil {
+			log.Error("Failed to get shell task execution", "id", id, "error", err)
+			responses.NotFoundResponse(w, "Execution not found")
+			return
+		}
+
+		if execution == nil {
+			log.Warn("Shell task execution not found", "id", id)
+			responses.NotFoundResponse(w, "Execution not found")
+			return
+		}
+
+		responses.SuccessResponse(w, execution)
+	}
+}
+
+// @Failure 500 {object} responses.ErrorResponse "Internal server error"
+// @Router /shell-task-executions [get]
+//
+// Response format:
+//
+//	{
+//	  "code": 0,
+//	  "message": "success",
+//	  "data": {
+//	    "data": [...],
+//	    "page": 1,
+//	    "pageSize": 10,
+//	    "total": 50,
+//	    "totalPages": 5
+//	  }
+//	}
+func ListExecutions(shellService *services.ShellService, log *logger.Logger) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		// Get pagination parameters
+		pageStr := r.URL.Query().Get("page")
+		pageSizeStr := r.URL.Query().Get("pageSize")
+		taskIDStr := r.URL.Query().Get("taskID")
+		commandIDStr := r.URL.Query().Get("commandID")
+
+		page := 1
+		pageSize := 10
+
+		if p, err := strconv.Atoi(pageStr); err == nil && p > 0 {
+			page = p
+		}
+		if ps, err := strconv.Atoi(pageSizeStr); err == nil && ps > 0 {
+			pageSize = ps
+		}
+
+		ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
+		defer cancel()
+
+		offset := (page - 1) * pageSize
+		executionRepo := shellService.ShellTaskExecutionRepo()
+
+		var executions []*models.ShellTaskExecution
+		var total int
+		var err error
+
+		// Filter by commandID if provided
+		if commandID, err := strconv.Atoi(commandIDStr); err == nil && commandID > 0 {
+			executions, total, err = executionRepo.ListByCommand(ctx, commandID, offset, pageSize)
+		} else if taskID, err := strconv.Atoi(taskIDStr); err == nil && taskID > 0 {
+			// Filter by taskID if provided
+			executions, total, err = executionRepo.ListByTask(ctx, taskID, offset, pageSize)
+		} else {
+			executions, total, err = executionRepo.List(ctx, offset, pageSize)
+		}
+
+		if err != nil {
+			log.Error("Failed to list shell task executions", "error", err)
+			responses.InternalErrorResponse(w, "Failed to retrieve shell task executions")
+			return
+		}
+
+		if executions == nil {
+			executions = make([]*models.ShellTaskExecution, 0)
+		}
+
+		totalPages := (total + pageSize - 1) / pageSize
+
+		data := map[string]interface{}{
+			"data":       executions,
+			"page":       page,
+			"pageSize":   pageSize,
+			"total":      total,
+			"totalPages": totalPages,
+		}
+
+		responses.SuccessResponse(w, data)
+	}
+}
+
+// getStringPtr returns a pointer to a string
+func getStringPtr(s string) *string {
+	if s == "" {
+		return nil
+	}
+	return &s
 }
