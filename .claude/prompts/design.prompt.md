@@ -63,7 +63,7 @@ When analyzing an existing feature:
 
 - **Backend**: Go + SQLite, organized in `internal/` with handlers → services → repository pattern
 - **Frontend**: Vue3 + Naive UI + Pinia stores, organized by feature/domain
-- **Domains**: Applications, Clusters, Environments, Shell Servers, Shell Tasks, Shell Commands, Workloads, Release Events
+- **Domains**: Applications, Clusters, Environments, Shell Servers, Shell Commands, Workloads, Release Events
 - **Deployment**: Kubernetes deployers, shell command executors, release workflows
 
 ## Key Constraints
@@ -122,6 +122,6 @@ When designing, provide:
 ## Example Invocations
 
 - "Design a notification system that alerts users when releases fail"
-- "Analyze the Shell Task execution flow and suggest refactoring opportunities"
+- "Analyze the Shell Command execution flow and suggest refactoring opportunities"
 - "Create the data model and service layer for multi-environment promotion workflows"
 - "Generate handlers and Pinia stores for the new environment approval dashboard"

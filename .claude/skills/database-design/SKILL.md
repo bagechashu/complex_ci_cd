@@ -77,10 +77,10 @@ CREATE TABLE workload_target (
   app_id INTEGER NOT NULL,
   env_id INTEGER NOT NULL,
   cluster_id INTEGER NOT NULL,
-  namespace TEXT,
-  workload_name TEXT,  -- K8s Deployment/StatefulSet名称
-  workload_type TEXT,  -- 'Deployment', 'StatefulSet', 'DaemonSet'
-  container_name TEXT, -- 特定容器(防止误更新sidecar)
+  k8s_namespace TEXT,              -- K8s命名空间
+  k8s_workload TEXT,               -- K8s Deployment/StatefulSet名称
+  workload_type TEXT,              -- 'Deployment', 'StatefulSet', 'DaemonSet'
+  container_name TEXT,             -- 特定容器(防止误更新sidecar)
   registry_domain TEXT,
   image_repo TEXT,
   created_at DATETIME NOT NULL,
@@ -97,8 +97,8 @@ CREATE TABLE workload_target (
 **示例**:
 ```
 api-service + production + cluster-prod-1
-  → namespace: production
-  → workload_name: api-service
+  → k8s_namespace: production
+  → k8s_workload: api-service
   → container_name: api-service
   → registry_domain: harbor.example.com
   → image_repo: company/api-service
@@ -142,8 +142,8 @@ CREATE TABLE release_record (
 CREATE TABLE release_event (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   release_id INTEGER NOT NULL,
-  event_type TEXT NOT NULL,  -- 'started', 'validating', 'deploying', 'pod_updated', 'success', 'failed', 'rolled_back'
-  event_message TEXT,
+  type TEXT NOT NULL,                    -- 'started', 'validating', 'deploying', 'pod_updated', 'success', 'failed', 'rolled_back'
+  message TEXT,                          -- 事件描述信息
   created_at DATETIME NOT NULL,
   FOREIGN KEY(release_id) REFERENCES release_record(id)
 );
@@ -151,6 +151,9 @@ CREATE TABLE release_event (
 
 **用途**: 记录发布全过程的细粒度事件，供前端实时展示
 **事件流**: 启动 → 验证 → 部署 → Pod更新 → 完成/失败
+**字段说明**:
+- `type` - 事件类型标签
+- `message` - 用户可读的事件描述
 
 ### 3. Shell执行模块
 
@@ -190,35 +193,19 @@ CREATE TABLE shell_command (
 **用途**: 定义服务器上允许执行的命令
 **requires_approval**: 是否需要审批(敏感命令)
 
-#### shell_task (任务定义)
-```sql
-CREATE TABLE shell_task (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  name TEXT NOT NULL,
-  description TEXT,
-  command TEXT NOT NULL,
-  execution_method TEXT,  -- 'serial' or 'parallel'
-  server_ids TEXT,        -- JSON数组存储
-  requires_approval INTEGER DEFAULT 0,
-  created_at DATETIME NOT NULL,
-  updated_at DATETIME NOT NULL
-);
-```
-
 **用途**: 预定义可复用的Shell任务
 
-#### shell_task_execution (执行记录)
+#### shell_command_execution (执行记录)
 ```sql
-CREATE TABLE shell_task_execution (
+CREATE TABLE shell_command_execution (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
-  task_id INTEGER NOT NULL,
   status TEXT,  -- 'pending', 'running', 'success', 'failed'
   output TEXT,
   error_message TEXT,
   started_at DATETIME,
   completed_at DATETIME,
   created_at DATETIME NOT NULL,
-  FOREIGN KEY(task_id) REFERENCES shell_task(id)
+  FOREIGN KEY(command_id) REFERENCES shell_command(id)
 );
 ```
 

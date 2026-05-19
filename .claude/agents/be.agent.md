@@ -99,8 +99,7 @@ tools: Read, Grep, Glob, Bash, Create, Edit
 | release_event | ReleaseEvent | 发布过程事件日志 | id, release_id, event_type, event_message, created_at |
 | shell_server | ShellServer | SSH服务器配置 | id, name, host, port, username, auth_type, password(加密), private_key(加密), status |
 | shell_command | ShellCommand | 允许执行的命令白名单 | id, server_id, command, is_published |
-| shell_task | ShellTask | 命令执行任务 | id, name, description, command_id, server_id, requires_approval |
-| shell_task_execution | ShellTaskExecution | 命令执行记录 | id, task_id, command_id, server_id, status, output, error_message, command_params, exit_code |
+| shell_command_execution | ShellCommandExecution | 命令执行记录 | id, command_id, server_id, status, output, error_message, command_params, exit_code |
 
 ---
 
@@ -109,8 +108,8 @@ tools: Read, Grep, Glob, Bash, Create, Edit
 ### Shell 命令执行端点
 ```
 POST /v1/shell-commands/execute
-- 请求: { task_id, command_id, server_id, command_params }
-- 响应: ShellTaskExecution (id, status=pending, created_at, updated_at)
+- 请求: { command_id, server_id, command_params }
+- 响应: ShellCommandExecution (id, status=pending, created_at, updated_at)
 - 说明: 创建并返回执行记录，实际执行在后台异步进行
 ```
 
@@ -348,9 +347,8 @@ func (h *ReleaseHandler) CreateRelease(w http.ResponseWriter, r *http.Request) {
 - SSH连接管理（支持密钥和密码认证）
 - 命令白名单执行（shell_command表，must is_published=true）
 - 单次命令执行（单服务器单命令）
-- 执行结果完整记录（shell_task_execution表）
+- 执行结果完整记录（shell_command_execution表）
 - 连接缓存和复用（避免频繁建立连接）
-- 前端直接选择已发布命令执行（无需创建ShellTask）
 
 **检查清单**:
 - [ ] kubeconfig 能正确加载并连接集群
@@ -564,8 +562,8 @@ func (h *ReleaseHandler) writeResponse(w http.ResponseWriter, statusCode int, co
 | POST | /api/v1/releases/{id}/rollback | 回滚 | **202** ⭐ |
 | GET | /api/v1/shell-commands/published | 已发布 Shell 命令列表 | 200 |
 | POST | /api/v1/shell-commands/execute | 执行 Shell 命令 | **202** ⭐ |
-| GET | /api/v1/shell-tasks/{id} | 查询命令执行状态 | 200 |
-| GET | /api/v1/shell-tasks/executions | 查询执行历史（分页） | 200 |
+| GET | /api/v1/shell-commands/{id} | 查询命令执行状态 | 200 |
+| GET | /api/v1/shell-commands/executions | 查询执行历史（分页） | 200 |
 
 **异步操作说明** (标记 ⭐ 的接口)：
 - **立即返回 202 Accepted**，后端异步处理

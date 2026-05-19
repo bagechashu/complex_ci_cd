@@ -46,7 +46,6 @@ backend/internal/
 ├── handlers/                          ← HTTP 处理层
 │   ├── applications/
 │   ├── clusters/
-│   ├── shell_tasks/
 │   ├── workloads/
 │   └── ...
 └── models/                            ← 数据模型
@@ -138,10 +137,9 @@ func (s *ReleaseService) Rollback(ctx, releaseID) (*ReleaseRecord, error)
 
 ```go
 type ShellService struct {
-    taskRepo       repository.ShellTaskRepository
     serverRepo     repository.ShellServerRepository
     commandRepo    repository.ShellCommandRepository
-    executionRepo  repository.ShellTaskExecutionRepository
+    executionRepo  repository.ShellCommandExecutionRepository
     encryptionKey  string
     log            *logger.Logger
 }

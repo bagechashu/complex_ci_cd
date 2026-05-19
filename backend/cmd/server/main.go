@@ -78,9 +78,7 @@ func main() {
 	eventRepo := repository.NewSQLiteReleaseEventRepository(db)
 	shellServerRepo := repository.NewSQLiteShellServerRepository(db, encryptionKey)
 	shellCommandRepo := repository.NewSQLiteShellCommandRepository(db)
-	shellTaskExecutionRepo := repository.NewSQLiteShellTaskExecutionRepository(db)
-	shellTaskRepo := repository.NewSQLiteShellTaskRepository(db)
-	appClusterConfigRepo := repository.NewSQLiteApplicationClusterConfigRepository(db)
+	shellCommandExecutionRepo := repository.NewSQLiteShellCommandExecutionRepository(db)
 
 	// Service Container with functional options
 	container, err := services.NewServiceContainer(
@@ -93,9 +91,7 @@ func main() {
 		services.WithEventRepository(eventRepo),
 		services.WithShellServerRepository(shellServerRepo),
 		services.WithShellCommandRepository(shellCommandRepo),
-		services.WithShellTaskExecutionRepository(shellTaskExecutionRepo),
-		services.WithShellTaskRepository(shellTaskRepo),
-		services.WithApplicationClusterConfigRepository(appClusterConfigRepo),
+		services.WithShellCommandExecutionRepository(shellCommandExecutionRepo),
 	)
 	if err != nil {
 		log.Error("failed to create service container", "error", err)

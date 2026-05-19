@@ -287,7 +287,7 @@ func NewServiceContainer(db *sql.DB, log *logger.Logger, opts ...Option) (*Servi
         deployers.NewDeployerFactory(log),
         log, db,
     )
-    c.shellService = NewShellService(c.shellTaskRepo, c.shellServerRepo, c.shellCommandRepo, c.shellTaskExecRepo, log)
+    c.shellService = NewShellService(c.shellServerRepo, c.shellCommandRepo, c.shellCommandExecRepo, log)
     c.workloadService = NewWorkloadService(c.workloadRepo, log)
     
     return c, nil

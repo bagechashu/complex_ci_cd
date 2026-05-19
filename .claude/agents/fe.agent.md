@@ -50,15 +50,13 @@ tools: Read, Grep, Glob, Bash, Create, Edit
 
 ```
 页面层 (Pages / Views)
-  ├─ ReleaseFlow.vue (发布工作流)
+  ├─ KubernetesRelease.vue (发布工作流 - 应用/环境/集群/镜像选择+一键发布)
   ├─ ReleaseHistory.vue (发布历史)
   ├─ ReleaseDetail.vue (发布详情)
-  ├─ KubernetesRelease.vue (K8s发布页)
   ├─ ClusterConfig.vue (集群配置)
   ├─ ServerConfig.vue (服务器配置)
   ├─ ShellCommandExecution.vue (Shell命令执行 - 直接执行已发布命令的工作流)
-  ├─ ExecutionHistory.vue (执行历史 - 全局查询执行记录)
-  └─ ReleaseHistory.vue (发布历史)
+  └─ ExecutionHistory.vue (执行历史 - 全局查询执行记录)
   
 组件层 (Components)
   ├─ Sidebar.vue (侧边栏)

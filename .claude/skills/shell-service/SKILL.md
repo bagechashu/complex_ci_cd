@@ -14,7 +14,7 @@ ShellService 提供通过SSH执行远程Shell命令的能力，用于处理Salt�
 - 只执行预定义的**白名单命令**（shell_command表）
 - 支持密钥和密码两种认证方式（均使用AES加密存储）
 - **单服务器单命令执行模型**（前端直接选择已发布命令执行）
-- 所有执行结果完整记录到shell_task_execution表
+- 所有执行结果完整记录到shell_command_execution表
 - SSH连接支持缓存和复用
 
 ---
@@ -36,7 +36,7 @@ shell_command (命令白名单，按服务器归组)
   ├─ description: 命令说明
   └─ is_published: 是否已发布（未发布不能在UI显示）
        ↓ (1:N)
-shell_task_execution (执行记录)
+shell_command_execution (执行记录)
   ├─ command_id, server_id: 关联的命令和服务器
   ├─ status: 'pending', 'running', 'success', 'failed'
   ├─ output: 命令输出
@@ -57,7 +57,6 @@ func (s *ShellService) ExecuteCommand(
     ctx context.Context,
     commandID int,      // shell_command表的ID
     serverID int,       // shell_server表的ID
-    taskID *int,        // 可选：关联的shell_exec ID
 ) (exitCode int, output string, err error)
 ```
 
@@ -82,11 +81,11 @@ log.Printf("Exit code: %d\nOutput: %s", exitCode, output)
 ### 2. 执行历史查询
 
 ```go
-// GetTaskExecutions 查询执行历史
-func (r *ShellTaskExecutionRepository) GetExecutionsByPage(
+// GetCommandExecutions 查询执行历史
+func (r *ShellCommandExecutionRepository) GetExecutionsByPage(
     ctx context.Context,
     page, pageSize int,
-) ([]ShellTaskExecution, int, error)
+) ([]ShellCommandExecution, int, error)
 ```
 
 **特性**:
@@ -98,7 +97,7 @@ func (r *ShellTaskExecutionRepository) GetExecutionsByPage(
 ```go
 executions, total, err := execRepo.GetExecutionsByPage(ctx, page=1, pageSize=20)
 for _, exec := range executions {
-    log.Printf("[%s] Task %d: %s (exit=%d)", 
+    log.Printf("[%s] Command %d: %s (exit=%d)", 
         exec.UpdatedAt, exec.ID, exec.Status, exec.ExitCode)
 }
 ```
@@ -112,7 +111,7 @@ for _, exec := range executions {
 **流程**:
 1. 前端显示已发布的Shell命令列表（按服务器分组）
 2. 用户点击"执行"按钮
-3. 创建shell_task_execution记录，状态=pending
+3. 创建shell_command_execution记录，状态=pending
 4. 后端异步执行命令，更新状态
 5. 前端轮询查询执行结果
 
@@ -127,7 +126,7 @@ for _, exec := range executions {
 // { "command_id": 1, "server_id": 1 }
 
 // 3. 后端创建执行记录
-exec := &models.ShellTaskExecution{
+exec := &models.ShellCommandExecution{
     CommandID: 1,
     ServerID: 1,
     Status: "pending",
@@ -240,12 +239,11 @@ VALUES (4, 'curl -s http://localhost:8080/health | jq .', 'Health check', true);
 
 ## 执行记录
 
-### shell_exec_task表
+### shell_command_execution表
 
 ```go
-type ShellExecTask struct {
+type ShellCommandExecution struct {
     ID            int        // 执行记录ID
-    TaskID        int        // 关联的task ID（可选）
     ServerID      int        // 执行的服务器
     CommandID     int        // 执行的命令
     Status        string     // running, success, failed
@@ -261,8 +259,8 @@ type ShellExecTask struct {
 ### 查询执行历史
 
 ```go
-// 获取特定任务在特定服务器上的最新执行记录
-execution, err := execRepo.GetLatestByTaskAndServer(ctx, taskID=1, serverID=2)
+// 获取特定命令在特定服务器上的最新执行记录
+execution, err := execRepo.GetLatestByCommandAndServer(ctx, commandID=1, serverID=2)
 
 // 获取特定服务器的所有执行记录
 executions, total, err := execRepo.ListByServer(ctx, serverID=2, offset=0, limit=20)
@@ -288,7 +286,7 @@ duration := execution.GetDuration()  // 返回秒数
 ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 defer cancel()
 
-results, err := shellService.ExecuteTaskParallel(ctx, commandID, serverIDs, nil)
+results, err := shellService.ExecuteCommandParallel(ctx, commandID, serverIDs, nil)
 ```
 
 ---

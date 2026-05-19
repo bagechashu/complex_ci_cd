@@ -136,7 +136,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useShellStore } from '@/stores/shellStore'
-import type { ShellCommand, ShellServer, ShellTaskExecution } from '@/types/api'
+import type { ShellCommand, ShellServer, ShellCommandExecution } from '@/types/api'
 import { NButton, NTag, NInput, useMessage } from 'naive-ui'
 
 // ============ Stores & Composables ============
@@ -149,7 +149,7 @@ const selectedCommand = ref<ShellCommand | null>(null)
 const selectedServer = ref<ShellServer | null>(null)
 const searchQuery = ref('')
 const executing = ref(false)
-const commandExecutions = ref<ShellTaskExecution[]>([])
+const commandExecutions = ref<ShellCommandExecution[]>([])
 
 // ============ Computed ============
 const shellCommands = computed(() => shellStore.shellCommands)
@@ -225,7 +225,7 @@ const selectCommand = (cmd: ShellCommand, server: any) => {
 const loadExecutionHistory = async (commandId: number) => {
   try {
     // Fetch executions for this specific command with backend filtering
-    const response = await shellStore.fetchShellTaskExecutions(1, 5, undefined, commandId)
+    const response = await shellStore.fetchShellCommandExecutions(1, 5, undefined, commandId)
     commandExecutions.value = response
   } catch (err) {
     console.error('Failed to load execution history:', err)
@@ -240,9 +240,8 @@ const executeCommand = async () => {
 
   executing.value = true
   try {
-    // Create a ShellTaskExecution record
-    const execution: Omit<ShellTaskExecution, 'id' | 'created_at' | 'updated_at'> = {
-      task_id: 0, // Virtual task ID for direct command execution
+    // Create a ShellCommandExecution record
+    const execution: Omit<ShellCommandExecution, 'id' | 'created_at' | 'updated_at'> = {
       server_id: selectedServer.value.id,
       command_id: selectedCommand.value.id,
       status: 'pending',

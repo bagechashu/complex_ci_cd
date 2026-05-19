@@ -5,13 +5,6 @@
       <div class="filters">
         <n-space>
           <n-select
-            v-model:value="selectedTaskFilter"
-            :options="taskFilterOptions"
-            placeholder="筛选任务"
-            clearable
-            style="width: 150px"
-          />
-          <n-select
             v-model:value="selectedStatusFilter"
             :options="statusFilterOptions"
             placeholder="筛选状态"
@@ -60,9 +53,6 @@
     >
       <div v-if="selectedExecution" class="detail-content">
         <n-descriptions :columns="2" size="small">
-          <n-descriptions-item label="任务名称">
-            {{ selectedExecution.task_name }}
-          </n-descriptions-item>
           <n-descriptions-item label="服务器">
             {{ selectedExecution.server_name }}
           </n-descriptions-item>
@@ -136,17 +126,15 @@ import {
   NDivider
 } from 'naive-ui'
 import type { DataTableColumns } from 'naive-ui'
-import type { ShellTaskExecution, ShellTask, ShellServer } from '@/types/api'
+import type { ShellCommandExecution, ShellServer } from '@/types/api'
 import { formatDate, formatDateTime, truncateString, calculateDuration as calcMs, formatDuration } from '@/utils/format'
 import {
-  listShellTaskExecutions,
-  getShellTaskExecution,
-  listShellTasks,
+  listShellCommandExecutions,
+  getShellCommandExecution,
   listShellServers
 } from '@/api/shell'
 
-const executions = ref<ShellTaskExecution[]>([])
-const tasks = ref<ShellTask[]>([])
+const executions = ref<ShellCommandExecution[]>([])
 const servers = ref<ShellServer[]>([])
 
 // ============ Pagination State ============
@@ -154,21 +142,12 @@ const currentPage = ref(1)
 const pageSize = 20
 
 // ============ Filter State ============
-const selectedTaskFilter = ref<number | null>(null)
 const selectedStatusFilter = ref<string | null>(null)
 const selectedServerFilter = ref<number | null>(null)
 const showDetailModal = ref(false)
-const selectedExecution = ref<ShellTaskExecution | null>(null)
+const selectedExecution = ref<ShellCommandExecution | null>(null)
 
 let refreshInterval: ReturnType<typeof setInterval> | null = null
-
-// ============ Filter Options ============
-const taskFilterOptions = computed(() =>
-  tasks.value.map(task => ({
-    label: task.name,
-    value: task.id
-  }))
-)
 
 const statusFilterOptions = computed(() => [
   { label: '等待中', value: 'pending' },
@@ -187,9 +166,6 @@ const serverFilterOptions = computed(() =>
 // ============ Filtered Data ============
 const filteredExecutions = computed(() => {
   return executions.value.filter(exec => {
-    if (selectedTaskFilter.value && exec.task_id !== selectedTaskFilter.value) {
-      return false
-    }
     if (selectedStatusFilter.value && exec.status !== selectedStatusFilter.value) {
       return false
     }
@@ -210,18 +186,12 @@ const paginatedExecutions = computed(() => {
 })
 
 // ============ Table Columns ============
-const columns = computed<DataTableColumns<ShellTaskExecution>>(() => [
+const columns = computed<DataTableColumns<ShellCommandExecution>>(() => [
   {
     title: 'ID',
     key: 'id',
     width: 80,
     render: (row) => `#${row.id}`
-  },
-  {
-    title: '任务名称',
-    key: 'task_name',
-    width: 150,
-    ellipsis: true
   },
   {
     title: '服务器',
@@ -276,14 +246,12 @@ onUnmounted(() => {
 // ============ Methods ============
 async function loadAllData() {
   try {
-    const [execRes, tasksRes, serversRes] = await Promise.all([
-      listShellTaskExecutions(1, 100),
-      listShellTasks(1, 100),
+    const [execRes, serversRes] = await Promise.all([
+      listShellCommandExecutions(1, 100),
       listShellServers(1, 100)
     ])
     // 响应拦截器已提取 data 字段，返回的是 PaginatedResponse<T>
     executions.value = (execRes as any)?.data || []
-    tasks.value = (tasksRes as any)?.data || []
     servers.value = (serversRes as any)?.data || []
   } catch (error) {
     console.error('Failed to load data:', error)
@@ -293,17 +261,17 @@ async function loadAllData() {
 async function loadExecutions() {
   try {
     const offset = (currentPage.value - 1) * pageSize
-    const res = await listShellTaskExecutions(currentPage.value, pageSize)
-    // 响应拦截器已提取 data 字段，返回的是 PaginatedResponse<ShellTaskExecution>
+    const res = await listShellCommandExecutions(currentPage.value, pageSize)
+    // 响应拦截器已提取 data 字段，返回的是 PaginatedResponse<ShellCommandExecution>
     executions.value = (res as any)?.data || []
   } catch (error) {
     console.error('Failed to load executions:', error)
   }
 }
 
-async function viewExecution(execution: ShellTaskExecution) {
+async function viewExecution(execution: ShellCommandExecution) {
   try {
-    selectedExecution.value = await getShellTaskExecution(execution.id)
+    selectedExecution.value = await getShellCommandExecution(execution.id)
     showDetailModal.value = true
   } catch (error) {
     console.error('Failed to load execution details:', error)

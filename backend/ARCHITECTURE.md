@@ -70,7 +70,6 @@ api-service + production + cluster-prod-1
 │  │ /api/v1/applications      (POST/GET)           │   │
 │  │ /api/v1/clusters          (POST/GET)           │   │
 │  │ /api/v1/app-cluster-configs                    │   │
-│  │ /api/v1/shell-tasks                            │   │
 │  └─────────────────────────────────────────────────┘   │
 │          handlers/ 处理HTTP请求、参数验证               │
 └────────────────┬─────────────────────────────────────┘

@@ -323,7 +323,7 @@ func (f *DeployerFactory) CreateDeployer(clusterType string) (DeployStrategy, er
 type ShellService struct {
     serverRepo    repository.ShellServerRepository    // SSH服务器配置
     commandRepo   repository.ShellCommandRepository   // 命令白名单
-    execRepo      repository.ShellExecTaskRepository  // 执行记录
+    execRepo      repository.ShellCommandExecutionRepository  // 执行记录
     clientCache   map[string]*ssh.Client              // SSH连接缓存
 }
 
@@ -332,25 +332,8 @@ func (s *ShellService) ExecuteCommand(
     ctx context.Context,
     commandID int,
     serverID int,
-    taskID *int,
 ) (exitCode int, output string, err error)
 
-// 多服务器并行执行
-func (s *ShellService) ExecuteTaskParallel(
-    ctx context.Context,
-    commandID int,
-    serverIDs []int,
-    taskID *int,
-) (results map[int]ExecutionResult, err error)
-
-// 多服务器串行执行
-func (s *ShellService) ExecuteTaskSerial(
-    ctx context.Context,
-    commandID int,
-    serverIDs []int,
-    taskID *int,
-) (results map[int]ExecutionResult, err error)
-```
 
 **关键特性**:
 
@@ -378,20 +361,6 @@ func (s *ShellService) ExecuteTaskSerial(
    // 连接失败时自动清理并重试
    ```
 
-4. **结果记录**: 所有执行完整记录到shell_exec_task表
-   ```go
-   type ShellExecTask struct {
-       ID          int        // 执行ID
-       TaskID      int        // 任务ID（可选）
-       ServerID    int        // 服务器
-       CommandID   int        // 命令
-       Status      string     // running, success, failed
-       Output      string     // 命令输出
-       ExitCode    *int       // Unix退出码
-       StartedAt   *time.Time // 开始时间
-       CompletedAt *time.Time // 完成时间
-   }
-   ```
 
 **使用场景**:
 
@@ -405,7 +374,7 @@ exitCode, output, err := shellService.ExecuteCommand(
 )
 
 // 在多个集群并行部署
-results, err := shellService.ExecuteTaskParallel(
+results, err := shellService.ExecuteCommandParallel(
     ctx,
     commandID=10,  // Ansible部署命令
     serverIDs=[]int{clusterA, clusterB, clusterC},

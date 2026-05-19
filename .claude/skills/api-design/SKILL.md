@@ -312,22 +312,22 @@ GET /api/v1/releases/{id}/events
     {
       "id": 1,
       "release_id": 42,
-      "event_type": "started",
-      "event_message": "Release started",
+      "type": "started",
+      "message": "Release started",
       "created_at": "2024-01-15T10:30:00Z"
     },
     {
       "id": 2,
       "release_id": 42,
-      "event_type": "validating",
-      "event_message": "Validating image: harbor.example.com/company/api-service:v1.2.3",
+      "type": "validating",
+      "message": "Validating image: harbor.example.com/company/api-service:v1.2.3",
       "created_at": "2024-01-15T10:30:05Z"
     },
     {
       "id": 3,
       "release_id": 42,
-      "event_type": "deploying",
-      "event_message": "Updating pod: api-service-5d4c8f7bc9-x7k8m",
+      "type": "deploying",
+      "message": "Updating pod: api-service-5d4c8f7bc9-x7k8m",
       "created_at": "2024-01-15T10:30:10Z"
     }
   ]
@@ -404,7 +404,7 @@ GET /api/v1/shell-servers
 
 #### 创建Shell任务
 ```
-POST /api/v1/shell-tasks
+POST /api/v1/shell-commands
 
 请求体:
 {
@@ -418,9 +418,9 @@ POST /api/v1/shell-tasks
 响应: 201 Created
 ```
 
-#### 执行Shell任务
+#### 执行Shell命令
 ```
-POST /api/v1/shell-tasks/{id}/execute
+POST /api/v1/shell-commands/{id}/execute
 
 响应: 202 Accepted
 {
@@ -428,7 +428,7 @@ POST /api/v1/shell-tasks/{id}/execute
   "message": "execution accepted",
   "data": {
     "execution_id": 101,
-    "task_id": 5,
+    "command_id": 5,
     "status": "pending",
     "started_at": "2024-01-15T10:30:00Z"
   }
@@ -492,7 +492,7 @@ POST /api/v1/shell-commands/execute
 
 #### 查询Shell命令执行状态
 ```
-GET /api/v1/shell-tasks/{execution_id}
+GET /api/v1/shell-commands/{execution_id}
 
 响应: 200 OK
 {
@@ -516,7 +516,7 @@ GET /api/v1/shell-tasks/{execution_id}
 
 #### 查询Shell命令执行历史
 ```
-GET /api/v1/shell-tasks/executions?limit=20&offset=0&command_id=1&server_id=1
+GET /api/v1/shell-commands/executions?limit=20&offset=0&command_id=1&server_id=1
 
 响应: 200 OK
 {

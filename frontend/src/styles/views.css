@@ -38,7 +38,7 @@
 
 /* ============ Page Layout ============ */
 .page-container,
-.shell-tasks-page,
+.shell-commands-page,
 .server-config-page,
 .k8s-release-page,
 .cluster-config-page,
@@ -634,7 +634,7 @@
   }
   
   .page-container,
-  .shell-tasks-page,
+  .shell-commands-page,
   .server-config-page,
   .k8s-release-page,
   .cluster-config-page,

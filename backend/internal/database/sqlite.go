@@ -138,18 +138,6 @@ func migrateSchemaV1(db *sql.DB) error {
 		created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 	);
 
-	CREATE TABLE IF NOT EXISTS application_cluster_config (
-		id TEXT PRIMARY KEY,
-		application_id TEXT NOT NULL,
-		cluster_id TEXT NOT NULL,
-		labels TEXT,
-		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-		updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-		UNIQUE(application_id, cluster_id),
-		FOREIGN KEY (application_id) REFERENCES application(id) ON DELETE CASCADE,
-		FOREIGN KEY (cluster_id) REFERENCES cluster(id) ON DELETE CASCADE
-	);
-
 	CREATE TABLE IF NOT EXISTS command_approval (
 		id TEXT PRIMARY KEY,
 		request_id TEXT NOT NULL UNIQUE,
@@ -160,7 +148,7 @@ func migrateSchemaV1(db *sql.DB) error {
 		updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 	);
 
-	-- Shell server and task management tables
+	-- Shell server and command management tables
 	CREATE TABLE IF NOT EXISTS shell_server (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		name TEXT NOT NULL UNIQUE,
@@ -187,22 +175,8 @@ func migrateSchemaV1(db *sql.DB) error {
 		FOREIGN KEY (server_id) REFERENCES shell_server(id) ON DELETE CASCADE
 	);
 
-	CREATE TABLE IF NOT EXISTS shell_task (
+	CREATE TABLE IF NOT EXISTS shell_command_execution (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		name TEXT NOT NULL,
-		description TEXT,
-		server_id INTEGER NOT NULL,
-		command_id INTEGER NOT NULL,
-		requires_approval BOOLEAN DEFAULT 0,
-		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-		updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-		FOREIGN KEY (server_id) REFERENCES shell_server(id) ON DELETE CASCADE,
-		FOREIGN KEY (command_id) REFERENCES shell_command(id) ON DELETE RESTRICT
-	);
-
-	CREATE TABLE IF NOT EXISTS shell_task_execution (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		task_id INTEGER NOT NULL,
 		server_id INTEGER NOT NULL,
 		command_id INTEGER NOT NULL,
 		status TEXT DEFAULT 'pending',
@@ -214,7 +188,6 @@ func migrateSchemaV1(db *sql.DB) error {
 		completed_at DATETIME,
 		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 		updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-		FOREIGN KEY (task_id) REFERENCES shell_task(id) ON DELETE CASCADE,
 		FOREIGN KEY (server_id) REFERENCES shell_server(id) ON DELETE CASCADE,
 		FOREIGN KEY (command_id) REFERENCES shell_command(id) ON DELETE CASCADE
 	);
@@ -248,34 +221,25 @@ func migrateSchemaV1(db *sql.DB) error {
 	CREATE INDEX IF NOT EXISTS idx_audit_log_resource ON audit_log(resource_type, resource_id);
 	CREATE INDEX IF NOT EXISTS idx_audit_log_operation ON audit_log(operation, created_at DESC);
 
-	-- Application cluster config indexes
-	CREATE INDEX IF NOT EXISTS idx_app_cluster_config_app ON application_cluster_config(application_id);
-	CREATE INDEX IF NOT EXISTS idx_app_cluster_config_cluster ON application_cluster_config(cluster_id);
-	CREATE INDEX IF NOT EXISTS idx_app_cluster_config_app_cluster ON application_cluster_config(application_id, cluster_id);
-
 	-- Command approval indexes
 	CREATE INDEX IF NOT EXISTS idx_command_approval_request ON command_approval(request_id);
 	CREATE INDEX IF NOT EXISTS idx_command_approval_status ON command_approval(approval_status);
 	CREATE INDEX IF NOT EXISTS idx_command_approval_created ON command_approval(created_at DESC);
 
-	-- Shell server and task indexes
+	-- Shell server and command execution indexes
 	CREATE INDEX IF NOT EXISTS idx_shell_server_name ON shell_server(name);
 	CREATE INDEX IF NOT EXISTS idx_shell_server_status ON shell_server(status);
 	CREATE INDEX IF NOT EXISTS idx_shell_command_server ON shell_command(server_id);
 	CREATE INDEX IF NOT EXISTS idx_shell_command_published ON shell_command(is_published);
-	CREATE INDEX IF NOT EXISTS idx_shell_task_server ON shell_task(server_id);
-	CREATE INDEX IF NOT EXISTS idx_shell_task_command ON shell_task(command_id);
-	CREATE INDEX IF NOT EXISTS idx_shell_task_server_command ON shell_task(server_id, command_id);
-	CREATE INDEX IF NOT EXISTS idx_shell_taskution_task ON shell_task_execution(task_id);
-	CREATE INDEX IF NOT EXISTS idx_shell_taskution_status ON shell_task_execution(status);
-	CREATE INDEX IF NOT EXISTS idx_shell_taskution_created ON shell_task_execution(created_at DESC);
+	CREATE INDEX IF NOT EXISTS idx_shell_command_execution_status ON shell_command_execution(status);
+	CREATE INDEX IF NOT EXISTS idx_shell_command_execution_created ON shell_command_execution(created_at DESC);
 	`
 
 	if _, err := db.Exec(schema); err != nil {
 		return err
 	}
 
-	return recordSchemaVersion(db, 1, "Complete initial schema: application, environment, cluster, workload_target, release_record, release_event, audit_log, shell_server, shell_command, shell_task, shell_task_execution")
+	return recordSchemaVersion(db, 1, "Complete initial schema: application, environment, cluster, workload_target, release_record, release_event, audit_log, shell_server, shell_command, shell_command_execution")
 }
 
 // applyMigrations applies all pending migrations based on current schema version

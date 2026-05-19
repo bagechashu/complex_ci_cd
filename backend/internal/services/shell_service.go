@@ -8,17 +8,15 @@ import (
 // ShellService manages shell command execution operations across target servers.
 //
 // ShellService provides access to shell execution infrastructure:
-//   - Shell task definition and management
 //   - Shell server registration and management
 //   - Command template creation and storage
-//   - Execution task tracking and monitoring
+//   - Execution command tracking and monitoring
 //   - Sensitive credential encryption (SSH credentials, API keys)
 //
-// The service works with four main repository types:
-//   - ShellTaskRepository: Manages task definitions
+// The service works with three main repository types:
 //   - ShellServerRepository: Manages target servers for command execution
 //   - ShellCommandRepository: Manages reusable command templates
-//   - ShellTaskExecutionRepository: Tracks individual command executions
+//   - ShellCommandExecutionRepository: Tracks individual command executions
 //
 // Security:
 //   - All sensitive credentials are encrypted at rest
@@ -27,16 +25,14 @@ import (
 //
 // Usage:
 //
-//	service := NewShellService(taskRepo, serverRepo, commandRepo, execRepo, encryptionKey, log)
-//	taskRepo := service.ShellTaskRepo()
+//	service := NewShellService(serverRepo, commandRepo, execRepo, encryptionKey, log)
 //	serverRepo := service.ShellServerRepo()
 //	commandRepo := service.ShellCommandRepo()
-//	execRepo := service.ShellTaskExecutionRepo()
+//	execRepo := service.ShellCommandExecutionRepo()
 type ShellService struct {
-	taskRepo      repository.ShellTaskRepository
 	serverRepo    repository.ShellServerRepository
 	commandRepo   repository.ShellCommandRepository
-	execRepo      repository.ShellTaskExecutionRepository
+	execRepo      repository.ShellCommandExecutionRepository
 	encryptionKey string
 	log           *logger.Logger
 }
@@ -44,10 +40,9 @@ type ShellService struct {
 // NewShellService creates a new ShellService instance.
 //
 // Parameters:
-//   - taskRepo: ShellTaskRepository for task definition management
 //   - serverRepo: ShellServerRepository for server management
 //   - commandRepo: ShellCommandRepository for command templates
-//   - execRepo: ShellTaskExecutionRepository for execution tracking
+//   - execRepo: ShellCommandExecutionRepository for execution tracking
 //   - encryptionKey: Key for encrypting sensitive credentials
 //   - log: Logger for structured logging
 //
@@ -56,7 +51,6 @@ type ShellService struct {
 // Example:
 //
 //	service := NewShellService(
-//	    taskRepo,
 //	    serverRepo,
 //	    commandRepo,
 //	    execRepo,
@@ -64,34 +58,19 @@ type ShellService struct {
 //	    logger.GetLogger(),
 //	)
 func NewShellService(
-	taskRepo repository.ShellTaskRepository,
 	serverRepo repository.ShellServerRepository,
 	commandRepo repository.ShellCommandRepository,
-	execRepo repository.ShellTaskExecutionRepository,
+	execRepo repository.ShellCommandExecutionRepository,
 	encryptionKey string,
 	log *logger.Logger,
 ) *ShellService {
 	return &ShellService{
-		taskRepo:      taskRepo,
 		serverRepo:    serverRepo,
 		commandRepo:   commandRepo,
 		execRepo:      execRepo,
 		encryptionKey: encryptionKey,
 		log:           log,
 	}
-}
-
-// ShellTaskRepo returns the underlying ShellTaskRepository.
-//
-// Returns:
-//   - repository.ShellTaskRepository: The configured task repository
-//
-// Usage:
-//
-//	taskRepo := service.ShellTaskRepo()
-//	tasks, _, err := taskRepo.List(ctx, 0, 100)
-func (s *ShellService) ShellTaskRepo() repository.ShellTaskRepository {
-	return s.taskRepo
 }
 
 // ShellServerRepo returns the underlying ShellServerRepository.
@@ -120,15 +99,15 @@ func (s *ShellService) ShellCommandRepo() repository.ShellCommandRepository {
 	return s.commandRepo
 }
 
-// ShellTaskExecutionRepo returns the underlying ShellTaskExecutionRepository.
+// ShellCommandExecutionRepo returns the underlying ShellCommandExecutionRepository.
 //
 // Returns:
-//   - repository.ShellTaskExecutionRepository: The configured execution repository
+//   - repository.ShellCommandExecutionRepository: The configured execution repository
 //
 // Usage:
 //
-//	execRepo := service.ShellTaskExecutionRepo()
+//	execRepo := service.ShellCommandExecutionRepo()
 //	exec, err := execRepo.GetByID(ctx, executionID)
-func (s *ShellService) ShellTaskExecutionRepo() repository.ShellTaskExecutionRepository {
+func (s *ShellService) ShellCommandExecutionRepo() repository.ShellCommandExecutionRepository {
 	return s.execRepo
 }

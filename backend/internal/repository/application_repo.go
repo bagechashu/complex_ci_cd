@@ -15,7 +15,7 @@
 //   - ReleaseEventRepository: Release event audit trail
 //   - ShellServerRepository: Target servers for command execution
 //   - ShellCommandRepository: Shell command templates
-//   - ShellTaskExecutionRepository: Shell command execution tracking
+//   - ShellCommandExecutionRepository: Shell command execution tracking
 //   - WorkloadTargetRepository: Workload deployment targets
 //   - EnvironmentRepository: Environment configurations
 //

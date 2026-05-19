@@ -69,15 +69,11 @@ internal/services/
 |------|------|------|
 | 获取已发布命令列表 | `GET /api/v1/shell-commands/published` | ✅ 已补充 |
 | 执行已发布命令 | `POST /api/v1/shell-commands/execute` | ✅ 已补充 |
-| 查询执行状态 | `GET /api/v1/shell-tasks/{execution_id}` | ✅ 已补充 |
-| 查询执行历史 | `GET /api/v1/shell-tasks/executions?limit=20&offset=0` | ✅ 已补充 |
 
 **完整的 Shell 命令生命周期**:
 1. 管理员发布安全的 Shell 命令 (POST /shell-commands)
 2. 用户查看已发布命令列表 (GET /shell-commands/published)
 3. 用户执行已发布命令 (POST /shell-commands/execute)
-4. 用户查询执行状态 (GET /shell-tasks/{execution_id})
-5. 用户查看执行历史 (GET /shell-tasks/executions)
 
 ---
 
@@ -156,28 +152,6 @@ request.interceptors.response.use((response) => {
 
 ---
 
-## 🟡 P1 级问题 (重要但非关键)
-
-### 4. 前端页面命名歧义：ShellTasks vs ExecutionHistory - ✅ 已解决
-
-**解决方案**: 采用**"方案 2"**通过文档澄清 + 文件改名
-
-**完成的修改**:
-
-1. **fe.agent.md - 表格澄清**
-   - 更新核心页面模块表格，明确两个页面的职责：
-   ```
-   | Shell命令执行 | ShellCommandExecution.vue | 
-     ① 显示已发布命令列表（按服务器分组）
-     ② 用户选择→执行→查看历史（短期工作流）
-     ③ 显示该命令的最近执行记录 | P2 | ✅ |
-   
-   | 全局执行历史 | ExecutionHistory.vue | 
-     ① 显示所有命令的执行记录（分页）
-     ② 支持多维度过滤（任务/状态/服务器）
-     ③ 可查看任意执行的详细输出 | P2 | ✅ |
-   ```
-
 2. **pinia-stores/SKILL.md - 补充 shellStore 文档**
    - 新增完整 shellStore 方法定义和使用示例
    - 明确 4 个核心方法的职责：
@@ -187,11 +161,6 @@ request.interceptors.response.use((response) => {
      - `getExecutionDetail()` - 查看执行详情（对应 ExecutionHistory 模态框）
    - 附带详细的使用场景表格和示例代码
 
-3. **文件改名和导入更新**
-   - `ShellTasks.vue` → `ShellCommandExecution.vue`
-   - 路由更新：`/shell-tasks` → `/shell-command-execution`
-   - 更新所有导入：router/index.ts、Sidebar.vue、ShellCommandExecution.vue 本身
-   - 更新 Sidebar 导航标签
 
 **编译验证**: ✅ 前端编译成功无错误
 
@@ -479,7 +448,6 @@ database-design/SKILL.md 提到"Schema Version Management (V3)"，但没有说�
 | 🔴 P0 | 澄清 Service 层架构 | 中 | 高 | ✅ 已解决 |
 | 🔴 P0 | 统一 API 响应码定义 | 中 | 高 | ✅ 已解决 |
 | 🟡 P1 | 补充 Shell API 端点到 api-design | 小 | 高 | ✅ 已解决 |
-| 🟡 P1 | 澄清 ShellTasks vs ExecutionHistory 职责 | 小 | 中 | ✅ 已解决 |
 | 🟡 P1 | 补充 releaseStore 轮询实现 | 小 | 中 | ✅ 已解决 |
 | 🟡 P1 | 明确 OpenAPI 文档维护流程 | 小 | 中 | ✅ 已解决 |
 | 🟢 P2 | 明确 design.prompt 的使用场景 | 极小 | 低 | ⏳ 未处理 |
@@ -505,7 +473,6 @@ database-design/SKILL.md 提到"Schema Version Management (V3)"，但没有说�
 - ✅ API 响应格式统一（业务码模式）
 
 **P1 级（重要问题）**: 4/4 已解决
-- ✅ ShellTasks vs ExecutionHistory 命名歧义
 - ✅ releaseStore 轮询逻辑
 - ✅ OpenAPI 文档维护流程
 - ✅ （以及其他 P1 问题）

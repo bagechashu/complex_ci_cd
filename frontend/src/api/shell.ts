@@ -5,8 +5,7 @@
 import type {
   ShellServer,
   ShellCommand,
-  ShellTask,
-  ShellTaskExecution,
+  ShellCommandExecution,
   PaginatedResponse
 } from '@/types/api'
 import request from './request'
@@ -66,59 +65,25 @@ export const deleteShellCommand = (id: number): Promise<void> => {
   return request.delete(`/v1/shell-commands/${id}`)
 }
 
-// ============ Shell Task API ============
+// ============ Shell Command Execution API ============
 
-export const listShellTasks = (
-  page: number = 1,
-  pageSize: number = 10
-): Promise<PaginatedResponse<ShellTask>> => {
-  return request.get('/v1/shell-tasks', {
-    params: { page, pageSize }
-  })
-}
-
-export const getShellTask = (id: number): Promise<ShellTask> => {
-  return request.get(`/v1/shell-tasks/${id}`)
-}
-
-export const createShellTask = (
-  data: Omit<ShellTask, 'id' | 'created_at' | 'updated_at'>
-): Promise<ShellTask> => {
-  return request.post('/v1/shell-tasks', data)
-}
-
-export const updateShellTask = (
-  id: number,
-  data: Partial<ShellTask>
-): Promise<ShellTask> => {
-  return request.put(`/v1/shell-tasks/${id}`, data)
-}
-
-export const deleteShellTask = (id: number): Promise<void> => {
-  return request.delete(`/v1/shell-tasks/${id}`)
-}
-
-// ============ Shell Task Execution API ============
-
-export const listShellTaskExecutions = (
+export const listShellCommandExecutions = (
   page: number = 1,
   pageSize: number = 10,
-  taskID?: number,
   commandID?: number
-): Promise<PaginatedResponse<ShellTaskExecution>> => {
+): Promise<PaginatedResponse<ShellCommandExecution>> => {
   const params: any = { page, pageSize }
-  if (taskID) params.taskID = taskID
   if (commandID) params.commandID = commandID
-  return request.get('/v1/shell-task-executions', { params })
+  return request.get('/v1/shell-command-executions', { params })
 }
 
-export const getShellTaskExecution = (id: number): Promise<ShellTaskExecution> => {
-  return request.get(`/v1/shell-task-executions/${id}`)
+export const getShellCommandExecution = (id: number): Promise<ShellCommandExecution> => {
+  return request.get(`/v1/shell-command-executions/${id}`)
 }
 
 export const executeShellCommand = (
-  data: Omit<ShellTaskExecution, 'id' | 'created_at' | 'updated_at'>
-): Promise<ShellTaskExecution> => {
+  data: Omit<ShellCommandExecution, 'id' | 'created_at' | 'updated_at'>
+): Promise<ShellCommandExecution> => {
   return request.post('/v1/shell-commands/execute', data)
 }
 

@@ -12,7 +12,7 @@ import request from './request'
  */
 export const getClusterMappings = async (): Promise<ClusterMapping[]> => {
   try {
-    const response: any = await request.get('/v1/app-cluster-configs')
+    const response: any = await request.get('/v1/workload-targets')
     console.log('[DEBUG] getClusterMappings response:', response)
     // 响应拦截器已经返回了 data 字段，对于直接数组响应，response 就是数组
     if (Array.isArray(response)) {
@@ -33,7 +33,7 @@ export const getClusterMappings = async (): Promise<ClusterMapping[]> => {
  */
 export const getClusterMappingsByApp = async (appId: number): Promise<ClusterMapping[]> => {
   try {
-    const response: any = await request.get(`/v1/app-cluster-configs/by-app/${appId}`)
+    const response: any = await request.get(`/v1/workload-targets/by-app/${appId}`)
     console.log('[DEBUG] getClusterMappingsByApp response:', response)
     // 响应拦截器已经返回了 data 字段，对于直接数组响应，response 就是数组
     if (Array.isArray(response)) {
@@ -54,7 +54,7 @@ export const getClusterMappingsByApp = async (appId: number): Promise<ClusterMap
  */
 export const getClusterMapping = async (mappingId: number): Promise<ClusterMapping> => {
   try {
-    const response: any = await request.get(`/v1/app-cluster-configs/${mappingId}`)
+    const response: any = await request.get(`/v1/workload-targets/${mappingId}`)
     console.log('[DEBUG] getClusterMapping response:', response)
     // 响应拦截器已经返回了 data 字段，response 应该直接是对象
     return response
@@ -78,7 +78,7 @@ export const createClusterMapping = async (data: Partial<ClusterMapping>): Promi
     if (!data.workload_name) throw new Error('workload_name is required')
     if (!data.workload_type) throw new Error('workload_type is required')
 
-    const response: any = await request.post('/v1/app-cluster-configs', data)
+    const response: any = await request.post('/v1/workload-targets', data)
     return response
   } catch (error) {
     console.error('Failed to create cluster mapping:', error)
@@ -96,7 +96,7 @@ export const updateClusterMapping = async (
   data: Partial<ClusterMapping>
 ): Promise<ClusterMapping> => {
   try {
-    const response: any = await request.put(`/v1/app-cluster-configs/${mappingId}`, data)
+    const response: any = await request.put(`/v1/workload-targets/${mappingId}`, data)
     return response
   } catch (error) {
     console.error(`Failed to update cluster mapping ${mappingId}:`, error)
@@ -110,7 +110,7 @@ export const updateClusterMapping = async (
  */
 export const deleteClusterMapping = async (mappingId: number): Promise<void> => {
   try {
-    await request.delete(`/v1/app-cluster-configs/${mappingId}`)
+    await request.delete(`/v1/workload-targets/${mappingId}`)
   } catch (error) {
     console.error(`Failed to delete cluster mapping ${mappingId}:`, error)
     throw error

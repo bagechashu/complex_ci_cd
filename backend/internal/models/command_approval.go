@@ -8,11 +8,11 @@ import (
 // CommandApproval 表示 Shell 命令执行的审批记录
 //
 // CommandApproval 用于管理需要人工批准的 Shell 命令执行请求。
-// 当 ShellTask.RequiresApproval = true 时，执行前必须创建审批记录，
+// 当 ShellCommand.RequiresApproval = true 时，执行前必须创建审批记录，
 // 由授权用户审批通过后才能进行实际执行。
 //
 // 审批流程：
-// 1. 任务提交者创建 CommandApproval（ApprovalStatus="pending"）
+// 1. 命令提交者创建 CommandApproval（ApprovalStatus="pending"）
 // 2. 授权用户查看并决定是否批准
 // 3. 批准（ApprovalStatus="approved"）或拒绝（ApprovalStatus="rejected"）
 // 4. 仅批准的请求才能继续执行

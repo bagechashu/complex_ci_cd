@@ -58,7 +58,6 @@ backend/
 │   │   ├── release_record.go
 │   │   ├── shell_server.go
 │   │   ├── shell_command.go
-│   │   ├── shell_task.go
 │   │   └── ...
 │   ├── repository/               # 数据访问层
 │   │   ├── application_repo.go
@@ -101,8 +100,7 @@ backend/
 **Shell执行表** (SSH命令执行，用于Salt/Ansible等):
 - `shell_server` - SSH服务器配置(密钥加密)
 - `shell_command` - 允许执行的命令白名单(is_published安全标记)
-- `shell_task` - Shell任务定义
-- `shell_task_execution` - 任务执行记录
+- `shell_command_execution` - 命令执行记录
 - `command_approval` - 命令审批流程
 
 **版本管理表**:

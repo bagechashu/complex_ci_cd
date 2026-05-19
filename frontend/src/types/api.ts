@@ -201,24 +201,8 @@ export interface ShellCommand {
   server_name?: string // 用于前端显示
 }
 
-export interface ShellTask {
+export interface ShellCommandExecution {
   id: number
-  name: string
-  description?: string
-  server_id: number
-  command_id: number
-  requires_approval: boolean
-  created_at: string
-  updated_at: string
-  command?: string // 用于前端显示
-  command_description?: string
-  server_name?: string // 用于前端显示服务器名称
-  executions?: ShellTaskExecution[]
-}
-
-export interface ShellTaskExecution {
-  id: number
-  task_id: number
   server_id: number
   command_id: number
   status: 'pending' | 'running' | 'success' | 'failed'
@@ -229,7 +213,6 @@ export interface ShellTaskExecution {
   completed_at?: string | null
   created_at: string
   updated_at: string
-  task_name?: string
   server_name?: string
   command?: string
 }

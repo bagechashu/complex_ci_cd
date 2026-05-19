@@ -23,7 +23,7 @@ export const useShellStore = defineStore('shell', () => {
   // 状态
   const shellServers = ref<ShellServer[]>([])
   const shellCommands = ref<ShellCommand[]>([])  // 已发布的命令
-  const shellTaskExecutions = ref<ShellTaskExecution[]>([])
+  const shellCommandExecutions = ref<ShellCommandExecution[]>([])
   
   // ============ 命令执行相关 ============
   
@@ -31,7 +31,7 @@ export const useShellStore = defineStore('shell', () => {
    * executeShellCommand - 直接执行已发布命令
    * 用途：ShellCommandExecution.vue 中用户选择命令后执行
    * 工作流：选择命令 → 点击执行 → 获得 execution_id → 显示加载状态
-   * 返回：新的 ShellTaskExecution 记录（status=pending）
+   * 返回：新的 ShellCommandExecution 记录（status=pending）
    */
   const executeShellCommand = async (commandId: number, serverId: number) => {
     const result = await api.post('/shell-commands/execute', {
@@ -47,9 +47,11 @@ export const useShellStore = defineStore('shell', () => {
    * 限制：只返回最近 5 条，用于快速查看
    */
   const getCommandExecutions = async (commandId: number, limit = 5) => {
-    const result = await api.get('/shell-tasks/executions', {
-      command_id: commandId,
-      limit
+    const result = await api.get('/shell-commands/executions', {
+      params: {
+        command_id: commandId,
+        limit
+      }
     })
     return result.data
   }
@@ -69,7 +71,7 @@ export const useShellStore = defineStore('shell', () => {
     status?: string
     server_id?: number
   }) => {
-    const result = await api.get('/shell-tasks/executions', filters)
+    const result = await api.get('/shell-commands/executions', { params: filters })
     return result.data
   }
   
@@ -78,7 +80,7 @@ export const useShellStore = defineStore('shell', () => {
    * 用途：ExecutionHistory.vue 中模态框显示执行详情（输出、错误、耗时等）
    */
   const getExecutionDetail = async (executionId: number) => {
-    const result = await api.get(`/shell-tasks/${executionId}`)
+    const result = await api.get(`/shell-commands/executions/${executionId}`)
     return result.data
   }
   
@@ -107,7 +109,7 @@ export const useShellStore = defineStore('shell', () => {
     // 状态
     shellServers,
     shellCommands,
-    shellTaskExecutions,
+    shellCommandExecutions,
     
     // 命令执行方法
     executeShellCommand,

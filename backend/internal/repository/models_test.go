@@ -248,24 +248,24 @@ func TestShellCommand_IsPublished(t *testing.T) {
 	}
 }
 
-// TestShellTaskExecution_GetDuration tests duration calculation
-func TestShellTaskExecution_GetDuration(t *testing.T) {
+// TestShellCommandExecution_GetDuration tests duration calculation
+func TestShellCommandExecution_GetDuration(t *testing.T) {
 	startTime := time.Now()
 	endTime := startTime.Add(5 * time.Minute)
 
-	task := &models.ShellTaskExecution{
+	command := &models.ShellCommandExecution{
 		ID:          1,
-		TaskID:      1,
+		CommandID:      1,
 		StartedAt:   &startTime,
 		CompletedAt: &endTime,
 	}
 
 	// Verify timestamps are set
-	require.NotNil(t, task.StartedAt)
-	require.NotNil(t, task.CompletedAt)
+	require.NotNil(t, command.StartedAt)
+	require.NotNil(t, command.CompletedAt)
 
 	// Duration should be 5 minutes = 300 seconds
-	duration := task.CompletedAt.Sub(*task.StartedAt)
+	duration := command.CompletedAt.Sub(*command.StartedAt)
 	assert.Equal(t, 5*time.Minute, duration)
 }
 

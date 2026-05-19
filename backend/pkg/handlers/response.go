@@ -210,14 +210,12 @@ type ShellServerResponse struct {
 type ExecuteShellCommandRequest struct {
 	CommandID string `json:"command_id" validate:"required"`
 	ServerID  string `json:"server_id" validate:"required"`
-	TaskID    string `json:"task_id"`
 }
 
 type ExecuteShellBatchRequest struct {
 	CommandID string   `json:"command_id" validate:"required"`
 	ServerIDs []string `json:"server_ids" validate:"required,min=1"`
 	Mode      string   `json:"mode" validate:"required,oneof=parallel serial"`
-	TaskID    string   `json:"task_id"`
 }
 
 type ExecuteShellResponse struct {

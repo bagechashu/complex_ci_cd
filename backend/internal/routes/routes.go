@@ -8,9 +8,9 @@ import (
 	"built-and-deploy/internal/handlers/clusters"
 	"built-and-deploy/internal/handlers/environments"
 	"built-and-deploy/internal/handlers/releases"
+	"built-and-deploy/internal/handlers/shell_command_executions"
 	"built-and-deploy/internal/handlers/shell_commands"
 	"built-and-deploy/internal/handlers/shell_servers"
-	"built-and-deploy/internal/handlers/shell_tasks"
 	"built-and-deploy/internal/handlers/workloads"
 	"built-and-deploy/internal/services"
 	"built-and-deploy/pkg/logger"
@@ -49,9 +49,7 @@ func NewRouter(container *services.ServiceContainer, log *logger.Logger) http.Ha
         r.Post("/environments", environments.CreateEnvironmentHandler(container.EnvironmentRepo(), log))
         r.Get("/workload-targets", workloads.ListWorkloadTargetsHandler(container.Workload(), log))
         r.Post("/workload-targets", workloads.CreateWorkloadTargetHandler(container.Workload(), log))
-        r.Get("/app-cluster-configs/by-app/{id}", workloads.GetAppClusterConfigsByAppHandler(container.Workload(), log))
-        r.Get("/app-cluster-configs", workloads.GetAppClusterConfigsHandler(container.Workload(), log))
-        r.Post("/app-cluster-configs", workloads.CreateAppClusterConfigHandler(container.WorkloadRepo(), log))
+        r.Get("/workload-targets/by-app/{id}", workloads.GetAppClusterConfigsByAppHandler(container.Workload(), log))
 
         // Shell Servers endpoints
         r.Get("/shell-servers", shell_servers.ListShellServersHandler(container.ShellServerRepo(), log))
@@ -69,15 +67,10 @@ func NewRouter(container *services.ServiceContainer, log *logger.Logger) http.Ha
         r.Post("/shell-commands/{id}/unpublish", shell_commands.UnpublishShellCommandHandler(container.ShellCommandRepo(), log))
         r.Delete("/shell-commands/{id}", shell_commands.DeleteShellCommandHandler(container.ShellCommandRepo(), log))
 
-        // Shell Tasks endpoints
-        r.Get("/shell-tasks", shell_tasks.List(container.Shell(), log))
-        r.Post("/shell-tasks", shell_tasks.Create(container.Shell(), log))
-        r.Get("/shell-tasks/{id}", shell_tasks.Get(container.Shell(), log))
-        r.Put("/shell-tasks/{id}", shell_tasks.Update(container.Shell(), log))
-        r.Delete("/shell-tasks/{id}", shell_tasks.Delete(container.Shell(), log))
-        r.Get("/shell-task-executions", shell_tasks.ListExecutions(container.Shell(), log))
-        r.Get("/shell-task-executions/{id}", shell_tasks.GetExecution(container.Shell(), log))
-        r.Post("/shell-commands/execute", shell_tasks.Execute(container.Shell(), log))
+        // Shell Command Execution endpoints
+        r.Get("/shell-command-executions", shell_command_executions.ListExecutions(container.Shell(), log))
+        r.Get("/shell-command-executions/{id}", shell_command_executions.GetExecution(container.Shell(), log))
+        r.Post("/shell-commands/execute", shell_command_executions.Execute(container.Shell(), log))
     })
 
     log.Info("NewRouter complete - routes registered")
