@@ -240,20 +240,13 @@ const executeCommand = async () => {
 
   executing.value = true
   try {
-    // Create a ShellCommandExecution record
-    const execution: Omit<ShellCommandExecution, 'id' | 'created_at' | 'updated_at'> = {
-      server_id: selectedServer.value.id,
-      command_id: selectedCommand.value.id,
-      status: 'pending',
-      output: '',
-      error_message: '',
-      exit_code: null,
-      started_at: null,
-      completed_at: null
-    }
-
-    // Call API to execute
-    const result = await shellStore.executeShellCommand(execution)
+    // Call API to execute the shell command
+    const result = await shellStore.executeShellCommand(
+      selectedCommand.value.id,
+      {
+        server_id: selectedServer.value.id
+      }
+    )
     if (result) {
       message.success('命令已提交执行')
       // Reload execution history

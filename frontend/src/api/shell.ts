@@ -82,8 +82,12 @@ export const getShellCommandExecution = (id: number): Promise<ShellCommandExecut
 }
 
 export const executeShellCommand = (
-  data: Omit<ShellCommandExecution, 'id' | 'created_at' | 'updated_at'>
+  commandId: number,
+  data: {
+    server_id: number
+    command_params?: string
+  }
 ): Promise<ShellCommandExecution> => {
-  return request.post('/v1/shell-commands/execute', data)
+  return request.post(`/v1/shell-commands/${commandId}/execute`, data)
 }
 

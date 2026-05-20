@@ -11,7 +11,6 @@ package shell_command_executions
 
 import (
 	"context"
-	"encoding/json"
 	"net/http"
 	"strconv"
 	"time"
@@ -142,98 +141,4 @@ func GetExecution(shellService *services.ShellService, log *logger.Logger) http.
 
 		responses.SuccessResponse(w, execution)
 	}
-}
-
-// Execute handles POST /v1/shell-commands/execute request to execute a shell command.
-//
-// Request body:
-//   - command_id: The shell command to execute
-//   - server_id: The target server
-//   - command_params: Optional execution parameters
-//
-// Response:
-//   - Returns the created ShellCommandExecution record with status "pending"
-//   - The actual command execution happens asynchronously
-//
-// Example request:
-//
-//	{
-//	  "command_id": 123,
-//	  "server_id": 456,
-//	  "command_params": ""
-//	}
-//
-// Example response (202):
-//
-//	{
-//	  "code": 0,
-//	  "message": "execution_accepted",
-//	  "data": {
-//	    "id": 789,
-//	    "command_id": 123,
-//	    "server_id": 456,
-//	    "status": "pending",
-//	    "output": null,
-//	    "error_message": null,
-//	    "command_params": null,
-//	    "created_at": "2025-01-14T10:00:00Z",
-//	    "updated_at": "2025-01-14T10:00:00Z"
-//	  }
-//	}
-func Execute(shellService *services.ShellService, log *logger.Logger) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		var req struct {
-			CommandID     int    `json:"command_id"`
-			ServerID      int    `json:"server_id"`
-			CommandParams string `json:"command_params"`
-		}
-
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			responses.BadRequestResponse(w, "Invalid request body")
-			return
-		}
-
-		// Validate required fields
-		if req.CommandID == 0 || req.ServerID == 0 {
-			responses.BadRequestResponse(w, "Missing required fields: command_id, server_id")
-			return
-		}
-
-		execution := &models.ShellCommandExecution{
-			CommandID:     req.CommandID,
-			ServerID:      req.ServerID,
-			Status:        "pending",
-			Output:        nil,
-			ErrorMessage:  nil,
-			CommandParams: getStringPtr(req.CommandParams),
-			CreatedAt:     time.Now(),
-			UpdatedAt:     time.Now(),
-		}
-
-		// Validate model
-		if err := execution.Validate(); err != nil {
-			responses.BadRequestResponse(w, err.Error())
-			return
-		}
-
-		ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
-		defer cancel()
-
-		executionRepo := shellService.ShellCommandExecutionRepo()
-		if err := executionRepo.Create(ctx, execution); err != nil {
-			log.Error("Failed to create shell command execution", "error", err)
-			responses.InternalErrorResponse(w, "Failed to create shell command execution")
-			return
-		}
-
-		responses.AcceptedResponse(w, "execution accepted", execution)
-	}
-}
-
-// Helper function to convert string to pointer
-func getStringPtr(s string) *string {
-	if s == "" {
-		return nil
-	}
-	return &s
 }

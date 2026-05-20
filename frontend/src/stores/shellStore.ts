@@ -116,10 +116,14 @@ export const useShellStore = defineStore('shell', () => {
    * 执行 Shell 命令
    */
   const executeShellCommandAction = async (
-    data: Omit<ShellCommandExecution, 'id' | 'created_at' | 'updated_at'>
+    commandId: number,
+    data: {
+      server_id: number
+      command_params?: string
+    }
   ) => {
     try {
-      const response = await executeShellCommand(data)
+      const response = await executeShellCommand(commandId, data)
       return response
     } catch (err) {
       error.value = err instanceof Error ? err.message : '执行命令失败'

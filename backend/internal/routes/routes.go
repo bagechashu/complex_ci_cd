@@ -65,12 +65,12 @@ func NewRouter(container *services.ServiceContainer, log *logger.Logger) http.Ha
         r.Put("/shell-commands/{id}", shell_commands.UpdateShellCommandHandler(container.ShellCommandRepo(), log))
         r.Post("/shell-commands/{id}/publish", shell_commands.PublishShellCommandHandler(container.ShellCommandRepo(), log))
         r.Post("/shell-commands/{id}/unpublish", shell_commands.UnpublishShellCommandHandler(container.ShellCommandRepo(), log))
+        r.Post("/shell-commands/{id}/execute", shell_commands.Execute(container.Shell(), log))
         r.Delete("/shell-commands/{id}", shell_commands.DeleteShellCommandHandler(container.ShellCommandRepo(), log))
 
         // Shell Command Execution endpoints
         r.Get("/shell-command-executions", shell_command_executions.ListExecutions(container.Shell(), log))
         r.Get("/shell-command-executions/{id}", shell_command_executions.GetExecution(container.Shell(), log))
-        r.Post("/shell-commands/execute", shell_command_executions.Execute(container.Shell(), log))
     })
 
     log.Info("NewRouter complete - routes registered")
