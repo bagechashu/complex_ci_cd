@@ -41,9 +41,9 @@ services:
     container_name: release-control-frontend
     ports:
       - "${FRONTEND_PORT:-80}:80"
-    depends_on:
-      backend:
-        condition: service_healthy
+    # depends_on:
+    #   backend:
+    #     condition: service_healthy
     networks:
       - release-control-network
     # healthcheck:
