@@ -17,15 +17,15 @@ services:
       ENCRYPTION_KEY: ${ENCRYPTION_KEY:-your-encryption-key-change-me}
     volumes:
       # Persist database data
-      - db_data:/data
+      - ./data:/data
     networks:
       - release-control-network
-    healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/api/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 5s
+    # healthcheck:
+    #   test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/api/health"]
+    #   interval: 30s
+    #   timeout: 10s
+    #   retries: 3
+    #   start_period: 5s
     restart: unless-stopped
     logging:
       driver: "json-file"
@@ -46,22 +46,18 @@ services:
         condition: service_healthy
     networks:
       - release-control-network
-    healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 5s
+    # healthcheck:
+    #   test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost/health"]
+    #   interval: 30s
+    #   timeout: 10s
+    #   retries: 3
+    #   start_period: 5s
     restart: unless-stopped
     logging:
       driver: "json-file"
       options:
         max-size: "10m"
         max-file: "3"
-
-volumes:
-  db_data:
-    driver: local
 
 networks:
   release-control-network:
