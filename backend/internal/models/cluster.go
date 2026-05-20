@@ -7,16 +7,17 @@ import (
 
 // Cluster 表示一个 Kubernetes 集群，用作应用部署目标
 type Cluster struct {
-	ID                  int       `json:"id" db:"id" example:"1"`
-	Name                string    `json:"name" db:"name" example:"prod-k8s" binding:"required"`
-	Type                string    `json:"type" db:"type" example:"kubernetes" enum:"kubernetes" binding:"required"`
-	Environment         string    `json:"environment" db:"environment" example:"production"`
-	RegistryPrefix      string    `json:"registry_prefix" db:"registry_prefix" example:"docker.io"`
-	Labels              *string   `json:"labels" db:"labels" example:"zone=us-west,env=prod"`
-	Kubeconfig          *string   `json:"-" db:"kubeconfig"`                                    // Hidden from JSON (K8s only)
-	K8sConnectionStatus string    `json:"k8s_connection_status" db:"k8s_connection_status" enum:"connected,disconnected,unknown"`
-	CreatedAt           time.Time `json:"created_at" db:"created_at" example:"2026-04-21T10:00:00Z"`
-	UpdatedAt           time.Time `json:"updated_at" db:"updated_at" example:"2026-04-21T10:00:00Z"`
+	ID                   int       `json:"id" db:"id" example:"1"`
+	Name                 string    `json:"name" db:"name" example:"prod-k8s" binding:"required"`
+	Type                 string    `json:"type" db:"type" example:"kubernetes" enum:"kubernetes" binding:"required"`
+	Environment          string    `json:"environment" db:"environment" example:"production"`
+	RegistryPrefix       string    `json:"registry_prefix" db:"registry_prefix" example:"docker.io"`
+	Labels               *string   `json:"labels" db:"labels" example:"zone=us-west,env=prod"`
+	KubernetesVersion    *string   `json:"kubernetes_version" db:"kubernetes_version" example:"1.23.6"`       // e.g. "1.19.0", "1.23.6", "1.31.0"
+	Kubeconfig           *string   `json:"-" db:"kubeconfig"`                                    // Hidden from JSON (K8s only)
+	K8sConnectionStatus  string    `json:"k8s_connection_status" db:"k8s_connection_status" enum:"connected,disconnected,unknown"`
+	CreatedAt            time.Time `json:"created_at" db:"created_at" example:"2026-04-21T10:00:00Z"`
+	UpdatedAt            time.Time `json:"updated_at" db:"updated_at" example:"2026-04-21T10:00:00Z"`
 }
 
 // Validate 验证 Cluster 的必填字段

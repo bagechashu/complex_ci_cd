@@ -45,6 +45,7 @@ func NewRouter(container *services.ServiceContainer, log *logger.Logger) http.Ha
         r.Get("/clusters/{id}", clusters.GetClusterHandler(container.Cluster(), log))
         r.Put("/clusters/{id}", clusters.UpdateClusterHandler(container.Cluster(), log))
         r.Delete("/clusters/{id}", clusters.DeleteClusterHandler(container.Cluster(), log))
+        r.Post("/clusters/{id}/test-connection", clusters.TestClusterConnectionHandler(container.Cluster(), log))
         r.Get("/environments", environments.ListEnvironmentsHandler(container.EnvironmentRepo(), log))
         r.Post("/environments", environments.CreateEnvironmentHandler(container.EnvironmentRepo(), log))
         r.Get("/workload-targets", workloads.ListWorkloadTargetsHandler(container.Workload(), log))

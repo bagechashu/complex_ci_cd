@@ -7,14 +7,11 @@ WORKDIR /app
 # Install build dependencies
 RUN apk add --no-cache git gcc musl-dev sqlite-dev
 
-# Copy go mod files
-COPY backend ./
-
-# Download dependencies
-RUN go mod download
-
-# Copy source code
+# Copy source code FIRST so go mod tidy can see all imports
 COPY backend/ ./
+
+# Tidy and download dependencies (must be after code is copied)
+RUN go mod tidy && go mod download
 
 # Build the application
 RUN CGO_ENABLED=1 GOOS=linux go build -a -installsuffix cgo -o release-control cmd/server/main.go

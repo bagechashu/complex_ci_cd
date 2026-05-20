@@ -120,6 +120,13 @@ export const deleteCluster = (clusterId: number): Promise<void> => {
   return request.delete(`/v1/clusters/${clusterId}`)
 }
 
+/**
+ * 测试集群连接状态
+ */
+export const testClusterConnection = (clusterId: number): Promise<{ id: number; status: string; message: string }> => {
+  return request.post(`/v1/clusters/${clusterId}/test-connection`, {})
+}
+
 // ==================== 部署目标 ====================
 
 /**

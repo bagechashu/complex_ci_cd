@@ -2,7 +2,12 @@ package services
 
 import (
 	"context"
+	"fmt"
+	"strings"
 	"time"
+
+	"k8s.io/client-go/discovery"
+	"k8s.io/client-go/tools/clientcmd"
 
 	"built-and-deploy/internal/deployers"
 	"built-and-deploy/internal/models"
@@ -112,9 +117,23 @@ func (s *ClusterService) CreateCluster(ctx context.Context, req *handlers.Create
 		return nil, errors.NewServiceErrorWithCause("ENCRYPTION_ERROR", "Failed to encrypt kubeconfig", err)
 	}
 
+	var labels *string
+	if req.Labels != "" {
+		labels = &req.Labels
+	}
+
+	var kubernetesVersion *string
+	if req.KubernetesVersion != "" {
+		kubernetesVersion = &req.KubernetesVersion
+	}
+
 	cluster := &models.Cluster{
 		Name:                req.Name,
 		Type:                req.Type,
+		Environment:         req.Environment,
+		RegistryPrefix:      req.RegistryPrefix,
+		Labels:              labels,
+		KubernetesVersion:   kubernetesVersion,
 		Kubeconfig:          &encryptedConfig,
 		K8sConnectionStatus: "unknown",
 		CreatedAt:           time.Now(),
@@ -126,7 +145,11 @@ func (s *ClusterService) CreateCluster(ctx context.Context, req *handlers.Create
 		return nil, errors.NewServiceErrorWithCause("DATABASE", "Failed to create cluster", err)
 	}
 
-	s.log.Info("Cluster created", "name", req.Name)
+	s.log.Info("Cluster created", "name", req.Name, "id", cluster.ID)
+	
+	// Asynchronously test the connection
+	s.UpdateConnectionStatus(cluster.ID)
+	
 	return cluster, nil
 }
 
@@ -217,6 +240,7 @@ func (s *ClusterService) UpdateCluster(ctx context.Context, id int, req *handler
 		return nil, errors.NewServiceError("NOT_FOUND", "Cluster not found")
 	}
 
+	kubeConfigUpdated := false
 	if req.Name != "" {
 		cluster.Name = req.Name
 	}
@@ -226,6 +250,12 @@ func (s *ClusterService) UpdateCluster(ctx context.Context, id int, req *handler
 			return nil, errors.NewServiceErrorWithCause("ENCRYPTION_ERROR", "Failed to encrypt kubeconfig", err)
 		}
 		cluster.Kubeconfig = &encrypted
+		kubeConfigUpdated = true
+		// Reset connection status when kubeconfig is updated
+		cluster.K8sConnectionStatus = "unknown"
+	}
+	if req.KubernetesVersion != "" {
+		cluster.KubernetesVersion = &req.KubernetesVersion
 	}
 	cluster.UpdatedAt = time.Now()
 
@@ -235,6 +265,12 @@ func (s *ClusterService) UpdateCluster(ctx context.Context, id int, req *handler
 	}
 
 	s.log.Info("Cluster updated", "id", id)
+	
+	// Asynchronously test the connection if kubeconfig was updated
+	if kubeConfigUpdated {
+		s.UpdateConnectionStatus(id)
+	}
+	
 	return cluster, nil
 }
 
@@ -270,41 +306,146 @@ func (s *ClusterService) DeleteCluster(ctx context.Context, id int) error {
 	return nil
 }
 
-// TestConnection validates connectivity to the cluster.
+// TestConnectionResult 连接测试结果，包含状态和错误详情
+type TestConnectionResult struct {
+	Status  string `json:"status"`  // "connected" or "disconnected"
+	Message string `json:"message"` // 错误详情或成功消息
+}
+
+// TestConnection validates connectivity to the cluster by attempting to connect to K8s API.
 //
 // Parameters:
 //   - ctx: Context for cancellation and deadline
 //   - id: The ID of the cluster to test
 //
 // Returns:
-//   - string: Connection status ("success", "failed", etc.)
-//   - error: Non-nil if cluster not found or test fails
+//   - *TestConnectionResult: Connection status with detailed message
+//   - error: Non-nil if cluster not found or other errors
 //
-// Errors:
-//   - "NOT_FOUND": If cluster with given ID does not exist
-//   - "INVALID_STATE": If kubeconfig is not configured
-//
-// Note:
-//   - Basic validation only - full kubeconfig validation requires kubectl
-//   - Actual connection testing depends on DeployerFactory implementation
-//   - May require additional configuration for SSH clusters
+// This method:
+//   - Retrieves the cluster from the repository
+//   - Decrypts the kubeconfig
+//   - Attempts to create a K8s client and connect to the API server
+//   - Returns detailed error information on failure
 //
 // Example:
 //
-//	status, err := service.TestConnection(ctx, 1)
-//	if err == nil && status == "success" {
+//	result, err := service.TestConnection(ctx, 1)
+//	if err == nil && result.Status == "connected" {
 //	    fmt.Println("Cluster is reachable")
 //	}
-func (s *ClusterService) TestConnection(ctx context.Context, id int) (string, error) {
+func (s *ClusterService) TestConnection(ctx context.Context, id int) (*TestConnectionResult, error) {
 	cluster, err := s.clusterRepo.GetByID(ctx, id)
 	if err != nil || cluster == nil {
-		return "", errors.NewServiceError("NOT_FOUND", "Cluster not found")
+		return &TestConnectionResult{
+			Status:  "disconnected",
+			Message: "Cluster not found",
+		}, errors.NewServiceError("NOT_FOUND", "Cluster not found")
 	}
 
-	if cluster.Kubeconfig == nil {
-		return "", errors.NewServiceError("INVALID_STATE", "Cluster kubeconfig not configured")
+	if cluster.Kubeconfig == nil || *cluster.Kubeconfig == "" {
+		return &TestConnectionResult{
+			Status:  "disconnected",
+			Message: "Cluster kubeconfig not configured",
+		}, errors.NewServiceError("INVALID_STATE", "Cluster kubeconfig not configured")
 	}
 
-	// Just return success for now - full validation requires kubeconfig parsing
-	return "success", nil
+	// Decrypt kubeconfig
+	decryptedKubeconfig, err := utils.DecryptAES(*cluster.Kubeconfig, s.encryptKey)
+	if err != nil {
+		s.log.Warn("Failed to decrypt kubeconfig", "error", err.Error())
+		return &TestConnectionResult{
+			Status:  "disconnected",
+			Message: "Failed to decrypt kubeconfig",
+		}, nil
+	}
+
+	// Try to connect to K8s API
+	result := s.validateK8sConnection(decryptedKubeconfig, cluster.KubernetesVersion)
+	return result, nil
+}
+
+// validateK8sConnection attempts to connect to the K8s API server using client-go.
+// This method properly handles authentication from kubeconfig (tokens, certificates, etc.)
+// It also adjusts timeout based on Kubernetes version for better compatibility.
+// Returns TestConnectionResult with detailed status and message.
+func (s *ClusterService) validateK8sConnection(kubeconfigContent string, k8sVersion *string) *TestConnectionResult {
+	// 1. Load REST config from kubeconfig content
+	restConfig, err := clientcmd.RESTConfigFromKubeConfig([]byte(kubeconfigContent))
+	if err != nil {
+		errMsg := fmt.Sprintf("Failed to parse kubeconfig: %v", err)
+		s.log.Warn(errMsg)
+		return &TestConnectionResult{
+			Status:  "disconnected",
+			Message: errMsg,
+		}
+	}
+
+	// 2. Set timeout based on Kubernetes version
+	// Older K8s versions (1.19, 1.20) might respond slower due to network latency
+	timeout := 15 * time.Second
+	if k8sVersion != nil && *k8sVersion != "" {
+		s.log.Info("Validating connection with K8s version info", "version", *k8sVersion)
+		// For older K8s versions, use longer timeout
+		if strings.HasPrefix(*k8sVersion, "1.19") || strings.HasPrefix(*k8sVersion, "1.20") {
+			timeout = 25 * time.Second
+		} else if strings.HasPrefix(*k8sVersion, "1.21") || strings.HasPrefix(*k8sVersion, "1.22") {
+			timeout = 20 * time.Second
+		}
+	}
+	restConfig.Timeout = timeout
+
+	// 3. Create discovery client (lightweight and doesn't require full clientset)
+	discoveryClient, err := discovery.NewDiscoveryClientForConfig(restConfig)
+	if err != nil {
+		errMsg := fmt.Sprintf("Failed to create K8s client: %v", err)
+		s.log.Warn(errMsg)
+		return &TestConnectionResult{
+			Status:  "disconnected",
+			Message: errMsg,
+		}
+	}
+
+	// 4. Query server version to verify connection (this includes authentication)
+	_, err = discoveryClient.ServerVersion()
+	if err != nil {
+		errMsg := fmt.Sprintf("Failed to query K8s API: %v", err)
+		s.log.Warn(errMsg)
+		return &TestConnectionResult{
+			Status:  "disconnected",
+			Message: errMsg,
+		}
+	}
+
+	s.log.Info("K8s API connection successful")
+	return &TestConnectionResult{
+		Status:  "connected",
+		Message: "Connection successful",
+	}
+}
+
+// UpdateConnectionStatus updates the connection status of a cluster asynchronously.
+func (s *ClusterService) UpdateConnectionStatus(clusterId int) {
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+
+		result, _ := s.TestConnection(ctx, clusterId)
+		if result == nil {
+			return
+		}
+		cluster, err := s.clusterRepo.GetByID(ctx, clusterId)
+		if err != nil || cluster == nil {
+			return
+		}
+
+		cluster.K8sConnectionStatus = result.Status
+		cluster.UpdatedAt = time.Now()
+		err = s.clusterRepo.Update(ctx, cluster)
+		if err != nil {
+			s.log.Error("Failed to update cluster connection status", "error", err.Error())
+		} else {
+			s.log.Info("Updated cluster connection status", "clusterId", clusterId, "status", result.Status, "message", result.Message)
+		}
+	}()
 }

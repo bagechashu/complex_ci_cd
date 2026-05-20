@@ -190,3 +190,27 @@ func DeleteClusterHandler(clusterService *services.ClusterService, log *logger.L
 	}
 }
 
+// TestClusterConnectionHandler 测试集群连接状态
+func TestClusterConnectionHandler(clusterService *services.ClusterService, log *logger.Logger) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		idStr := r.PathValue("id")
+		id, err := strconv.Atoi(idStr)
+		if err != nil {
+			responses.BadRequestResponse(w, "invalid cluster id")
+			return
+		}
+
+		result, err := clusterService.TestConnection(r.Context(), id)
+		if err != nil {
+			responses.InternalErrorResponse(w, err.Error())
+			return
+		}
+
+		responses.SuccessResponse(w, map[string]interface{}{
+			"id":      id,
+			"status":  result.Status,
+			"message": result.Message,
+		})
+	}
+}
+

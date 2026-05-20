@@ -26,11 +26,11 @@ INSERT OR IGNORE INTO environment (name, rank, created_at, updated_at) VALUES
 ('production', 3, datetime('now'), datetime('now'));
 
 -- 3. Insert sample clusters
-INSERT OR IGNORE INTO cluster (name, type, environment, registry_prefix, created_at, updated_at) VALUES 
-('k8s-dev', 'kubernetes', 'dev', 'docker.io/company', datetime('now'), datetime('now')),
-('k8s-staging', 'kubernetes', 'staging', 'docker.io/company', datetime('now'), datetime('now')),
-('k8s-prod-cn1', 'kubernetes', 'production', 'docker.io/company', datetime('now'), datetime('now')),
-('k8s-prod-cn2', 'kubernetes', 'production', 'docker.io/company', datetime('now'), datetime('now'));
+INSERT OR IGNORE INTO cluster (name, type, environment, registry_prefix, kubernetes_version, created_at, updated_at) VALUES 
+('k8s-dev', 'kubernetes', 'dev', 'docker.io/company', '1.23.6', datetime('now'), datetime('now')),
+('k8s-staging', 'kubernetes', 'staging', 'docker.io/company', '1.23.6', datetime('now'), datetime('now')),
+('k8s-prod-cn1', 'kubernetes', 'production', 'docker.io/company', '1.23.6', datetime('now'), datetime('now')),
+('k8s-prod-cn2', 'kubernetes', 'production', 'docker.io/company', '1.23.6', datetime('now'), datetime('now'));
 
 -- 4. Insert workload targets (app-env-cluster mappings)
 INSERT OR IGNORE INTO workload_target (app_id, env_id, cluster_id, k8s_namespace, k8s_workload, container_name, workload_type, workload_name, created_at, updated_at) VALUES 

@@ -55,6 +55,13 @@
             <div class="section-header">
               <h3>集群信息</h3>
               <div class="header-actions">
+                <n-button 
+                  @click="refreshConnectionStatus(selectedClusterId as number)"
+                  :loading="testingConnection"
+                  :disabled="!selectedCluster"
+                >
+                  测试连接
+                </n-button>
                 <n-button @click="openEditClusterModal">
                   编辑集群
                 </n-button>
@@ -75,14 +82,23 @@
                 <span>{{ selectedCluster.type }}</span>
               </div>
               <div class="info-item">
+                <label>Kubernetes 版本:</label>
+                <span>{{ selectedCluster.kubernetes_version || '未指定' }}</span>
+              </div>
+              <div class="info-item">
                 <label>镜像仓库前缀:</label>
                 <span class="code">{{ selectedCluster.registry_prefix }}</span>
               </div>
               <div class="info-item">
                 <label>Kubernetes 连接状态:</label>
-                <span :class="['status-badge', selectedCluster.k8s_connection_status]">
-                  {{ getConnectionStatusLabel(selectedCluster.k8s_connection_status) }}
-                </span>
+                <div class="connection-status-row">
+                  <span :class="['connection-badge', selectedCluster.k8s_connection_status]">
+                    {{ getConnectionStatusLabel(selectedCluster.k8s_connection_status) }}
+                  </span>
+                </div>
+                <div v-if="connectionTestMessage" class="connection-detail-message">
+                  {{ connectionTestMessage }}
+                </div>
               </div>
             </div>
           </div>
@@ -165,6 +181,21 @@
           </div>
 
           <div class="form-group">
+            <label>Kubernetes 版本</label>
+            <input
+              v-model="clusterForm.kubernetes_version"
+              type="text"
+              class="form-input"
+              placeholder="例如: 1.23.6 或 1.31.0"
+            />
+            <p class="help-text">
+              可选。输入集群的 Kubernetes 版本以优化连接测试。
+              <br/>
+              示例: 1.19.0, 1.23.6, 1.31.0
+            </p>
+          </div>
+
+          <div class="form-group">
             <label>镜像仓库前缀 *</label>
             <input
               v-model="clusterForm.registry_prefix"
@@ -181,20 +212,22 @@
           </div>
 
           <div class="form-group">
-            <label>Kubeconfig 文件内容 *</label>
+            <label>Kubeconfig 文件内容 <span v-if="!editingClusterId">*</span></label>
             <textarea
               v-model="clusterForm.kubeconfig"
               class="form-input form-textarea"
               rows="10"
-              :placeholder="editingClusterId ? '输入新的 kubeconfig 内容来更新（当前值已隐藏）' : '将 kubeconfig 文件内容粘贴到这里'"
+              :placeholder="editingClusterId ? '（可选）输入新的 kubeconfig 内容来更新，或留空保持不变' : '将 kubeconfig 文件内容粘贴到这里'"
             ></textarea>
             <p class="help-text">
-              <strong>⚠️ Kubeconfig 是敏感信息</strong>，系统加密存储。编辑时必须提供完整的新 kubeconfig 内容，当前值不显示。
+              <strong>⚠️ Kubeconfig 是敏感信息</strong>，系统加密存储。
+              <span v-if="editingClusterId">编辑时留空将保持当前配置不变，如需更新请输入完整的新 kubeconfig 内容。</span>
+              <span v-else>请提供完整的 kubeconfig 内容。</span>
               <br/>
               通常可以从 ~/.kube/config 获取，或从集群管理员获得。
               <br/>
-              <span v-if="editingClusterId && clusterForm.kubeconfig === undefined" style="color: #ff7d00;">
-                💡 提示：保存时将验证 Kubeconfig 连接性
+              <span v-if="editingClusterId" style="color: #ff7d00;">
+                💡 提示：如果修改了 Kubeconfig，保存时将自动验证连接性
               </span>
             </p>
           </div>
@@ -213,13 +246,15 @@
 import { ref, computed, onMounted } from 'vue'
 import { NButton, NDropdown } from 'naive-ui'
 import type { Application, Cluster } from '@/types/api'
-import { getClusters, createCluster, updateCluster, deleteCluster as apiDeleteCluster, getApplicationsByCluster } from '@/api/metadata'
+import { getClusters, createCluster, updateCluster, deleteCluster as apiDeleteCluster, getApplicationsByCluster, testClusterConnection } from '@/api/metadata'
 
 // State
 const searchQuery = ref('')
 const selectedClusterId = ref<number | string | null>(null)
 const clusterApplications = ref<Application[]>([])
 const loadingApplications = ref(false)
+const testingConnection = ref(false)
+const connectionTestMessage = ref('')
 
 const clusters = ref<Cluster[]>([])
 
@@ -254,6 +289,32 @@ const headerMenuOptions = computed(() => [
 const selectCluster = (cluster: Cluster) => {
   selectedClusterId.value = cluster.id
   loadApplicationsForCluster(cluster.id)
+  // Auto refresh connection status when viewing cluster details
+  refreshConnectionStatus(cluster.id)
+}
+
+const refreshConnectionStatus = async (clusterId: number | string) => {
+  testingConnection.value = true
+  connectionTestMessage.value = ''
+  try {
+    const result = await testClusterConnection(clusterId as number)
+    // Update the cluster connection status in the local state
+    const clusterIndex = clusters.value.findIndex(c => c.id === clusterId)
+    if (clusterIndex >= 0) {
+      clusters.value[clusterIndex].k8s_connection_status = result.status
+    }
+    // Show detailed message from backend
+    if (result.status === 'connected') {
+      connectionTestMessage.value = `✓ ${result.message || '连接正常'}`
+    } else {
+      connectionTestMessage.value = `✗ ${result.message || '连接失败'}`
+    }
+  } catch (error) {
+    console.error('Failed to test connection:', error)
+    connectionTestMessage.value = '✗ 测试失败'
+  } finally {
+    testingConnection.value = false
+  }
 }
 
 const loadApplicationsForCluster = async (clusterId: number | string) => {
@@ -311,15 +372,23 @@ const saveCluster = async () => {
     alert('请输入镜像仓库前缀')
     return
   }
-  if (!clusterForm.value.kubeconfig?.trim()) {
+  
+  // 创建时必须填写 kubeconfig，编辑时可选
+  if (!editingClusterId.value && !clusterForm.value.kubeconfig?.trim()) {
     alert('请输入 Kubeconfig 内容')
     return
   }
 
   try {
     if (editingClusterId.value) {
-      await updateCluster(editingClusterId.value as number, clusterForm.value)
+      // 编辑时：如果 kubeconfig 为空，则不发送该字段
+      const updateData = { ...clusterForm.value }
+      if (!updateData.kubeconfig?.trim()) {
+        delete updateData.kubeconfig
+      }
+      await updateCluster(editingClusterId.value as number, updateData)
     } else {
+      // 创建时：发送完整表单数据
       await createCluster(clusterForm.value)
     }
     await loadClusters()
@@ -678,31 +747,57 @@ onMounted(async () => {
 
 /* ============ Cluster-Specific Styles ============ */
 
-/* Status Badge */
-.status-badge {
+/* Connection Status Display */
+.connection-status-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 4px;
+}
+
+.connection-badge {
   padding: 4px 12px;
   border-radius: 0;
   font-weight: 600;
-  display: inline-block;
-  font-size: 14px;
+  font-size: 13px;
+  display: inline-flex;
+  align-items: center;
 }
 
-.status-badge.connected {
-  background: #f0f9ff;
-  color: #22863a;
-  border: 1px solid #22863a;
+.connection-badge.connected {
+  background: rgba(45, 134, 89, 0.08);
+  color: #2d8659;
 }
 
-.status-badge.disconnected {
-  background: #fff5f5;
-  color: #cb2431;
-  border: 1px solid #cb2431;
+.connection-badge.disconnected {
+  background: rgba(220, 53, 69, 0.08);
+  color: #dc3545;
 }
 
-.status-badge.unknown {
-  background: #fffbea;
-  color: #d79a3a;
-  border: 1px solid #d79a3a;
+.connection-badge.unknown {
+  background: rgba(255, 193, 7, 0.08);
+  color: #ffc107;
+}
+
+.connection-detail-message {
+  font-size: 12px;
+  font-weight: 500;
+  opacity: 0.85;
+  margin-top: 8px;
+  padding: 8px 12px;
+  background: rgba(0, 0, 0, 0.02);
+  border-left: 3px solid #999;
+  border-radius: 0;
+  word-break: break-all;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Courier New', monospace;
+  max-height: 60px;
+  overflow-y: auto;
+}
+
+.test-status {
+  font-size: 12px;
+  font-weight: 500;
+  opacity: 0.8;
 }
 
 /* Security Notice */
@@ -779,6 +874,46 @@ onMounted(async () => {
   color: #666;
   font-family: 'Courier New', monospace;
   word-break: break-all;
+}
+
+/* Detail Content & Sections */
+.detail-content {
+  padding: 24px;
+  overflow-y: auto;
+}
+
+.detail-section {
+  margin-bottom: 32px;
+}
+
+.detail-section h3 {
+  margin: 0 0 16px 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.section-header h3 {
+  margin: 0;
+  flex: 1;
+}
+
+.header-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.header-actions button {
+  white-space: nowrap;
 }
 
 @media (max-width: 1200px) {

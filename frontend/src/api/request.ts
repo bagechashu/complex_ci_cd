@@ -5,10 +5,10 @@
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios'
 import { APIResponse, ErrorCode } from '@/types/api'
 
-// 在开发模式下使用相对路径（通过Vite代理），生产模式下使用完整URL
+// 在开发模式下使用相对路径（通过Vite代理），生产模式下也使用相对路径（由nginx代理）
 const baseURL = import.meta.env.DEV 
   ? '/api'
-  : (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api')
+  : (import.meta.env.VITE_API_BASE_URL || '/api')
 
 // 创建 Axios 实例
 const request: AxiosInstance = axios.create({

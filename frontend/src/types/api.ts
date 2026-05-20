@@ -132,6 +132,7 @@ export interface Cluster {
   registry_prefix?: string
   kubeconfig?: string // K8s kubeconfig content (encrypted in database)
   labels?: string // Cluster labels
+  kubernetes_version?: string // e.g. "1.19.0", "1.23.6", "1.31.0"
   k8s_connection_status?: string // "connected" | "disconnected" | "unknown"
   created_at?: string
   updated_at?: string

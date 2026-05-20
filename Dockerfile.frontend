@@ -6,6 +6,7 @@ WORKDIR /app
 
 # Copy source code
 COPY frontend/ ./
+COPY .env.example ./.env
 
 # Install dependencies
 RUN npm i

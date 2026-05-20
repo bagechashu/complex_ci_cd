@@ -57,16 +57,21 @@ type ApplicationResponse struct {
 // === Cluster DTOs ===
 
 type CreateClusterRequest struct {
-	Name        string `json:"name" validate:"required,min=1,max=100"`
-	Type        string `json:"type" validate:"required,oneof=kubernetes"`
-	Kubeconfig  string `json:"kubeconfig" validate:"required"`
-	Description string `json:"description" validate:"max=500"`
+	Name              string `json:"name" validate:"required,min=1,max=100"`
+	Type              string `json:"type" validate:"required,oneof=kubernetes"`
+	Environment       string `json:"environment" validate:"max=100"`
+	RegistryPrefix    string `json:"registry_prefix" validate:"max=200"`
+	Labels            string `json:"labels" validate:"max=500"`
+	Kubeconfig        string `json:"kubeconfig" validate:"required"`
+	KubernetesVersion string `json:"kubernetes_version"` // 可选，K8s 版本号，如 "1.23.6"
+	Description       string `json:"description" validate:"max=500"`
 }
 
 type UpdateClusterRequest struct {
-	Name        string `json:"name" validate:"max=100"`
-	Kubeconfig  string `json:"kubeconfig"`
-	Description string `json:"description" validate:"max=500"`
+	Name                string `json:"name" validate:"max=100"`
+	Kubeconfig          string `json:"kubeconfig"` // 可选，如果为空字符串则不更新 kubeconfig
+	KubernetesVersion   string `json:"kubernetes_version"` // 可选，K8s 版本号，如 "1.23.6"
+	Description         string `json:"description" validate:"max=500"`
 }
 
 type ClusterResponse struct {

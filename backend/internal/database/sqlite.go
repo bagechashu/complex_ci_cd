@@ -74,6 +74,7 @@ func migrateSchemaV1(db *sql.DB) error {
 		registry_prefix TEXT DEFAULT '',
 		labels TEXT,
 		kubeconfig TEXT,
+		kubernetes_version TEXT DEFAULT NULL,
 		k8s_connection_status TEXT DEFAULT 'unknown',
 		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 		updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
