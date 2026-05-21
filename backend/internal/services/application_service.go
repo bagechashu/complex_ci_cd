@@ -108,11 +108,18 @@ func (s *ApplicationService) Create(ctx context.Context, req *handlers.CreateApp
 	if req.Name == "" {
 		return nil, errors.NewServiceError("INVALID_INPUT", "Application name is required")
 	}
+	if req.ImageName == "" {
+		return nil, errors.NewServiceError("INVALID_INPUT", "Image name is required")
+	}
 
 	// 创建应用
 	app := &models.Application{
 		Name:        req.Name,
-		ImageName:   req.Repository, // temporary
+		ImageName:   req.ImageName,
+		Owner:       "system", // 默认 owner
+		GitRepo:     stringPtr(req.GitRepo),
+		BuildType:   stringPtr(req.BuildType),
+		Description: stringPtr(req.Description),
 		CreatedAt:   time.Now(),
 		UpdatedAt:   time.Now(),
 	}
@@ -246,6 +253,18 @@ func (s *ApplicationService) UpdateApplication(ctx context.Context, appID int, r
 	if req.Name != "" {
 		app.Name = req.Name
 	}
+	if req.ImageName != "" {
+		app.ImageName = req.ImageName
+	}
+	if req.GitRepo != "" {
+		app.GitRepo = stringPtr(req.GitRepo)
+	}
+	if req.BuildType != "" {
+		app.BuildType = stringPtr(req.BuildType)
+	}
+	if req.Description != "" {
+		app.Description = stringPtr(req.Description)
+	}
 	app.UpdatedAt = time.Now()
 
 	// 持久化
@@ -307,4 +326,12 @@ func (s *ApplicationService) validateCreateRequest(req *handlers.CreateApplicati
 		return errors.NewServiceError("INVALID_INPUT", "Application name must be 1-100 characters")
 	}
 	return nil
+}
+
+// stringPtr 将字符串转换为指针，仅当字符串非空时返回指针
+func stringPtr(s string) *string {
+	if s == "" {
+		return nil
+	}
+	return &s
 }

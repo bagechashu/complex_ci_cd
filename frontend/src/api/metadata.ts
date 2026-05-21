@@ -51,6 +51,27 @@ export const getApplication = (appId: number): Promise<Application> => {
   return request.get(`/v1/applications/${appId}`)
 }
 
+/**
+ * 创建应用
+ */
+export const createApplication = (app: Partial<Application>): Promise<Application> => {
+  return request.post('/v1/applications', app)
+}
+
+/**
+ * 更新应用
+ */
+export const updateApplication = (appId: number, app: Partial<Application>): Promise<Application> => {
+  return request.put(`/v1/applications/${appId}`, app)
+}
+
+/**
+ * 删除应用
+ */
+export const deleteApplication = (appId: number): Promise<void> => {
+  return request.delete(`/v1/applications/${appId}`)
+}
+
 // ==================== 环境 ====================
 
 /**

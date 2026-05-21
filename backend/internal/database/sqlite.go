@@ -51,6 +51,7 @@ func migrateSchemaV1(db *sql.DB) error {
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		name TEXT NOT NULL UNIQUE,
 		image_name TEXT NOT NULL,
+		owner TEXT DEFAULT 'system',
 		git_repo TEXT,
 		build_type TEXT,
 		description TEXT,

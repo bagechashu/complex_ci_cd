@@ -32,6 +32,8 @@ func NewRouter(container *services.ServiceContainer, log *logger.Logger) http.Ha
     r.Route("/api/v1", func(r chi.Router) {
         r.Get("/applications", applications.List(container.Application(), log))
         r.Post("/applications", applications.Create(container.Application(), log))
+        r.Put("/applications/{id}", applications.Update(container.Application(), log))
+        r.Delete("/applications/{id}", applications.Delete(container.Application(), log))
         
         // Releases endpoints
         r.Get("/releases", releases.List(container.Release(), log))

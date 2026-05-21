@@ -37,9 +37,9 @@ import (
 )
 
 const (
-	sqApplicationInsert = "INSERT INTO application (name, image_name, git_repo, build_type, description, created_at, updated_at) VALUES (?,?,?,?,?,?,?)"
-	sqApplicationSelect = "SELECT id, name, image_name, git_repo, build_type, description, created_at, updated_at FROM application"
-	sqApplicationUpdate = "UPDATE application SET name=?, image_name=?, git_repo=?, build_type=?, description=?, updated_at=? WHERE id=?"
+	sqApplicationInsert = "INSERT INTO application (name, image_name, owner, git_repo, build_type, description, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?)"
+	sqApplicationSelect = "SELECT id, name, image_name, owner, git_repo, build_type, description, created_at, updated_at FROM application"
+	sqApplicationUpdate = "UPDATE application SET name=?, image_name=?, owner=?, git_repo=?, build_type=?, description=?, updated_at=? WHERE id=?"
 	sqApplicationDelete = "DELETE FROM application WHERE id=?"
 	sqApplicationCount  = "SELECT COUNT(*) FROM application"
 )
@@ -217,14 +217,25 @@ func (r *SQLiteApplicationRepository) Create(ctx context.Context, app *models.Ap
 	app.CreatedAt = now
 	app.UpdatedAt = now
 
-	_, err := r.db.ExecContext(ctx, sqApplicationInsert,
-		app.Name, app.ImageName, app.GitRepo, app.BuildType, app.Description, app.CreatedAt, app.UpdatedAt)
-	return err
+	result, err := r.db.ExecContext(ctx, sqApplicationInsert,
+		app.Name, app.ImageName, app.Owner, app.GitRepo, app.BuildType, app.Description, app.CreatedAt, app.UpdatedAt)
+	if err != nil {
+		return err
+	}
+
+	// Get the last inserted ID
+	id, err := result.LastInsertId()
+	if err != nil {
+		return err
+	}
+
+	app.ID = int(id)
+	return nil
 }
 
 func (r *SQLiteApplicationRepository) GetByID(ctx context.Context, id int) (*models.Application, error) {
 	var app models.Application
-	err := r.db.QueryRowContext(ctx, sqApplicationSelect+" WHERE id = ?", id).Scan(&app.ID, &app.Name, &app.ImageName, &app.GitRepo, &app.BuildType, &app.Description, &app.CreatedAt, &app.UpdatedAt)
+	err := r.db.QueryRowContext(ctx, sqApplicationSelect+" WHERE id = ?", id).Scan(&app.ID, &app.Name, &app.ImageName, &app.Owner, &app.GitRepo, &app.BuildType, &app.Description, &app.CreatedAt, &app.UpdatedAt)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, errors.New("application not found")
 	}
@@ -247,7 +258,7 @@ func (r *SQLiteApplicationRepository) List(ctx context.Context, offset, limit in
 	var apps []*models.Application
 	for rows.Next() {
 		var app models.Application
-		err := rows.Scan(&app.ID, &app.Name, &app.ImageName, &app.GitRepo, &app.BuildType, &app.Description, &app.CreatedAt, &app.UpdatedAt)
+		err := rows.Scan(&app.ID, &app.Name, &app.ImageName, &app.Owner, &app.GitRepo, &app.BuildType, &app.Description, &app.CreatedAt, &app.UpdatedAt)
 		if err != nil {
 			return nil, 0, err
 		}
@@ -300,7 +311,7 @@ func (r *SQLiteApplicationRepository) ListWithSearch(ctx context.Context, offset
 	var apps []*models.Application
 	for rows.Next() {
 		var app models.Application
-		err := rows.Scan(&app.ID, &app.Name, &app.ImageName, &app.GitRepo, &app.BuildType, &app.Description, &app.CreatedAt, &app.UpdatedAt)
+		err := rows.Scan(&app.ID, &app.Name, &app.ImageName, &app.Owner, &app.GitRepo, &app.BuildType, &app.Description, &app.CreatedAt, &app.UpdatedAt)
 		if err != nil {
 			return nil, 0, err
 		}
@@ -312,7 +323,7 @@ func (r *SQLiteApplicationRepository) ListWithSearch(ctx context.Context, offset
 func (r *SQLiteApplicationRepository) Update(ctx context.Context, app *models.Application) error {
 	app.UpdatedAt = time.Now()
 	_, err := r.db.ExecContext(ctx, sqApplicationUpdate,
-		app.Name, app.ImageName, app.GitRepo, app.BuildType, app.Description, app.UpdatedAt, app.ID)
+		app.Name, app.ImageName, app.Owner, app.GitRepo, app.BuildType, app.Description, app.UpdatedAt, app.ID)
 	return err
 }
 

@@ -32,15 +32,17 @@ type ErrorInfo struct {
 
 type CreateApplicationRequest struct {
 	Name        string `json:"name" validate:"required,min=1,max=100"`
-	Repository  string `json:"repository" validate:"required"`
-	BuildType   string `json:"build_type" validate:"required,oneof=docker helm"`
+	ImageName   string `json:"image_name" validate:"required"`
+	GitRepo     string `json:"git_repo"`
+	BuildType   string `json:"build_type" validate:"required,oneof=docker maven npm go other"`
 	Description string `json:"description" validate:"max=500"`
 }
 
 type UpdateApplicationRequest struct {
 	Name        string `json:"name" validate:"max=100"`
-	Repository  string `json:"repository"`
-	BuildType   string `json:"build_type" validate:"oneof=docker helm"`
+	ImageName   string `json:"image_name"`
+	GitRepo     string `json:"git_repo"`
+	BuildType   string `json:"build_type" validate:"oneof=docker maven npm go other"`
 	Description string `json:"description" validate:"max=500"`
 }
 

@@ -139,3 +139,69 @@ func List(appService *services.ApplicationService, log *logger.Logger) http.Hand
 		responses.SuccessResponse(w, data)
 	}
 }
+
+// Update handles PUT /applications/{id} request to update an application.
+//
+// @Summary Update Application
+// @Description Updates an existing application with the provided information
+// @Tags Applications
+// @Accept json
+// @Produce json
+// @Param id path int true "Application ID"
+// @Param request body handlers.UpdateApplicationRequest true "Update Application Request"
+// @Success 200 {object} models.Application "Application updated successfully"
+// @Failure 400 {object} responses.ErrorResponse "Invalid request body"
+// @Failure 404 {object} responses.ErrorResponse "Application not found"
+// @Failure 500 {object} responses.ErrorResponse "Internal server error"
+// @Router /applications/{id} [put]
+func Update(appService *services.ApplicationService, log *logger.Logger) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		idStr := r.PathValue("id")
+		id, err := strconv.Atoi(idStr)
+		if err != nil {
+			responses.BadRequestResponse(w, "invalid application id")
+			return
+		}
+
+		var req handlers.UpdateApplicationRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			responses.BadRequestResponse(w, "invalid request body")
+			return
+		}
+
+		app, err := appService.UpdateApplication(r.Context(), id, &req)
+		if err != nil {
+			responses.InternalErrorResponse(w, err.Error())
+			return
+		}
+		responses.SuccessResponse(w, app)
+	}
+}
+
+// Delete handles DELETE /applications/{id} request to delete an application.
+//
+// @Summary Delete Application
+// @Description Deletes an existing application
+// @Tags Applications
+// @Param id path int true "Application ID"
+// @Success 200 {object} map[string]string "Application deleted successfully"
+// @Failure 400 {object} responses.ErrorResponse "Invalid request"
+// @Failure 404 {object} responses.ErrorResponse "Application not found"
+// @Failure 500 {object} responses.ErrorResponse "Internal server error"
+// @Router /applications/{id} [delete]
+func Delete(appService *services.ApplicationService, log *logger.Logger) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		id, err := strconv.Atoi(r.PathValue("id"))
+		if err != nil {
+			responses.BadRequestResponse(w, "invalid application id")
+			return
+		}
+
+		err = appService.DeleteApplication(r.Context(), id)
+		if err != nil {
+			responses.InternalErrorResponse(w, err.Error())
+			return
+		}
+		responses.SuccessResponse(w, map[string]string{"message": "Application deleted successfully"})
+	}
+}

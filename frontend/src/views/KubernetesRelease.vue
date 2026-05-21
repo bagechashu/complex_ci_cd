@@ -120,7 +120,7 @@
                 <span class="code">{{ selectedApplication.image_name }}</span>
               </div>
               <div class="info-item">
-                <label>仓库地址:</label>
+                <label>Git 地址:</label>
                 <span class="code">{{ selectedApplication.git_repo }}</span>
               </div>
               <div class="info-item">
@@ -249,7 +249,7 @@
           </div>
 
           <div class="form-group">
-            <label>仓库地址</label>
+            <label>Git 地址</label>
             <input
               v-model="applicationForm.git_repo"
               type="text"
@@ -592,7 +592,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
 import { NButton, NDropdown } from 'naive-ui'
-import { getApplications, getClusters, createRelease } from '@/api/metadata'
+import { getApplications, getClusters, createRelease, createApplication, updateApplication } from '@/api/metadata'
 import {
   getClusterMappingsByApp,
   createClusterMapping,
@@ -749,13 +749,37 @@ const closeApplicationModal = () => {
 
 const saveApplication = async () => {
   try {
-    // Applications might need special handling for create vs update
-    // For now, just log the action
+    if (!applicationForm.value.name?.trim()) {
+      alert('请输入应用名称')
+      return
+    }
+    if (!applicationForm.value.image_name?.trim()) {
+      alert('请输入镜像名称')
+      return
+    }
+    if (!applicationForm.value.build_type) {
+      alert('请选择构建类型')
+      return
+    }
+
+    let savedApp
+    if (editingApplicationId.value) {
+      // Update existing application
+      savedApp = await updateApplication(editingApplicationId.value, applicationForm.value)
+    } else {
+      // Create new application
+      savedApp = await createApplication(applicationForm.value)
+    }
+
+    // Refresh applications list
+    const response = await getApplications()
+    applications.value = response.data || []
+
     alert('应用信息已保存')
     closeApplicationModal()
   } catch (error) {
     console.error('Failed to save application:', error)
-    alert('保存应用失败')
+    alert('保存应用失败: ' + (error instanceof Error ? error.message : '未知错误'))
   }
 }
 
