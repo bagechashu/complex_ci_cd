@@ -38,11 +38,23 @@ func (r *SQLiteWorkloadTargetRepository) Create(target *models.WorkloadTarget) (
     target.CreatedAt = now
     target.UpdatedAt = now
 
-    // Using dummy environmental ID for now
-    envID := 1
+    // Prepare container_name, registry_domain, image_repo values
+    var containerName *string
+    var registryDomain *string
+    var imageRepo *string
+    
+    if target.ContainerName != nil {
+        containerName = target.ContainerName
+    }
+    if target.RegistryDomain != nil {
+        registryDomain = target.RegistryDomain
+    }
+    if target.ImageRepo != nil {
+        imageRepo = target.ImageRepo
+    }
 
     res, err := r.db.Exec(sqWorkloadTargetInsert,
-        target.AppID, envID, target.ClusterID, target.K8sNamespace, "", "", "", "", "", "", target.CreatedAt, target.UpdatedAt)
+        target.AppID, target.EnvID, target.ClusterID, target.K8sNamespace, target.K8sWorkload, containerName, registryDomain, imageRepo, target.WorkloadType, target.WorkloadName, target.CreatedAt, target.UpdatedAt)
     if err != nil {
         return nil, err
     }
@@ -148,9 +160,24 @@ func (r *SQLiteWorkloadTargetRepository) List(limit, offset int) ([]*models.Work
 
 func (r *SQLiteWorkloadTargetRepository) Update(target *models.WorkloadTarget) error {
     target.UpdatedAt = time.Now()
-    envID := 1
+    
+    // Prepare container_name, registry_domain, image_repo values
+    var containerName *string
+    var registryDomain *string
+    var imageRepo *string
+    
+    if target.ContainerName != nil {
+        containerName = target.ContainerName
+    }
+    if target.RegistryDomain != nil {
+        registryDomain = target.RegistryDomain
+    }
+    if target.ImageRepo != nil {
+        imageRepo = target.ImageRepo
+    }
+
     _, err := r.db.Exec(sqWorkloadTargetUpdate,
-        target.AppID, envID, target.ClusterID, target.K8sNamespace, "", "", "", "", "", "", target.UpdatedAt, target.ID)
+        target.AppID, target.EnvID, target.ClusterID, target.K8sNamespace, target.K8sWorkload, containerName, registryDomain, imageRepo, target.WorkloadType, target.WorkloadName, target.UpdatedAt, target.ID)
     return err
 }
 

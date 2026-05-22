@@ -53,6 +53,9 @@ func NewRouter(container *services.ServiceContainer, log *logger.Logger) http.Ha
         r.Get("/workload-targets", workloads.ListWorkloadTargetsHandler(container.Workload(), log))
         r.Post("/workload-targets", workloads.CreateWorkloadTargetHandler(container.Workload(), log))
         r.Get("/workload-targets/by-app/{id}", workloads.GetAppClusterConfigsByAppHandler(container.Workload(), log))
+        r.Get("/workload-targets/{id}/pods", workloads.GetWorkloadPodsHandler(container.WorkloadRepo(), container.ClusterRepo(), container.EncryptionKey(), log))
+        r.Put("/workload-targets/{id}", workloads.UpdateWorkloadTargetHandler(container.Workload(), log))
+        r.Delete("/workload-targets/{id}", workloads.DeleteWorkloadTargetHandler(container.Workload(), log))
 
         // Shell Servers endpoints
         r.Get("/shell-servers", shell_servers.ListShellServersHandler(container.ShellServerRepo(), log))

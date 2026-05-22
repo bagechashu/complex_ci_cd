@@ -6,6 +6,7 @@ import (
 
 	"built-and-deploy/internal/models"
 	"built-and-deploy/internal/repository"
+	"built-and-deploy/pkg/errors"
 	"built-and-deploy/pkg/logger"
 )
 
@@ -157,7 +158,7 @@ func (s *WorkloadService) ListWorkloadTargetsByApp(ctx context.Context, appID in
 	return targets, nil
 }
 
-// enrichClusterName enriches a workload target with cluster name from the cluster repository.
+// enrichClusterName enriches a workload target with cluster information (name, environment, registry_prefix).
 //
 // Parameters:
 //   - ctx: Context for cancellation and deadline
@@ -167,8 +168,10 @@ func (s *WorkloadService) ListWorkloadTargetsByApp(ctx context.Context, appID in
 //   - error: Non-nil if enrichment fails
 //
 // Note:
-//   - If enrichment fails, the target is returned without cluster name
-//   - This is a best-effort operation
+//   - Sets ClusterName from cluster.Name
+//   - Sets Environment from cluster.Environment (the actual K8s cluster environment, e.g., "dev", "staging", "prod")
+//   - Sets RegistryPrefix from cluster.RegistryPrefix (for constructing full image URIs)
+//   - This is a best-effort operation; if enrichment fails, the target is returned without these fields
 func (s *WorkloadService) enrichClusterName(ctx context.Context, target *models.WorkloadTarget) error {
 	if s.clusterRepo == nil {
 		return nil // No cluster repo available, skip enrichment
@@ -181,35 +184,17 @@ func (s *WorkloadService) enrichClusterName(ctx context.Context, target *models.
 	
 	if cluster != nil {
 		target.ClusterName = cluster.Name
+		target.Environment = cluster.Environment
+		target.RegistryPrefix = cluster.RegistryPrefix
 	}
 	return nil
 }
 
-// enrichEnvironment enriches a workload target with environment name from the environment repository.
+// enrichEnvironment is now a wrapper that calls enrichClusterName for backward compatibility.
 //
-// Parameters:
-//   - ctx: Context for cancellation and deadline
-//   - target: The workload target to enrich
-//
-// Returns:
-//   - error: Non-nil if enrichment fails
-//
-// Note:
-//   - If enrichment fails, the target is returned without environment name
-//   - This is a best-effort operation
+// Deprecated: Use enrichClusterName instead, which handles all cluster-related enrichment.
 func (s *WorkloadService) enrichEnvironment(ctx context.Context, target *models.WorkloadTarget) error {
-	if s.envRepo == nil {
-		return nil // No environment repo available, skip enrichment
-	}
-	
-	env, err := s.envRepo.GetByID(target.EnvID)
-	if err != nil {
-		return err
-	}
-	
-	if env != nil {
-		target.Environment = env.Name
-	}
+	// enrichClusterName now handles both environment and registry_prefix, so this is redundant
 	return nil
 }
 
@@ -265,8 +250,38 @@ func (s *WorkloadService) GetWorkloadTarget(ctx context.Context, id int) (*model
 //	    log.Error("Failed to create workload", "error", err)
 //	}
 func (s *WorkloadService) CreateWorkloadTarget(ctx context.Context, req interface{}) (*models.WorkloadTarget, error) {
-	// Simplified stub implementation
-	return nil, nil
+	// Parse the request into a WorkloadTarget
+	var target *models.WorkloadTarget
+	
+	// If req is already a WorkloadTarget, use it
+	if wt, ok := req.(*models.WorkloadTarget); ok {
+		target = wt
+	} else {
+		return nil, errors.NewServiceError("INVALID_REQUEST", "Invalid request format")
+	}
+	
+	// Validate required fields
+	if target.AppID == 0 || target.EnvID == 0 || target.ClusterID == 0 {
+		return nil, errors.NewServiceError("MISSING_REQUIRED_FIELD", "AppID, EnvID, and ClusterID are required")
+	}
+	if target.K8sNamespace == "" || target.WorkloadType == "" || target.WorkloadName == "" {
+		return nil, errors.NewServiceError("MISSING_REQUIRED_FIELD", "K8sNamespace, WorkloadType, and WorkloadName are required")
+	}
+	
+	// Generate K8sWorkload if not provided
+	if target.K8sWorkload == "" {
+		target.K8sWorkload = target.WorkloadName + "-" + target.WorkloadType
+	}
+	
+	// Create the workload target in the repository
+	created, err := s.workloadRepo.Create(target)
+	if err != nil {
+		s.log.Error("Failed to create workload target", "error", err, "appID", target.AppID, "clusterID", target.ClusterID)
+		return nil, errors.NewServiceErrorWithCause("CREATE_FAILED", "Failed to create workload target", err)
+	}
+	
+	s.log.Info("Successfully created workload target", "id", created.ID, "appID", target.AppID, "clusterID", target.ClusterID)
+	return created, nil
 }
 
 // UpdateWorkloadTarget modifies an existing workload target.
@@ -290,8 +305,41 @@ func (s *WorkloadService) CreateWorkloadTarget(ctx context.Context, req interfac
 //	    log.Error("Failed to update workload", "error", err)
 //	}
 func (s *WorkloadService) UpdateWorkloadTarget(ctx context.Context, id int, req interface{}) (*models.WorkloadTarget, error) {
-	// Simplified stub implementation
-	return nil, nil
+	// Parse the request into a WorkloadTarget
+	var target *models.WorkloadTarget
+	
+	// If req is already a WorkloadTarget, use it
+	if wt, ok := req.(*models.WorkloadTarget); ok {
+		target = wt
+	} else {
+		return nil, errors.NewServiceError("INVALID_REQUEST", "Invalid request format")
+	}
+	
+	// Set the ID
+	target.ID = id
+	
+	// Validate required fields
+	if target.AppID == 0 || target.EnvID == 0 || target.ClusterID == 0 {
+		return nil, errors.NewServiceError("MISSING_REQUIRED_FIELD", "AppID, EnvID, and ClusterID are required")
+	}
+	if target.K8sNamespace == "" || target.WorkloadType == "" || target.WorkloadName == "" {
+		return nil, errors.NewServiceError("MISSING_REQUIRED_FIELD", "K8sNamespace, WorkloadType, and WorkloadName are required")
+	}
+	
+	// Generate K8sWorkload if not provided
+	if target.K8sWorkload == "" {
+		target.K8sWorkload = target.WorkloadName + "-" + target.WorkloadType
+	}
+	
+	// Update the workload target in the repository
+	err := s.workloadRepo.Update(target)
+	if err != nil {
+		s.log.Error("Failed to update workload target", "error", err, "id", id, "appID", target.AppID)
+		return nil, errors.NewServiceErrorWithCause("UPDATE_FAILED", "Failed to update workload target", err)
+	}
+	
+	s.log.Info("Successfully updated workload target", "id", id, "appID", target.AppID)
+	return target, nil
 }
 
 // DeleteWorkloadTarget removes a workload target from the system.
@@ -313,6 +361,13 @@ func (s *WorkloadService) UpdateWorkloadTarget(ctx context.Context, id int, req 
 //	    log.Error("Failed to delete workload", "error", err)
 //	}
 func (s *WorkloadService) DeleteWorkloadTarget(ctx context.Context, id int) error {
-	// Simplified stub implementation
+	// Delete the workload target from the repository
+	err := s.workloadRepo.Delete(id)
+	if err != nil {
+		s.log.Error("Failed to delete workload target", "error", err, "id", id)
+		return errors.NewServiceErrorWithCause("DELETE_FAILED", "Failed to delete workload target", err)
+	}
+	
+	s.log.Info("Successfully deleted workload target", "id", id)
 	return nil
 }

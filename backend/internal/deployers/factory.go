@@ -8,11 +8,15 @@ import (
 
 // DeployerFactory creates deployers based on type
 type DeployerFactory struct {
-	log *logger.Logger
+	log            *logger.Logger
+	encryptionKey  string
 }
 
-func NewDeployerFactory(log *logger.Logger) *DeployerFactory {
-	return &DeployerFactory{log: log}
+func NewDeployerFactory(log *logger.Logger, encryptionKey string) *DeployerFactory {
+	return &DeployerFactory{
+		log:           log,
+		encryptionKey: encryptionKey,
+	}
 }
 
 // CreateDeployer creates a deployer based on cluster type
@@ -21,7 +25,7 @@ func NewDeployerFactory(log *logger.Logger) *DeployerFactory {
 func (f *DeployerFactory) CreateDeployer(clusterType string) (DeployStrategy, error) {
 	switch clusterType {
 	case "kubernetes":
-		return NewK8sDeployer(f.log), nil
+		return NewK8sDeployer(f.log, f.encryptionKey), nil
 	default:
 		return nil, fmt.Errorf("unsupported cluster type: %s (only 'kubernetes' is supported; use shell execution for other methods)", clusterType)
 	}

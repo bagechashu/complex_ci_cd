@@ -62,7 +62,10 @@
       v-model:show="showDetailModal"
       title="发布详情"
       preset="dialog"
-      size="large"
+      :style="{
+        width: '90vw',
+        maxWidth: '1200px'
+      }"
       :show-icon="false"
     >
       <div v-if="selectedRelease" class="detail-content">
@@ -354,23 +357,35 @@ onMounted(async () => {
 <style scoped>
 /* ============ Release History-Specific Styles ============ */
 
+/* 详情内容容器 */
+.detail-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px;
+  max-height: 70vh;
+}
+
 /* 事件列表容器 */
 .events {
   background-color: var(--color-bg-card);
-  border-radius: 0;
-  padding: 12px;
-  margin-top: 12px;
-  max-height: 300px;
+  border-radius: 4px;
+  padding: 16px 12px;
+  margin-top: 16px;
+  border: 1px solid var(--color-border);
+  max-height: 400px;
   overflow-y: auto;
 }
 
 /* 事件项 */
 .event {
-  display: flex;
-  gap: 12px;
-  padding: 8px 0;
+  display: grid;
+  grid-template-columns: 120px 180px 1fr;
+  gap: 16px;
+  padding: 12px 8px;
   font-size: 13px;
   border-bottom: 1px solid var(--color-border);
+  align-items: flex-start;
+  word-break: break-word;
 }
 
 .event:last-child {
@@ -379,19 +394,26 @@ onMounted(async () => {
 
 .event .time {
   color: var(--color-text-muted);
-  min-width: 70px;
-  font-family: monospace;
+  font-family: 'Courier New', monospace;
+  flex-shrink: 0;
+  min-width: 120px;
 }
 
 .event .type {
   color: var(--color-primary);
   font-weight: 600;
-  min-width: 100px;
+  flex-shrink: 0;
+  min-width: 180px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .event .message {
   flex: 1;
   color: var(--color-text-primary);
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 .no-events {

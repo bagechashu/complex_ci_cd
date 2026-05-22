@@ -644,3 +644,130 @@
     padding: 16px;
   }
 }
+
+/* ============ Pods List Styles ============ */
+.pods-section {
+  margin-top: 12px;
+  background: var(--color-bg-light);
+  border: 1px solid var(--color-border);
+  border-radius: 0;
+  padding: 0;
+}
+
+.pods-header {
+  padding: 8px 12px;
+  background: var(--color-bg-medium);
+  border-bottom: 1px solid var(--color-border);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.pods-list {
+  padding: 0;
+}
+
+.pod-item {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--color-border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.pod-item:last-child {
+  border-bottom: none;
+}
+
+.pod-name {
+  font-size: 12px;
+  font-family: 'Courier New', monospace;
+  color: var(--color-primary);
+  font-weight: 500;
+  flex-shrink: 0;
+  margin-right: 16px;
+}
+
+.pod-info {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex: 1;
+  font-size: 11px;
+  color: var(--color-text-secondary);
+  flex-wrap: wrap;
+}
+
+.pod-status {
+  padding: 2px 6px;
+  border-radius: 0;
+  font-weight: 500;
+  font-size: 11px;
+}
+
+.pod-status.running {
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+}
+
+.pod-status.pending {
+  background: rgba(255, 152, 0, 0.12);
+  color: #f57c00;
+}
+
+.pod-status.failed {
+  background: rgba(230, 57, 70, 0.12);
+  color: var(--color-error);
+}
+
+.pod-status.succeeded {
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+}
+
+.pod-detail {
+  white-space: nowrap;
+  color: var(--color-text-muted);
+}
+
+.pod-image {
+  background: var(--color-bg-light);
+  padding: 2px 6px;
+  border-radius: 0;
+  color: var(--color-text-secondary);
+  font-family: 'Courier New', monospace;
+  font-size: 10px;
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.empty-pods {
+  padding: 12px;
+  text-align: center;
+  color: var(--color-text-muted);
+  font-size: 12px;
+  background: var(--color-bg-card);
+}
+
+/* ============ Workload Details ============ */
+.separator {
+  margin: 0 8px;
+  color: #ccc;
+}
+
+.namespace-code,
+.workload-name {
+  background: var(--color-bg-light);
+  padding: 2px 6px;
+  border-radius: 0;
+  color: var(--color-primary) !important;
+  font-weight: 500;
+  font-family: 'Courier New', monospace;
+}
+
+.workload-type {
+  color: var(--color-primary);
+  font-weight: 600;
+}

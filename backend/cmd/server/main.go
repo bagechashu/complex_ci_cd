@@ -82,6 +82,7 @@ func main() {
 	// Service Container with functional options
 	container, err := services.NewServiceContainer(
 		db, log,
+		services.WithEncryptionKey(encryptionKey),
 		services.WithApplicationRepository(appRepo),
 		services.WithClusterRepository(clusterRepo),
 		services.WithReleaseRepository(releaseRepo),

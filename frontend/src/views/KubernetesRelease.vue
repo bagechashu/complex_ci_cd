@@ -189,17 +189,50 @@
 
                 <div class="mapping-details">
                   <div class="detail-line">
-                    <strong>Namespace:</strong> <code>{{ mapping.k8s_namespace }}</code>
+                    <n-tooltip :show-arrow="true" trigger="hover" :delay="200" :duration="0">
+                      <template #trigger>
+                        <code class="namespace-code">{{ mapping.k8s_namespace }}</code>
+                      </template>
+                      Namespace: {{ mapping.k8s_namespace }}
+                    </n-tooltip>
+                    <span class="separator">|</span>
+                    <strong class="workload-type">{{ mapping.workload_type }}</strong>
+                    <span class="separator">|</span>
+                    <n-tooltip :show-arrow="true" trigger="hover" :delay="200" :duration="0">
+                      <template #trigger>
+                        <code class="workload-name">{{ mapping.workload_name }}</code>
+                      </template>
+                      Workload: {{ mapping.workload_name }}
+                    </n-tooltip>
                   </div>
-                  <div class="detail-line">
-                    <strong>工作负载类型:</strong> {{ mapping.workload_type }}
+                  
+                  <!-- Pods list -->
+                  <div class="pods-section" v-if="mapping.pods && mapping.pods.length > 0">
+                    <div class="pods-header">Pod列表</div>
+                    <div class="pods-list">
+                      <div v-for="pod in mapping.pods" :key="pod.name" class="pod-item">
+                        <div class="pod-name">{{ pod.name }}</div>
+                        <div class="pod-info">
+                          <n-tooltip :show-arrow="true" trigger="hover" :delay="200" :duration="0">
+                            <template #trigger>
+                              <span :class="['pod-status', pod.status.toLowerCase()]">{{ pod.status }}</span>
+                            </template>
+                            Status: {{ pod.status }}
+                          </n-tooltip>
+                          <span class="pod-detail">Ready: {{ pod.ready_containers }}/{{ pod.container_count }}</span>
+                          <span class="pod-detail">Restarts: {{ pod.restart_count }}</span>
+                          <span class="pod-detail">{{ formatDate(pod.created_at) }}</span>
+                          <n-tooltip :show-arrow="true" trigger="hover" :delay="200" :duration="0">
+                            <template #trigger>
+                              <span class="pod-image">{{ extractImageTag(pod.image) }}</span>
+                            </template>
+                            {{ pod.image }}
+                          </n-tooltip>
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                  <div class="detail-line">
-                    <strong>工作负载名称:</strong> <code>{{ mapping.workload_name }}</code>
-                  </div>
-                  <div class="detail-line">
-                    <strong>当前镜像:</strong> <code>{{ mapping.current_image || '未配置' }}</code>
-                  </div>
+                  <div v-else class="empty-pods">暂无 Pod 数据</div>
                 </div>
               </div>
             </div>
@@ -591,7 +624,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
-import { NButton, NDropdown } from 'naive-ui'
+import { NButton, NDropdown, NTooltip, NTag, NSpace } from 'naive-ui'
 import { getApplications, getClusters, createRelease, createApplication, updateApplication } from '@/api/metadata'
 import {
   getClusterMappingsByApp,
@@ -715,17 +748,75 @@ const selectApplication = async (app: Application) => {
   selectedApplicationId.value = app.id
   // Use pre-loaded mappings if available, otherwise fetch
   if (allMappingsByApp.value[app.id] && allMappingsByApp.value[app.id].length > 0) {
-    clusterMappings.value = allMappingsByApp.value[app.id]
+    const cachedMappings = allMappingsByApp.value[app.id]
+    clusterMappings.value = cachedMappings
+    // Load pods for cached mappings too (they might have been cleared)
+    for (const mapping of cachedMappings) {
+      if (!mapping.pods || mapping.pods.length === 0) {
+        await loadPodsForMapping(mapping)
+      }
+    }
   } else {
     try {
-      const mappings = await getClusterMappingsByApp(app.id)
+      let mappings = await getClusterMappingsByApp(app.id)
       clusterMappings.value = mappings
+      
+      // Load pods for each mapping
+      for (const mapping of mappings) {
+        await loadPodsForMapping(mapping)
+      }
+      
       allMappingsByApp.value[app.id] = mappings
     } catch (error) {
       console.error('Failed to load cluster mappings:', error)
       clusterMappings.value = []
     }
   }
+}
+
+// Load pods for a specific mapping and trigger reactive update
+const loadPodsForMapping = async (mapping: WorkloadTarget) => {
+  try {
+    const response = await fetch(`/api/v1/workload-targets/${mapping.id}/pods`)
+    if (!response.ok) {
+      console.warn(`Failed to load pods for mapping ${mapping.id}`)
+      mapping.pods = []
+      return
+    }
+    const data = await response.json()
+    mapping.pods = data.data || []
+    // Trigger reactive update by reassigning the entire array
+    clusterMappings.value = [...clusterMappings.value]
+  } catch (error) {
+    console.error(`Failed to load pods for mapping ${mapping.id}:`, error)
+    mapping.pods = []
+  }
+}
+
+// Format date for display
+const formatDate = (dateString: string | Date) => {
+  if (!dateString) return '-'
+  const date = new Date(dateString)
+  const now = new Date()
+  const diffMs = now.getTime() - date.getTime()
+  const diffMins = Math.floor(diffMs / (1000 * 60))
+  const diffHours = Math.floor(diffMs / (1000 * 60 * 60))
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
+  
+  if (diffMins < 1) return '刚刚'
+  if (diffMins < 60) return `${diffMins}分钟前`
+  if (diffHours < 24) return `${diffHours}小时前`
+  if (diffDays < 7) return `${diffDays}天前`
+  
+  return date.toLocaleDateString('zh-CN')
+}
+
+// Extract image tag from full image URL
+const extractImageTag = (image: string) => {
+  if (!image) return '-'
+  // Extract tag from image URL (last part after the last slash)
+  const parts = image.split('/')
+  return parts[parts.length - 1]
 }
 
 const openCreateApplicationModal = () => {
@@ -908,12 +999,15 @@ const confirmRelease = async () => {
       return
     }
     
+    // Construct full image URI: registry_prefix/image_name:image_tag
+    const fullImage = `${releaseInfo.value.registry_prefix}/${selectedApplication.value.image_name}:${releaseForm.value.image_tag}`
+    
     await createRelease({
       app_id: selectedApplication.value.id,
       cluster_id: releaseInfo.value.cluster_id,
       env_id: envId,
-      image_tag: releaseForm.value.image_tag,
-      dryRun: releaseForm.value.dryRun
+      image: fullImage,
+      user: 'current-user'
     })
     
     alert('发布已提交')

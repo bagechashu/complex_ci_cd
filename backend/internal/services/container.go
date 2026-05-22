@@ -27,9 +27,10 @@ type ServiceContainer struct {
 	shellCommandRepo           repository.ShellCommandRepository
 	shellCommandExecutionRepo     repository.ShellCommandExecutionRepository
 
-	deployerFact *deployers.DeployerFactory
-	log          *logger.Logger
-	db           *sql.DB
+	deployerFact  *deployers.DeployerFactory
+	log           *logger.Logger
+	db            *sql.DB
+	encryptionKey string
 }
 
 // Option is a functional option for ServiceContainer
@@ -44,7 +45,9 @@ func NewServiceContainer(
 	c := &ServiceContainer{
 		log: log,
 		db:  db,
-		deployerFact: deployers.NewDeployerFactory(log),
+		// encryptionKey: MUST be set via WithEncryptionKey option, no default value
+		// This ensures kubeconfig encryption/decryption uses the configured key, not a hardcoded fallback
+		encryptionKey: "",
 	}
 
 	// Apply all options
@@ -53,6 +56,15 @@ func NewServiceContainer(
 			return nil, fmt.Errorf("applying option: %w", err)
 		}
 	}
+
+	// ✅ ENFORCE: encryptionKey must be explicitly set via WithEncryptionKey option
+	// This prevents accidental usage of a hardcoded default key
+	if c.encryptionKey == "" {
+		return nil, fmt.Errorf("encryption key is required and must be set via WithEncryptionKey option - ensure ENCRYPTION_KEY environment variable is configured")
+	}
+
+	// Create DeployerFactory with encryption key
+	c.deployerFact = deployers.NewDeployerFactory(log, c.encryptionKey)
 
 	// Validate that all required repositories are set
 	if err := c.validate(); err != nil {
@@ -67,7 +79,7 @@ func NewServiceContainer(
 
 	// ClusterService
 	if c.clusterRepo != nil {
-		c.clusterService = NewClusterService(c.clusterRepo, c.deployerFact, "default-key", log)
+		c.clusterService = NewClusterService(c.clusterRepo, c.deployerFact, c.encryptionKey, log)
 	}
 
 	// ReleaseService - 新增
@@ -80,8 +92,7 @@ func NewServiceContainer(
 
 	// ShellService
 	if c.shellServerRepo != nil && c.shellCommandRepo != nil && c.shellCommandExecutionRepo != nil {
-		encryptionKey := "default-key" // This should be passed as option
-		c.shellService = NewShellService(c.shellServerRepo, c.shellCommandRepo, c.shellCommandExecutionRepo, encryptionKey, log)
+		c.shellService = NewShellService(c.shellServerRepo, c.shellCommandRepo, c.shellCommandExecutionRepo, c.encryptionKey, log)
 	}
 
 	return c, nil
@@ -217,6 +228,17 @@ func WithEnvironmentRepository(repo *repository.EnvironmentRepository) Option {
 	}
 }
 
+// WithEncryptionKey sets the encryption key for sensitive data
+func WithEncryptionKey(key string) Option {
+	return func(c *ServiceContainer) error {
+		if key == "" {
+			return fmt.Errorf("encryption key cannot be empty")
+		}
+		c.encryptionKey = key
+		return nil
+	}
+}
+
 // Getter methods
 
 func (c *ServiceContainer) Application() *ApplicationService { return c.applicationService }
@@ -236,5 +258,6 @@ func (c *ServiceContainer) ShellServerRepo() repository.ShellServerRepository { 
 func (c *ServiceContainer) ShellCommandRepo() repository.ShellCommandRepository { return c.shellCommandRepo }
 func (c *ServiceContainer) ShellCommandExecutionRepo() repository.ShellCommandExecutionRepository { return c.shellCommandExecutionRepo }
 func (c *ServiceContainer) Logger() *logger.Logger { return c.log }
+func (c *ServiceContainer) EncryptionKey() string { return c.encryptionKey }
 func (c *ServiceContainer) DB() *sql.DB { return c.db }
 func (c *ServiceContainer) DeployerFactory() *deployers.DeployerFactory { return c.deployerFact }

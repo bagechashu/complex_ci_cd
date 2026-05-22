@@ -127,10 +127,11 @@ type WorkloadTargetResponse struct {
 // === Release DTOs ===
 
 type CreateReleaseRequest struct {
-	AppID     string `json:"app_id" validate:"required"`
-	EnvID     string `json:"env_id" validate:"required"`
-	ClusterID string `json:"cluster_id" validate:"required"`
+	AppID     int    `json:"app_id" validate:"required,gt=0"`
+	EnvID     int    `json:"env_id" validate:"required,gt=0"`
+	ClusterID int    `json:"cluster_id" validate:"required,gt=0"`
 	Image     string `json:"image" validate:"required"`
+	User      string `json:"user" validate:"omitempty"`
 }
 
 type ReleaseStatusResponse struct {

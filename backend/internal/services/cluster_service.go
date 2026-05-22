@@ -3,11 +3,7 @@ package services
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
-
-	"k8s.io/client-go/discovery"
-	"k8s.io/client-go/tools/clientcmd"
 
 	"built-and-deploy/internal/deployers"
 	"built-and-deploy/internal/models"
@@ -360,68 +356,22 @@ func (s *ClusterService) TestConnection(ctx context.Context, id int) (*TestConne
 		}, nil
 	}
 
-	// Try to connect to K8s API
-	result := s.validateK8sConnection(decryptedKubeconfig, cluster.KubernetesVersion)
-	return result, nil
-}
-
-// validateK8sConnection attempts to connect to the K8s API server using client-go.
-// This method properly handles authentication from kubeconfig (tokens, certificates, etc.)
-// It also adjusts timeout based on Kubernetes version for better compatibility.
-// Returns TestConnectionResult with detailed status and message.
-func (s *ClusterService) validateK8sConnection(kubeconfigContent string, k8sVersion *string) *TestConnectionResult {
-	// 1. Load REST config from kubeconfig content
-	restConfig, err := clientcmd.RESTConfigFromKubeConfig([]byte(kubeconfigContent))
+	// Try to connect to K8s API using shared utils function
+	err = utils.ValidateK8sConnection(decryptedKubeconfig, cluster.KubernetesVersion)
 	if err != nil {
-		errMsg := fmt.Sprintf("Failed to parse kubeconfig: %v", err)
+		errMsg := fmt.Sprintf("Failed to validate K8s connection: %v", err)
 		s.log.Warn(errMsg)
 		return &TestConnectionResult{
 			Status:  "disconnected",
 			Message: errMsg,
-		}
-	}
-
-	// 2. Set timeout based on Kubernetes version
-	// Older K8s versions (1.19, 1.20) might respond slower due to network latency
-	timeout := 15 * time.Second
-	if k8sVersion != nil && *k8sVersion != "" {
-		s.log.Info("Validating connection with K8s version info", "version", *k8sVersion)
-		// For older K8s versions, use longer timeout
-		if strings.HasPrefix(*k8sVersion, "1.19") || strings.HasPrefix(*k8sVersion, "1.20") {
-			timeout = 25 * time.Second
-		} else if strings.HasPrefix(*k8sVersion, "1.21") || strings.HasPrefix(*k8sVersion, "1.22") {
-			timeout = 20 * time.Second
-		}
-	}
-	restConfig.Timeout = timeout
-
-	// 3. Create discovery client (lightweight and doesn't require full clientset)
-	discoveryClient, err := discovery.NewDiscoveryClientForConfig(restConfig)
-	if err != nil {
-		errMsg := fmt.Sprintf("Failed to create K8s client: %v", err)
-		s.log.Warn(errMsg)
-		return &TestConnectionResult{
-			Status:  "disconnected",
-			Message: errMsg,
-		}
-	}
-
-	// 4. Query server version to verify connection (this includes authentication)
-	_, err = discoveryClient.ServerVersion()
-	if err != nil {
-		errMsg := fmt.Sprintf("Failed to query K8s API: %v", err)
-		s.log.Warn(errMsg)
-		return &TestConnectionResult{
-			Status:  "disconnected",
-			Message: errMsg,
-		}
+		}, nil
 	}
 
 	s.log.Info("K8s API connection successful")
 	return &TestConnectionResult{
 		Status:  "connected",
 		Message: "Connection successful",
-	}
+	}, nil
 }
 
 // UpdateConnectionStatus updates the connection status of a cluster asynchronously.

@@ -39,9 +39,18 @@ func (r *SQLiteReleaseRecordRepository) Create(ctx context.Context, rr *models.R
 	rr.CreatedAt = now
 	rr.UpdatedAt = now
 
-	_, err := r.db.ExecContext(ctx, sqReleaseRecordInsert,
+	result, err := r.db.ExecContext(ctx, sqReleaseRecordInsert,
 		rr.AppID, rr.EnvID, rr.ClusterID, rr.Image, rr.Status, rr.PreviousImage, rr.ErrorMsg, rr.TriggeredBy, rr.StartedAt, rr.CreatedAt, rr.UpdatedAt)
-	return err
+	if err != nil {
+		return err
+	}
+	
+	id, err := result.LastInsertId()
+	if err != nil {
+		return err
+	}
+	rr.ID = int(id)
+	return nil
 }
 
 func (r *SQLiteReleaseRecordRepository) GetByID(ctx context.Context, id int) (*models.ReleaseRecord, error) {

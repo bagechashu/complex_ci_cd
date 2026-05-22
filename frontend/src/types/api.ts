@@ -158,6 +158,21 @@ export interface WorkloadTarget {
   registry_prefix?: string
   current_image?: string
   created_at: string
+  // Pod list (loaded dynamically)
+  pods?: PodInfo[]
+}
+
+export interface PodInfo {
+  name: string
+  namespace: string
+  status: string
+  restart_count: number
+  created_at: string
+  ready_condition: string
+  container_count: number
+  ready_containers: number
+  image: string
+  node_name: string
   updated_at: string
 }
 
