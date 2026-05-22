@@ -32,14 +32,16 @@ export const getRelease = (releaseId: number): Promise<ReleaseResponse> => {
  * 获取发布列表
  * @param limit 分页大小
  * @param offset 分页偏移
+ * @param appId 应用 ID（可选，用于过滤）
  * @returns 发布列表
  */
 export const listReleases = (
   limit: number = 20,
-  offset: number = 0
+  offset: number = 0,
+  appId?: number
 ): Promise<ListReleasesResponse> => {
   return request.get('/v1/releases', {
-    params: { limit, offset }
+    params: { limit, offset, ...(appId && { app_id: appId }) }
   })
 }
 

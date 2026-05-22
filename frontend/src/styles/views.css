@@ -771,3 +771,118 @@
   color: var(--color-primary);
   font-weight: 600;
 }
+
+/* ============ Release History List ============ */
+.release-history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.release-item {
+  padding: 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 0;
+  background: var(--color-bg-card);
+}
+
+.release-header {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 8px;
+  font-size: 12px;
+}
+
+.release-id {
+  font-weight: 600;
+  color: var(--color-text-primary);
+  font-family: 'Courier New', monospace;
+}
+
+.release-status {
+  padding: 2px 6px;
+  border-radius: 0;
+  font-weight: 500;
+  font-size: 11px;
+}
+
+.release-status.success {
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+}
+
+.release-status.pending {
+  background: rgba(255, 152, 0, 0.12);
+  color: #f57c00;
+}
+
+.release-status.failed {
+  background: rgba(230, 57, 70, 0.12);
+  color: var(--color-error);
+}
+
+.release-status.deploying {
+  background: rgba(33, 150, 243, 0.12);
+  color: #2196f3;
+}
+
+.release-time {
+  color: var(--color-text-muted);
+  font-size: 11px;
+  margin-left: auto;
+}
+
+.release-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.release-info {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  font-size: 11px;
+  color: var(--color-text-secondary);
+}
+
+.release-info .label {
+  font-weight: 600;
+  color: var(--color-text-primary);
+  min-width: 50px;
+}
+
+.image-tag {
+  background: var(--color-bg-light);
+  padding: 2px 6px;
+  border-radius: 0;
+  color: var(--color-primary);
+  font-family: 'Courier New', monospace;
+  font-size: 10px;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.release-error {
+  display: flex;
+  gap: 8px;
+  padding: 6px;
+  background: rgba(230, 57, 70, 0.08);
+  border-left: 2px solid var(--color-error);
+  font-size: 11px;
+  color: var(--color-error);
+}
+
+.release-error .label {
+  font-weight: 600;
+}
+
+.empty-history {
+  padding: 20px;
+  text-align: center;
+  color: var(--color-text-muted);
+  font-size: 14px;
+}

@@ -238,14 +238,53 @@
             </div>
           </div>
 
-          <!-- Release Actions -->
+          <!-- Release History -->
           <div class="detail-section">
             <div class="section-header">
-              <h3>快速发布</h3>
+              <h3>最近发布历史</h3>
             </div>
-            <p class="help-text">
-              选择上方集群配置中的"发布"按钮，或点击编辑配置
-            </p>
+            
+            <div v-if="releaseHistory.length > 0" class="release-history-list">
+              <div v-for="release in releaseHistory" :key="release.id" class="release-item">
+                <div class="release-header">
+                  <span class="release-id">ID: {{ release.id }}</span>
+                  <n-tooltip :show-arrow="true" trigger="hover" :delay="200" :duration="0">
+                    <template #trigger>
+                      <span :class="['release-status', release.status.toLowerCase()]">{{ release.status }}</span>
+                    </template>
+                    Status: {{ release.status }}
+                  </n-tooltip>
+                  <span class="release-time">{{ formatDate(release.created_at) }}</span>
+                </div>
+                <div class="release-body">
+                  <div class="release-info">
+                    <span class="label">镜像:</span>
+                    <n-tooltip :show-arrow="true" trigger="hover" :delay="200" :duration="0">
+                      <template #trigger>
+                        <code class="image-tag">{{ extractImageTag(release.image) }}</code>
+                      </template>
+                      {{ release.image }}
+                    </n-tooltip>
+                  </div>
+                  <div v-if="release.previous_image" class="release-info">
+                    <span class="label">前版本:</span>
+                    <n-tooltip :show-arrow="true" trigger="hover" :delay="200" :duration="0">
+                      <template #trigger>
+                        <code class="image-tag">{{ extractImageTag(release.previous_image) }}</code>
+                      </template>
+                      {{ release.previous_image }}
+                    </n-tooltip>
+                  </div>
+                  <div v-if="release.error_msg" class="release-error">
+                    <span class="label">错误:</span>
+                    {{ release.error_msg }}
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div v-else class="empty-history">
+              暂无发布历史
+            </div>
           </div>
         </div>
       </div>
@@ -626,13 +665,14 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { NButton, NDropdown, NTooltip, NTag, NSpace } from 'naive-ui'
 import { getApplications, getClusters, createRelease, createApplication, updateApplication } from '@/api/metadata'
+import { listReleases } from '@/api/release'
 import {
   getClusterMappingsByApp,
   createClusterMapping,
   updateClusterMapping,
   deleteClusterMapping as apiDeleteClusterMapping
 } from '@/api/cluster-mapping'
-import type { Application, Cluster, WorkloadTarget, Environment } from '@/types/api'
+import type { Application, Cluster, WorkloadTarget, Environment, ReleaseResponse } from '@/types/api'
 
 // State
 const searchQuery = ref('')
@@ -687,6 +727,9 @@ const releaseForm = ref({
   image_tag: '',
   dryRun: false
 })
+
+// Release History
+const releaseHistory = ref<ReleaseResponse[]>([])
 
 // Loading and Error States
 const isLoading = ref(true)
@@ -746,6 +789,18 @@ const sortedClusters = computed(() => {
 // Functions
 const selectApplication = async (app: Application) => {
   selectedApplicationId.value = app.id
+  
+  // Load release history (最近 5 条)
+  try {
+    const releaseResponse = await listReleases(5, 0, app.id)
+    // Note: Axios interceptor already extracts the 'data' field from response
+    // so releaseResponse is directly the array of releases
+    releaseHistory.value = Array.isArray(releaseResponse) ? releaseResponse : (releaseResponse?.data || [])
+  } catch (error) {
+    console.error('Failed to load release history:', error)
+    releaseHistory.value = []
+  }
+  
   // Use pre-loaded mappings if available, otherwise fetch
   if (allMappingsByApp.value[app.id] && allMappingsByApp.value[app.id].length > 0) {
     const cachedMappings = allMappingsByApp.value[app.id]

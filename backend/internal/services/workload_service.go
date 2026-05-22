@@ -268,9 +268,10 @@ func (s *WorkloadService) CreateWorkloadTarget(ctx context.Context, req interfac
 		return nil, errors.NewServiceError("MISSING_REQUIRED_FIELD", "K8sNamespace, WorkloadType, and WorkloadName are required")
 	}
 	
-	// Generate K8sWorkload if not provided
+	// K8sWorkload should be the actual deployment/statefulset/daemonset name
+	// If not provided, use the workload name directly (don't append the type)
 	if target.K8sWorkload == "" {
-		target.K8sWorkload = target.WorkloadName + "-" + target.WorkloadType
+		target.K8sWorkload = target.WorkloadName
 	}
 	
 	// Create the workload target in the repository
@@ -326,9 +327,10 @@ func (s *WorkloadService) UpdateWorkloadTarget(ctx context.Context, id int, req 
 		return nil, errors.NewServiceError("MISSING_REQUIRED_FIELD", "K8sNamespace, WorkloadType, and WorkloadName are required")
 	}
 	
-	// Generate K8sWorkload if not provided
+	// K8sWorkload should be the actual deployment/statefulset/daemonset name
+	// If not provided, use the workload name directly (don't append the type)
 	if target.K8sWorkload == "" {
-		target.K8sWorkload = target.WorkloadName + "-" + target.WorkloadType
+		target.K8sWorkload = target.WorkloadName
 	}
 	
 	// Update the workload target in the repository

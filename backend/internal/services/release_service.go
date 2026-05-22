@@ -439,6 +439,32 @@ func (s *ReleaseService) GetReleaseHistory(ctx context.Context, offset, limit in
 	return releases, nil
 }
 
+// GetReleaseHistoryByApp retrieves a paginated list of release records for a specific application.
+//
+// Parameters:
+//   - ctx: Context for cancellation and deadline
+//   - appID: Application ID to filter releases
+//   - offset: Starting position in result set (zero-based)
+//   - limit: Maximum number of records to return
+//
+// Returns:
+//   - []*models.ReleaseRecord: Slice of release records for the application
+//   - error: Non-nil if database operation fails
+//
+// Example:
+//
+//	releases, err := service.GetReleaseHistoryByApp(ctx, 1, 0, 20)
+//	for _, rel := range releases {
+//	    fmt.Printf("Release %d: %s\n", rel.ID, rel.Status)
+//	}
+func (s *ReleaseService) GetReleaseHistoryByApp(ctx context.Context, appID, offset, limit int) ([]*models.ReleaseRecord, error) {
+	releases, _, err := s.releaseRepo.ListByApp(ctx, appID, offset, limit)
+	if err != nil {
+		return nil, errors.NewServiceErrorWithCause("DATABASE", "Failed to list releases for application", err)
+	}
+	return releases, nil
+}
+
 // GetReleaseStatus retrieves the current status of a specific release.
 //
 // Parameters:

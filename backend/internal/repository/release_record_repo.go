@@ -21,6 +21,7 @@ type ReleaseRecordRepository interface {
 	Create(ctx context.Context, rr *models.ReleaseRecord) error
 	GetByID(ctx context.Context, id int) (*models.ReleaseRecord, error)
 	List(ctx context.Context, offset, limit int) ([]*models.ReleaseRecord, int, error)
+	ListByApp(ctx context.Context, appID, offset, limit int) ([]*models.ReleaseRecord, int, error)
 	GetByApplicationAndCluster(ctx context.Context, appID, clusterID int) ([]*models.ReleaseRecord, error)
 	Update(ctx context.Context, rr *models.ReleaseRecord) error
 	Delete(ctx context.Context, id int) error
@@ -104,6 +105,31 @@ func (r *SQLiteReleaseRecordRepository) GetByApplicationAndCluster(ctx context.C
 		records = append(records, &rr)
 	}
 	return records, rows.Err()
+}
+
+func (r *SQLiteReleaseRecordRepository) ListByApp(ctx context.Context, appID, offset, limit int) ([]*models.ReleaseRecord, int, error) {
+	var total int
+	err := r.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM release_record WHERE app_id = ?", appID).Scan(&total)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	rows, err := r.db.QueryContext(ctx, sqReleaseRecordSelect+" WHERE app_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?", appID, limit, offset)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+
+	var records []*models.ReleaseRecord
+	for rows.Next() {
+		var rr models.ReleaseRecord
+		err := rows.Scan(&rr.ID, &rr.AppID, &rr.EnvID, &rr.ClusterID, &rr.Image, &rr.Status, &rr.PreviousImage, &rr.ErrorMsg, &rr.TriggeredBy, &rr.StartedAt, &rr.CompletedAt, &rr.CreatedAt, &rr.UpdatedAt)
+		if err != nil {
+			return nil, 0, err
+		}
+		records = append(records, &rr)
+	}
+	return records, total, rows.Err()
 }
 
 func (r *SQLiteReleaseRecordRepository) Update(ctx context.Context, rr *models.ReleaseRecord) error {

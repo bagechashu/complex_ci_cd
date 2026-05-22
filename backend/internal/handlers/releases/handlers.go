@@ -179,7 +179,25 @@ func List(releaseService *services.ReleaseService, log *logger.Logger) http.Hand
 			}
 		}
 
-		releases, err := releaseService.GetReleaseHistory(r.Context(), offset, limit)
+		// Optional app_id filter
+		appIDStr := r.URL.Query().Get("app_id")
+
+		var releases []*models.ReleaseRecord
+		var err error
+
+		if appIDStr != "" {
+			// Filter by application ID
+			appID, err := strconv.Atoi(appIDStr)
+			if err != nil {
+				responses.BadRequestResponse(w, "invalid app_id format")
+				return
+			}
+			releases, err = releaseService.GetReleaseHistoryByApp(r.Context(), appID, offset, limit)
+		} else {
+			// Get all releases
+			releases, err = releaseService.GetReleaseHistory(r.Context(), offset, limit)
+		}
+
 		if err != nil {
 			responses.InternalErrorResponse(w, err.Error())
 			return
