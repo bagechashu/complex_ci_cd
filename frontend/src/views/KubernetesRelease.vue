@@ -662,10 +662,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
 import { NButton, NDropdown, NTooltip, NTag, NSpace } from 'naive-ui'
 import { getApplications, getClusters, createRelease, createApplication, updateApplication } from '@/api/metadata'
 import { listReleases } from '@/api/release'
+import { useReleaseStore } from '@/stores/releaseStore'
 import {
   getClusterMappingsByApp,
   createClusterMapping,
@@ -1306,6 +1307,12 @@ onMounted(async () => {
   } finally {
     isLoading.value = false
   }
+})
+
+// Clean up SSE connection on component unmount
+const releaseStore = useReleaseStore()
+onBeforeUnmount(() => {
+  releaseStore.stopPolling()
 })
 </script>
 

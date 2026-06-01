@@ -107,12 +107,13 @@
 
         <!-- Actions -->
         <div class="actions">
+          <!-- Phase 3: 更新回滚按钮条件，允许从成功状态回滚 -->
           <n-button
-            v-if="release.status === 'success'"
+            v-if="release.status === 'success' && release.previous_image"
             type="warning"
             @click="handleRollback"
           >
-            回滚
+            回滚到上一版本
           </n-button>
           <n-button
             v-if="['failed', 'pending'].includes(release.status)"

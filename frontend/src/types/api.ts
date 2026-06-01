@@ -53,6 +53,7 @@ export type ReleaseStatus =
   | 'pending'
   | 'validating'
   | 'deploying'
+  | 'in_progress'
   | 'success'
   | 'failed'
   | 'rolled_back'

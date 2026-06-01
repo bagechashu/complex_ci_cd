@@ -46,6 +46,7 @@ type ReleaseService struct {
 	deployerFact  *deployers.DeployerFactory
 	log           *logger.Logger
 	db            interface{}
+	eventBus      EventBus
 }
 
 // NewReleaseService creates a new ReleaseService instance.
@@ -59,6 +60,7 @@ type ReleaseService struct {
 //   - deployerFact: DeployerFactory for deployment execution
 //   - log: Logger for structured logging
 //   - db: Database connection for transaction management
+//   - eventBus: EventBus for publishing release events
 //
 // Returns a configured ReleaseService ready for use.
 func NewReleaseService(
@@ -70,6 +72,7 @@ func NewReleaseService(
 	deployerFact *deployers.DeployerFactory,
 	log *logger.Logger,
 	db interface{},
+	eventBus EventBus,
 ) *ReleaseService {
 	return &ReleaseService{
 		releaseRepo:  releaseRepo,
@@ -80,6 +83,7 @@ func NewReleaseService(
 		deployerFact: deployerFact,
 		log:          log,
 		db:           db,
+		eventBus:     eventBus,
 	}
 }
 
@@ -255,6 +259,11 @@ func (s *ReleaseService) executeRelease(ctx context.Context, release *models.Rel
 	s.recordEvent(ctx, release.ID, "deployment_starting", 
 		fmt.Sprintf("Deploying %s to namespace %s", release.Image, targetWorkload.K8sNamespace))
 
+	// Phase 2: 为K8sDeployer设置event recorder，并传递eventRepo用于持久化
+	if k8sDeployer, ok := deployer.(*deployers.K8sDeployer); ok {
+		k8sDeployer.SetEventRecorderWithRepo(release.ID, s.eventBus, s.eventRepo)
+	}
+
 	// Execute deployment
 	err = deployer.Deploy(ctx, workloadInfo, release.Image)
 
@@ -290,7 +299,7 @@ func (s *ReleaseService) executeRelease(ctx context.Context, release *models.Rel
 	}
 }
 
-// recordEvent records an informational event for a release
+// recordEvent records an event for a release and publishes it via EventBus
 func (s *ReleaseService) recordEvent(ctx context.Context, releaseID int, eventType, message string) {
 	event := &models.ReleaseEvent{
 		ReleaseID: releaseID,
@@ -300,10 +309,14 @@ func (s *ReleaseService) recordEvent(ctx context.Context, releaseID int, eventTy
 	}
 	if err := s.eventRepo.Create(ctx, event); err != nil {
 		s.log.Error("Failed to record event", "releaseID", releaseID, "eventType", eventType, "error", err)
+	} else {
+		// Publish event via EventBus for real-time subscribers
+		topic := fmt.Sprintf("release:%d", releaseID)
+		s.eventBus.Publish(topic, event)
 	}
 }
 
-// recordErrorEvent records an error event for a release
+// recordErrorEvent records an error event for a release and publishes it via EventBus
 func (s *ReleaseService) recordErrorEvent(ctx context.Context, releaseID int, eventType, message string) {
 	event := &models.ReleaseEvent{
 		ReleaseID: releaseID,
@@ -313,6 +326,10 @@ func (s *ReleaseService) recordErrorEvent(ctx context.Context, releaseID int, ev
 	}
 	if err := s.eventRepo.Create(ctx, event); err != nil {
 		s.log.Error("Failed to record error event", "releaseID", releaseID, "eventType", eventType, "error", err)
+	} else {
+		// Publish event via EventBus for real-time subscribers
+		topic := fmt.Sprintf("release:%d", releaseID)
+		s.eventBus.Publish(topic, event)
 	}
 }
 
@@ -323,6 +340,21 @@ func getClusterIDs(targets []*models.WorkloadTarget) []int {
 		clusterIDs = append(clusterIDs, t.ClusterID)
 	}
 	return clusterIDs
+}
+
+// GetReleaseEvents retrieves all events for a specific release
+func (s *ReleaseService) GetReleaseEvents(ctx context.Context, releaseID int) ([]*models.ReleaseEvent, error) {
+	events, err := s.eventRepo.ListByRelease(ctx, releaseID)
+	if err != nil {
+		s.log.Error("Failed to get release events", "releaseID", releaseID, "error", err)
+		return nil, err
+	}
+	
+	if events == nil {
+		events = make([]*models.ReleaseEvent, 0)
+	}
+	
+	return events, nil
 }
 
 // ListReleaseEvents retrieves all events for a specific release.
@@ -398,16 +430,67 @@ func (s *ReleaseService) Rollback(ctx context.Context, releaseID int) (*models.R
 		return nil, errors.NewServiceError("NOT_FOUND", "Release not found")
 	}
 
-	release.Status = "rolled_back"
-	release.UpdatedAt = time.Now()
-
-	err = s.releaseRepo.Update(ctx, release)
-	if err != nil {
-		return nil, errors.NewServiceErrorWithCause("DATABASE", "Failed to rollback release", err)
+	// Phase 3: 支持从成功或失败状态回滚
+	// 之前只支持失败状态回滚，现在也支持成功状态回滚
+	if release.Status != "failed" && release.Status != "success" {
+		return nil, errors.NewServiceError("INVALID_STATE", 
+			fmt.Sprintf("Can only rollback failed or success releases, current status: %s", release.Status))
 	}
 
-	s.log.Info("Release rolled back", "releaseID", releaseID)
-	return release, nil
+	// Phase 3: 成功状态回滚需要有previous_image
+	if release.Status == "success" && (release.PreviousImage == nil || *release.PreviousImage == "") {
+		return nil, errors.NewServiceError("INVALID_STATE", 
+			"Cannot rollback success release: no previous version available")
+	}
+
+	// Phase 3: 创建新的部署记录来回滚（而不是原地修改）
+	// 这样做的好处是：
+	// 1. 保留完整的操作历史
+	// 2. 新部署可以独立成功或失败
+	// 3. 用户可以看到回滚操作的结果
+	
+	var previousImage string
+	if release.PreviousImage != nil {
+		previousImage = *release.PreviousImage
+	}
+	
+	if previousImage == "" {
+		// 如果no previous_image，这种情况在上面已经检查过了，不会到这里
+		return nil, errors.NewServiceError("INVALID_STATE", "No previous image available for rollback")
+	}
+
+	// 创建新的发布记录用于回滚
+	now := time.Now()
+	rollbackRelease := &models.ReleaseRecord{
+		AppID:       release.AppID,
+		EnvID:       release.EnvID,
+		ClusterID:   release.ClusterID,
+		Image:       previousImage,
+		Status:      "pending",
+		TriggeredBy: "rollback",
+		StartedAt:   &now,
+		CreatedAt:   now,
+		UpdatedAt:   now,
+	}
+
+	// 保存回滚部署记录
+	err = s.releaseRepo.Create(ctx, rollbackRelease)
+	if err != nil {
+		return nil, errors.NewServiceErrorWithCause("DATABASE", "Failed to create rollback release", err)
+	}
+
+	s.log.Info("Rollback release created", 
+		"rollbackReleaseID", rollbackRelease.ID,
+		"originalReleaseID", releaseID, 
+		"image", previousImage)
+
+	// 异步执行回滚部署
+	go func() {
+		s.executeRelease(context.Background(), rollbackRelease)
+	}()
+
+	// 返回新创建的回滚部署记录
+	return rollbackRelease, nil
 }
 
 // GetReleaseHistory retrieves a paginated list of release records.

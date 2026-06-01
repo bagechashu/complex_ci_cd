@@ -4,7 +4,7 @@
 
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import type { ReleaseResponse, ReleaseEvent } from '@/types/api'
+import type { ReleaseResponse, ReleaseEvent, ReleaseStatus } from '@/types/api'
 import type { ReleaseRecord } from '@/types/models'
 import { releaseAPI } from '@/api/release'
 import { useAppStore } from './appStore'
@@ -26,6 +26,7 @@ export const useReleaseStore = defineStore('release', () => {
   const error = ref<string | null>(null)
   const errorCode = ref<number | null>(null)
   const pollingInterval = ref<NodeJS.Timeout | null>(null)
+  const eventSource = ref<EventSource | null>(null)
 
   // ============ Getters ============
   const progressPercentage = computed(() => {
@@ -35,17 +36,20 @@ export const useReleaseStore = defineStore('release', () => {
 
     // 根据事件类型计算进度
     const eventTypes = releaseEvents.value.map(e => e.type)
-    const hasStarted = eventTypes.some(type => type === 'started')
-    const hasValidating = eventTypes.some(type => type === 'validating')
-    const hasDeploying = eventTypes.some(type => type === 'deploying')
-    const hasSuccess = eventTypes.some(type => type === 'success')
-    const hasFailed = eventTypes.some(type => type === 'failed')
-
-    if (hasFailed) return 0
-    if (hasSuccess) return 100
-    if (hasDeploying) return 75
-    if (hasValidating) return 50
-    if (hasStarted) return 25
+    
+    // Phase 2: 增强的进度计算逻辑
+    if (eventTypes.includes('deployment_success')) return 100
+    if (eventTypes.includes('deployment_failed') || eventTypes.includes('pod_error_detected') || eventTypes.includes('pod_timeout')) return 0
+    if (eventTypes.includes('pod_ready')) return 85
+    if (eventTypes.includes('pod_running')) return 60
+    if (eventTypes.includes('pod_created')) return 40
+    if (eventTypes.includes('deployment_started')) return 20
+    if (eventTypes.includes('started')) return 25
+    if (eventTypes.includes('validating')) return 50
+    if (eventTypes.includes('deploying')) return 75
+    if (eventTypes.includes('success')) return 100
+    if (eventTypes.includes('failed')) return 0
+    
     return 10
   })
 
@@ -95,6 +99,12 @@ export const useReleaseStore = defineStore('release', () => {
         user: getCurrentUser() // 从认证系统获取当前用户
       })
       currentRelease.value = response
+      
+      // Phase 2: 自动启动SSE流以实时跟踪部署进度
+      // 这样用户就能看到Pod创建、错误检测等事件
+      console.log('Starting SSE stream for new release', response.id)
+      await startPolling(response.id)
+      
       return response
     } catch (err) {
       const message = getErrorMessage(err)
@@ -167,46 +177,109 @@ export const useReleaseStore = defineStore('release', () => {
   }
 
   /**
-   * 启动轮询（实时追踪发布进度）
+   * 启动SSE流（实时追踪发布进度）
+   * 使用 Server-Sent Events 替代定期轮询，减少网络请求并提供实时反馈
    */
-  const startPolling = async (releaseId: number, interval = 2000) => {
-    // 防止重复轮询
-    if (isPolling.value) {
+  const startPolling = async (releaseId: number) => {
+    // 防止重复连接
+    if (eventSource.value) {
+      console.warn('SSE already connected')
       return
     }
 
     isPolling.value = true
+    console.log('Starting SSE stream for release', releaseId)
 
-    const poll = async () => {
+    try {
+      // 建立SSE连接
+      eventSource.value = new EventSource(`/api/v1/releases/${releaseId}/stream`)
+
+      // 处理事件流中的事件
+      eventSource.value.onmessage = (event) => {
+        try {
+          const releaseEvent: ReleaseEvent = JSON.parse(event.data)
+          console.log('Received release event:', releaseEvent.type, releaseEvent.message)
+          
+          // 将事件添加到列表
+          if (!releaseEvents.value.some(e => e.id === releaseEvent.id)) {
+            releaseEvents.value.push(releaseEvent)
+          }
+
+          // 更新当前发布状态
+          if (currentRelease.value) {
+            // Phase 2: 扩展的事件类型映射
+            const eventToStatusMap: { [key: string]: ReleaseStatus } = {
+              'success': 'success',
+              'deployment_success': 'success',
+              'failed': 'failed',
+              'deployment_failed': 'failed',
+              'rolled_back': 'rolled_back',
+              'completed': 'success',
+              // Phase 2新增事件 - 保持进行中状态
+              'pod_created': 'in_progress',
+              'pod_running': 'in_progress',
+              'pod_ready': 'in_progress',
+              'pod_error_detected': 'failed',
+              'pod_timeout': 'failed',
+              'deployment_started': 'in_progress',
+            }
+
+            if (eventToStatusMap[releaseEvent.type]) {
+              currentRelease.value.status = eventToStatusMap[releaseEvent.type]
+            }
+
+            // 如果发布完成，关闭连接
+            if (['success', 'failed', 'rolled_back'].includes(releaseEvent.type)) {
+              console.log('Release completed:', releaseEvent.type)
+              stopPolling()
+            }
+          }
+        } catch (err) {
+          console.error('Failed to parse SSE event:', err)
+        }
+      }
+
+      // 处理错误和连接关闭
+      eventSource.value.onerror = (err) => {
+        console.error('SSE connection error:', err)
+        stopPolling()
+        // 如果连接中断且发布未完成，显示错误
+        if (currentRelease.value && !['success', 'failed', 'rolled_back'].includes(currentRelease.value.status)) {
+          error.value = 'Lost connection to release stream'
+        }
+      }
+
+      // 首先加载现有事件
       try {
-        const release = await fetchReleaseStatus(releaseId)
-        // 如果发布完成（成功或失败），停止轮询
-        if (['success', 'failed', 'rolled_back'].includes(release.status)) {
-          stopPolling()
+        const existingEvents = await fetchReleaseEvents(releaseId)
+        if (existingEvents) {
+          releaseEvents.value = existingEvents
         }
       } catch (err) {
-        console.error('Polling error:', err)
-        // 轮询出错不中断，继续尝试
+        console.warn('Failed to fetch existing events:', err)
       }
-    }
-
-    // 立即执行一次
-    await poll()
-
-    // 然后按间隔轮询
-    if (isPolling.value) {
-      pollingInterval.value = setInterval(poll, interval)
+    } catch (err) {
+      console.error('Failed to start SSE stream:', err)
+      error.value = 'Failed to start release stream'
+      stopPolling()
     }
   }
 
   /**
-   * 停止轮询
+   * 停止SSE连接
    */
   const stopPolling = () => {
+    if (eventSource.value) {
+      eventSource.value.close()
+      eventSource.value = null
+      console.log('SSE stream closed')
+    }
+    
     if (pollingInterval.value) {
       clearInterval(pollingInterval.value)
       pollingInterval.value = null
     }
+    
     isPolling.value = false
   }
 
@@ -218,6 +291,7 @@ export const useReleaseStore = defineStore('release', () => {
     error.value = null
     errorCode.value = null
     try {
+      // Phase 3: 后端现在返回新创建的回滚部署记录
       const response = await releaseAPI.rollbackRelease(releaseId)
       currentRelease.value = response
       releaseEvents.value = [] // 清空事件，开始追踪回滚进度

@@ -17,6 +17,16 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
+// EventBus 事件总线接口（导入自services包的定义）
+type EventBus interface {
+	Publish(topic string, event *models.ReleaseEvent)
+}
+
+// ReleaseEventRepository 事件仓储接口
+type ReleaseEventRepository interface {
+	Create(ctx context.Context, event *models.ReleaseEvent) error
+}
+
 // K8s 部署超时设置
 const (
 	// DeploymentRolloutTimeout 是 Deployment 发布完成的超时时间
@@ -33,6 +43,11 @@ type K8sDeployer struct {
 	log           *logger.Logger
 	encryptionKey string
 	clientManager *utils.K8sClientManager
+	
+	// Phase 2: 事件记录（可选）
+	releaseID  int
+	eventBus   EventBus
+	eventRepo  ReleaseEventRepository
 }
 
 // NewK8sDeployer creates a new Kubernetes deployer with encryption key for kubeconfig decryption
@@ -42,6 +57,48 @@ func NewK8sDeployer(log *logger.Logger, encryptionKey string) *K8sDeployer {
 		log:           log,
 		encryptionKey: encryptionKey,
 		clientManager: utils.NewK8sClientManager(),
+	}
+}
+
+// Phase 2: SetEventRecorder 设置事件记录器（可选）
+func (d *K8sDeployer) SetEventRecorder(releaseID int, eventBus EventBus) {
+	d.releaseID = releaseID
+	d.eventBus = eventBus
+}
+
+// Phase 2: SetEventRecorder with repo
+func (d *K8sDeployer) SetEventRecorderWithRepo(releaseID int, eventBus EventBus, eventRepo ReleaseEventRepository) {
+	d.releaseID = releaseID
+	d.eventBus = eventBus
+	d.eventRepo = eventRepo
+}
+
+// Phase 2: recordDeploymentEvent 记录部署事件到EventBus和数据库
+func (d *K8sDeployer) recordDeploymentEvent(eventType, message string) {
+	if d.eventBus == nil || d.releaseID == 0 {
+		d.log.Warn("Cannot record deployment event: eventBus is nil or releaseID is 0", 
+			"eventType", eventType, "message", message)
+		return // 不记录事件
+	}
+	event := &models.ReleaseEvent{
+		ReleaseID: d.releaseID,
+		Type:      eventType,
+		Message:   message,
+		CreatedAt: time.Now(),
+	}
+	
+	// 1. 发送到EventBus供实时SSE订阅者使用
+	d.log.Debug("Publishing deployment event via EventBus", 
+		"releaseID", d.releaseID, "eventType", eventType)
+	d.eventBus.Publish(fmt.Sprintf("release:%d", d.releaseID), event)
+	
+	// 2. 如果有eventRepo，也保存到数据库以确保持久化
+	if d.eventRepo != nil {
+		// 使用context.Background因为Deploy已经有超时控制
+		if err := d.eventRepo.Create(context.Background(), event); err != nil {
+			d.log.Warn("Failed to persist event to database", "releaseID", d.releaseID, 
+				"eventType", eventType, "error", err)
+		}
 	}
 }
 
@@ -347,14 +404,23 @@ func (d *K8sDeployer) monitorPodEvents(ctx context.Context, clientset kubernetes
 					case "ImagePullBackOff":
 						errorMsg := fmt.Sprintf("[ImagePullBackOff] Failed to pull image: %s (Pod: %s)", message, pod.Name)
 						d.log.Error(errorMsg, "deployment", deploymentName)
+						// Phase 2: 记录Pod错误检测事件
+						d.recordDeploymentEvent("pod_error_detected", 
+							fmt.Sprintf("Pod %s: ImagePullBackOff - %s", pod.Name, message))
 						return fmt.Errorf(errorMsg)
 					case "CrashLoopBackOff":
 						errorMsg := fmt.Sprintf("[CrashLoopBackOff] Container crashed repeatedly: %s (Pod: %s)", message, pod.Name)
 						d.log.Error(errorMsg, "deployment", deploymentName)
+						// Phase 2: 记录Pod错误检测事件
+						d.recordDeploymentEvent("pod_error_detected", 
+							fmt.Sprintf("Pod %s: CrashLoopBackOff - Container crashed repeatedly", pod.Name))
 						return fmt.Errorf(errorMsg)
 					case "ErrImagePull":
 						errorMsg := fmt.Sprintf("[ErrImagePull] Error pulling image: %s (Pod: %s)", message, pod.Name)
 						d.log.Warn(errorMsg, "deployment", deploymentName)
+						// Phase 2: 记录Pod错误检测事件
+						d.recordDeploymentEvent("pod_error_detected", 
+							fmt.Sprintf("Pod %s: ErrImagePull - %s", pod.Name, message))
 						return fmt.Errorf(errorMsg)
 					}
 				}
@@ -406,13 +472,40 @@ func (d *K8sDeployer) monitorPodEvents(ctx context.Context, clientset kubernetes
 				continue
 			}
 			
-			// Check if this pod belongs to the latest replicaset
-			// The replicaset name is embedded in the pod name
-			if !strings.Contains(k8sEvent.InvolvedObject.Name, latestRS.Name) {
-				d.log.Debug("Skipping event from old replicaset pod",
-					"pod", k8sEvent.InvolvedObject.Name,
-					"latestRS", latestRS.Name)
-				continue
+			// Phase 1: 改进Pod-ReplicaSet关联验证
+			// 对于关键事件（如错误事件），获取Pod对象来验证ownerReference
+			podName := k8sEvent.InvolvedObject.Name
+			
+			// 对于错误类事件，进行更严格的验证
+			isCriticalEvent := strings.Contains(k8sEvent.Reason, "Failed") || 
+				strings.Contains(k8sEvent.Reason, "Error") ||
+				strings.Contains(k8sEvent.Reason, "BackOff") ||
+				k8sEvent.Reason == "FailedCreate"
+			
+			if isCriticalEvent {
+				// 获取Pod对象以验证ownership
+				pod, err := podsClient.Get(ctx, podName, metav1.GetOptions{})
+				if err == nil {
+					if !isPodOwnedByReplicaSet(pod, latestRS) {
+						d.log.Debug("Skipping event: pod not owned by latest replicaset",
+							"pod", podName, "latestRS", latestRS.Name)
+						continue
+					}
+				} else {
+					// 如果无法获取Pod，用字符串匹配作为备选
+					if !strings.Contains(podName, latestRS.Name) {
+						d.log.Debug("Skipping event from old replicaset pod",
+							"pod", podName, "latestRS", latestRS.Name)
+						continue
+					}
+				}
+			} else {
+				// 非关键事件，使用快速的字符串匹配
+				if !strings.Contains(podName, latestRS.Name) {
+					d.log.Debug("Skipping event from old replicaset pod",
+						"pod", podName, "latestRS", latestRS.Name)
+					continue
+				}
 			}
 			
 			// Skip events that occurred before monitoring started
@@ -420,7 +513,6 @@ func (d *K8sDeployer) monitorPodEvents(ctx context.Context, clientset kubernetes
 				continue
 			}
 			
-			podName := k8sEvent.InvolvedObject.Name
 			eventKey := fmt.Sprintf("%s-%s", podName, k8sEvent.Reason)
 			
 			d.log.Debug("Pod event received from latest replicaset", 
@@ -436,6 +528,9 @@ func (d *K8sDeployer) monitorPodEvents(ctx context.Context, clientset kubernetes
 					errorMsg := fmt.Sprintf("[ImagePullBackOff] Failed to pull image: %s (Pod: %s)", k8sEvent.Message, podName)
 					d.log.Error(errorMsg, "deployment", deploymentName, "replicaset", latestRS.Name)
 					reportedErrors[eventKey] = true
+					// Phase 2: 发送Pod错误检测事件
+					d.recordDeploymentEvent("pod_error_detected", 
+						fmt.Sprintf("Pod %s: ImagePullBackOff - %s", podName, k8sEvent.Message))
 					return fmt.Errorf(errorMsg)
 				}
 			
@@ -444,6 +539,9 @@ func (d *K8sDeployer) monitorPodEvents(ctx context.Context, clientset kubernetes
 					errorMsg := fmt.Sprintf("[CrashLoopBackOff] Container crashed repeatedly: %s (Pod: %s)", k8sEvent.Message, podName)
 					d.log.Error(errorMsg, "deployment", deploymentName, "replicaset", latestRS.Name)
 					reportedErrors[eventKey] = true
+					// Phase 2: 发送Pod错误检测事件
+					d.recordDeploymentEvent("pod_error_detected", 
+						fmt.Sprintf("Pod %s: CrashLoopBackOff - Container crashed repeatedly", podName))
 					return fmt.Errorf(errorMsg)
 				}
 			
@@ -452,6 +550,9 @@ func (d *K8sDeployer) monitorPodEvents(ctx context.Context, clientset kubernetes
 					errorMsg := fmt.Sprintf("[ErrImagePull] Error pulling image: %s (Pod: %s)", k8sEvent.Message, podName)
 					d.log.Warn(errorMsg, "deployment", deploymentName, "replicaset", latestRS.Name)
 					reportedErrors[eventKey] = true
+					// Phase 2: 发送Pod错误检测事件
+					d.recordDeploymentEvent("pod_error_detected", 
+						fmt.Sprintf("Pod %s: ErrImagePull - %s", podName, k8sEvent.Message))
 					return fmt.Errorf(errorMsg)
 				}
 			
@@ -460,6 +561,9 @@ func (d *K8sDeployer) monitorPodEvents(ctx context.Context, clientset kubernetes
 					errorMsg := fmt.Sprintf("[Failed] Failed to pull image: %s (Pod: %s)", k8sEvent.Message, podName)
 					d.log.Error(errorMsg, "deployment", deploymentName, "replicaset", latestRS.Name)
 					reportedErrors[eventKey] = true
+					// Phase 2: 发送Pod错误检测事件
+					d.recordDeploymentEvent("pod_error_detected", 
+						fmt.Sprintf("Pod %s: Failed to pull image - %s", podName, k8sEvent.Message))
 					return fmt.Errorf(errorMsg)
 				}
 			
@@ -708,6 +812,14 @@ func (d *K8sDeployer) waitForDeploymentRollout(ctx context.Context, clientset ku
 	for {
 		select {
 		case <-ctx.Done():
+			// Phase 1: 增强超时诊断信息
+			// 收集诊断信息而不是简单地返回超时错误
+			diagnostics := d.collectDeploymentDiagnostics(ctx, clientset, namespace, deploymentName)
+			if diagnostics != "" {
+				d.log.Error("Deployment rollout timeout with diagnostics", 
+					"deployment", deploymentName, "diagnostics", diagnostics)
+				return fmt.Errorf("deployment rollout timeout after %v: %s", timeout, diagnostics)
+			}
 			return fmt.Errorf("deployment rollout timeout after %v", timeout)
 		
 		// Check for Pod errors (ImagePullBackOff, CrashLoopBackOff, etc.)
@@ -730,6 +842,9 @@ func (d *K8sDeployer) waitForDeploymentRollout(ctx context.Context, clientset ku
 				deployment.Status.Replicas == deployment.Status.ReadyReplicas &&
 				deployment.Status.AvailableReplicas == deployment.Status.ReadyReplicas {
 				d.log.Info("Deployment rollout completed", "deployment", deploymentName)
+				// Phase 2: 发送部署成功事件
+				d.recordDeploymentEvent("deployment_success", 
+					fmt.Sprintf("Deployment %s rolled out successfully with %d replicas", deploymentName, deployment.Status.Replicas))
 				return nil
 			}
 
@@ -775,6 +890,13 @@ func (d *K8sDeployer) waitForStatefulSetRollout(ctx context.Context, clientset k
 	for {
 		select {
 		case <-ctx.Done():
+			// Phase 1: 增强超时诊断信息（StatefulSet版本）
+			diagnostics := d.collectDeploymentDiagnostics(ctx, clientset, namespace, statefulSetName)
+			if diagnostics != "" {
+				d.log.Error("StatefulSet rollout timeout with diagnostics", 
+					"statefulset", statefulSetName, "diagnostics", diagnostics)
+				return fmt.Errorf("statefulset rollout timeout after %v: %s", timeout, diagnostics)
+			}
 			return fmt.Errorf("statefulset rollout timeout after %v", timeout)
 		
 		// Check for Pod errors (ImagePullBackOff, CrashLoopBackOff, etc.)
@@ -796,6 +918,9 @@ func (d *K8sDeployer) waitForStatefulSetRollout(ctx context.Context, clientset k
 				sts.Status.Replicas == sts.Status.UpdatedReplicas &&
 				sts.Status.Replicas == sts.Status.ReadyReplicas {
 				d.log.Info("StatefulSet rollout completed", "statefulset", statefulSetName)
+				// Phase 2: 发送部署成功事件
+				d.recordDeploymentEvent("deployment_success", 
+					fmt.Sprintf("StatefulSet %s rolled out successfully with %d replicas", statefulSetName, sts.Status.Replicas))
 				return nil
 			}
 
@@ -840,6 +965,13 @@ func (d *K8sDeployer) waitForDaemonSetRollout(ctx context.Context, clientset kub
 	for {
 		select {
 		case <-ctx.Done():
+			// Phase 1: 增强超时诊断信息（DaemonSet版本）
+			diagnostics := d.collectDeploymentDiagnostics(ctx, clientset, namespace, daemonSetName)
+			if diagnostics != "" {
+				d.log.Error("DaemonSet rollout timeout with diagnostics", 
+					"daemonset", daemonSetName, "diagnostics", diagnostics)
+				return fmt.Errorf("daemonset rollout timeout after %v: %s", timeout, diagnostics)
+			}
 			return fmt.Errorf("daemonset rollout timeout after %v", timeout)
 		
 		// Check for Pod errors (ImagePullBackOff, CrashLoopBackOff, etc.)
@@ -861,6 +993,9 @@ func (d *K8sDeployer) waitForDaemonSetRollout(ctx context.Context, clientset kub
 				ds.Status.DesiredNumberScheduled == ds.Status.UpdatedNumberScheduled &&
 				ds.Status.DesiredNumberScheduled == ds.Status.NumberReady {
 				d.log.Info("DaemonSet rollout completed", "daemonset", daemonSetName)
+				// Phase 2: 发送部署成功事件
+				d.recordDeploymentEvent("deployment_success", 
+					fmt.Sprintf("DaemonSet %s rolled out successfully on %d nodes", daemonSetName, ds.Status.NumberReady))
 				return nil
 			}
 
@@ -872,74 +1007,152 @@ func (d *K8sDeployer) waitForDaemonSetRollout(ctx context.Context, clientset kub
 	}
 }
 
-// getDeploymentStatus returns the current deployment status
+// getDeploymentStatus returns the current deployment status with more details
 func (d *K8sDeployer) getDeploymentStatus(ctx context.Context, clientset kubernetes.Interface, namespace, deploymentName string) (string, error) {
 	deployment, err := clientset.AppsV1().Deployments(namespace).Get(ctx, deploymentName, metav1.GetOptions{})
 	if err != nil {
 		return "", fmt.Errorf("failed to get deployment: %w", err)
 	}
 
+	// 检查是否有更新正在进行
+	if deployment.Status.ObservedGeneration < deployment.Generation {
+		d.log.Debug("Deployment still updating", "deployment", deploymentName, 
+			"observedGeneration", deployment.Status.ObservedGeneration,
+			"generation", deployment.Generation)
+		return "updating", nil
+	}
+
+	// 检查副本数是否为0
 	if deployment.Status.Replicas == 0 {
+		d.log.Debug("Deployment pending (no replicas)", "deployment", deploymentName)
 		return "pending", nil
 	}
 
-	if deployment.Status.UpdatedReplicas == deployment.Status.Replicas &&
-		deployment.Status.ReadyReplicas == deployment.Status.Replicas &&
-		deployment.Status.AvailableReplicas == deployment.Status.Replicas {
-		return "completed", nil
+	// 检查是否所有副本都已更新
+	if deployment.Status.UpdatedReplicas < deployment.Status.Replicas {
+		d.log.Debug("Deployment rolling update in progress", "deployment", deploymentName,
+			"replicas", deployment.Status.Replicas,
+			"updatedReplicas", deployment.Status.UpdatedReplicas)
+		return "rolling", nil
 	}
 
-	if deployment.Status.ReadyReplicas > 0 {
-		return "running", nil
+	// 检查是否所有副本都已就绪
+	if deployment.Status.ReadyReplicas < deployment.Status.Replicas {
+		d.log.Debug("Deployment waiting for pods to be ready", "deployment", deploymentName,
+			"readyReplicas", deployment.Status.ReadyReplicas,
+			"desiredReplicas", deployment.Status.Replicas)
+		return "waiting", nil
 	}
 
-	return "pending", nil
+	// 检查是否所有副本都可用
+	if deployment.Status.AvailableReplicas < deployment.Status.Replicas {
+		d.log.Debug("Deployment waiting for pods to be available", "deployment", deploymentName,
+			"availableReplicas", deployment.Status.AvailableReplicas,
+			"desiredReplicas", deployment.Status.Replicas)
+		return "waiting", nil
+	}
+
+	// 全部条件满足 - 发布完成
+	d.log.Info("Deployment rollout successful", "deployment", deploymentName,
+		"replicas", deployment.Status.Replicas,
+		"updatedReplicas", deployment.Status.UpdatedReplicas,
+		"readyReplicas", deployment.Status.ReadyReplicas,
+		"availableReplicas", deployment.Status.AvailableReplicas)
+	return "completed", nil
 }
 
-// getStatefulSetStatus returns the current statefulset status
+// getStatefulSetStatus returns the current statefulset status with more details
 func (d *K8sDeployer) getStatefulSetStatus(ctx context.Context, clientset kubernetes.Interface, namespace, statefulSetName string) (string, error) {
 	sts, err := clientset.AppsV1().StatefulSets(namespace).Get(ctx, statefulSetName, metav1.GetOptions{})
 	if err != nil {
 		return "", fmt.Errorf("failed to get statefulset: %w", err)
 	}
 
+	// 检查是否有更新正在进行
+	if sts.Status.ObservedGeneration < sts.Generation {
+		d.log.Debug("StatefulSet still updating", "statefulset", statefulSetName,
+			"observedGeneration", sts.Status.ObservedGeneration,
+			"generation", sts.Generation)
+		return "updating", nil
+	}
+
+	// 检查副本数是否为0
 	if sts.Status.Replicas == 0 {
+		d.log.Debug("StatefulSet pending (no replicas)", "statefulset", statefulSetName)
 		return "pending", nil
 	}
 
-	if sts.Status.UpdatedReplicas == sts.Status.Replicas &&
-		sts.Status.ReadyReplicas == sts.Status.Replicas {
-		return "completed", nil
+	// 检查是否所有副本都已更新
+	if sts.Status.UpdatedReplicas < sts.Status.Replicas {
+		d.log.Debug("StatefulSet rolling update in progress", "statefulset", statefulSetName,
+			"replicas", sts.Status.Replicas,
+			"updatedReplicas", sts.Status.UpdatedReplicas)
+		return "rolling", nil
 	}
 
-	if sts.Status.ReadyReplicas > 0 {
-		return "running", nil
+	// 检查是否所有副本都已就绪
+	if sts.Status.ReadyReplicas < sts.Status.Replicas {
+		d.log.Debug("StatefulSet waiting for pods to be ready", "statefulset", statefulSetName,
+			"readyReplicas", sts.Status.ReadyReplicas,
+			"desiredReplicas", sts.Status.Replicas)
+		return "waiting", nil
 	}
 
-	return "pending", nil
+	// 全部条件满足 - 发布完成
+	d.log.Info("StatefulSet rollout successful", "statefulset", statefulSetName,
+		"replicas", sts.Status.Replicas,
+		"updatedReplicas", sts.Status.UpdatedReplicas,
+		"readyReplicas", sts.Status.ReadyReplicas)
+	return "completed", nil
 }
 
-// getDaemonSetStatus returns the current daemonset status
+// getDaemonSetStatus returns the current daemonset status with more details
 func (d *K8sDeployer) getDaemonSetStatus(ctx context.Context, clientset kubernetes.Interface, namespace, daemonSetName string) (string, error) {
 	ds, err := clientset.AppsV1().DaemonSets(namespace).Get(ctx, daemonSetName, metav1.GetOptions{})
 	if err != nil {
 		return "", fmt.Errorf("failed to get daemonset: %w", err)
 	}
 
-	if ds.Status.DesiredNumberScheduled == 0 {
-		return "pending", nil
+	// 检查是否有更新正在进行
+	if ds.Status.ObservedGeneration < ds.Generation {
+		d.log.Debug("DaemonSet still updating", "daemonset", daemonSetName,
+			"observedGeneration", ds.Status.ObservedGeneration,
+			"generation", ds.Generation)
+		return "updating", nil
 	}
 
-	if ds.Status.UpdatedNumberScheduled == ds.Status.DesiredNumberScheduled &&
-		ds.Status.NumberReady == ds.Status.DesiredNumberScheduled {
-		return "completed", nil
+	// DaemonSet 的期望数量是节点数量
+	// 检查是否所有Pod都已更新
+	if ds.Status.UpdatedNumberScheduled < ds.Status.DesiredNumberScheduled {
+		d.log.Debug("DaemonSet rolling update in progress", "daemonset", daemonSetName,
+			"desiredNumberScheduled", ds.Status.DesiredNumberScheduled,
+			"updatedNumberScheduled", ds.Status.UpdatedNumberScheduled)
+		return "rolling", nil
 	}
 
-	if ds.Status.NumberReady > 0 {
-		return "running", nil
+	// 检查是否所有Pod都已就绪
+	if ds.Status.NumberReady < ds.Status.DesiredNumberScheduled {
+		d.log.Debug("DaemonSet waiting for pods to be ready", "daemonset", daemonSetName,
+			"desiredNumberScheduled", ds.Status.DesiredNumberScheduled,
+			"numberReady", ds.Status.NumberReady)
+		return "waiting", nil
 	}
 
-	return "pending", nil
+	// 检查是否所有Pod都可用
+	if ds.Status.NumberAvailable < ds.Status.DesiredNumberScheduled {
+		d.log.Debug("DaemonSet waiting for pods to be available", "daemonset", daemonSetName,
+			"desiredNumberScheduled", ds.Status.DesiredNumberScheduled,
+			"numberAvailable", ds.Status.NumberAvailable)
+		return "waiting", nil
+	}
+
+	// 全部条件满足 - 发布完成
+	d.log.Info("DaemonSet rollout successful", "daemonset", daemonSetName,
+		"desiredNumberScheduled", ds.Status.DesiredNumberScheduled,
+		"updatedNumberScheduled", ds.Status.UpdatedNumberScheduled,
+		"numberReady", ds.Status.NumberReady,
+		"numberAvailable", ds.Status.NumberAvailable)
+	return "completed", nil
 }
 
 // getContainerNames extracts container names from a deployment spec
@@ -968,4 +1181,108 @@ func isPodOwnedByReplicaSet(pod *corev1.Pod, rs *appsv1.ReplicaSet) bool {
 	}
 	
 	return false
+}
+
+// collectDeploymentDiagnostics 收集部署诊断信息
+// Phase 1: 增强超时诊断
+func (d *K8sDeployer) collectDeploymentDiagnostics(ctx context.Context, clientset kubernetes.Interface, namespace, deploymentName string) string {
+	deploymentsClient := clientset.AppsV1().Deployments(namespace)
+	rsClient := clientset.AppsV1().ReplicaSets(namespace)
+	podsClient := clientset.CoreV1().Pods(namespace)
+	
+	var diagMsg strings.Builder
+	
+	// 1. 获取Deployment状态
+	deployment, err := deploymentsClient.Get(ctx, deploymentName, metav1.GetOptions{})
+	if err == nil && deployment != nil {
+		diagMsg.WriteString(fmt.Sprintf("Deployment status: [Desired=%d, Updated=%d, Ready=%d, Available=%d], ",
+			deployment.Spec.Replicas, deployment.Status.UpdatedReplicas, deployment.Status.ReadyReplicas, deployment.Status.AvailableReplicas))
+		
+		// 检查是否有进度条件
+		for _, cond := range deployment.Status.Conditions {
+			if cond.Type == "Progressing" {
+				diagMsg.WriteString(fmt.Sprintf("Progressing[%s]: %s, ", cond.Reason, cond.Message))
+			}
+		}
+	}
+	
+	// 2. 获取ReplicaSet状态
+	rsList, err := rsClient.List(ctx, metav1.ListOptions{
+		LabelSelector: metav1.FormatLabelSelector(deployment.Spec.Selector),
+	})
+	if err == nil && rsList != nil {
+		diagMsg.WriteString(fmt.Sprintf("ReplicaSets: [Count=%d], ", len(rsList.Items)))
+		for _, rs := range rsList.Items {
+			diagMsg.WriteString(fmt.Sprintf("%s[Desired=%d, Current=%d, Ready=%d, Available=%d], ",
+				rs.Name, rs.Spec.Replicas, rs.Status.Replicas, rs.Status.ReadyReplicas, rs.Status.AvailableReplicas))
+		}
+	}
+	
+	// 3. 获取Pod状态和错误信息
+	podList, err := podsClient.List(ctx, metav1.ListOptions{
+		LabelSelector: metav1.FormatLabelSelector(deployment.Spec.Selector),
+	})
+	if err == nil && podList != nil {
+		diagMsg.WriteString(fmt.Sprintf("Pods: [Total=%d], ", len(podList.Items)))
+		
+		failedPods := 0
+		for _, pod := range podList.Items {
+			// 检查Pod容器错误
+			if errorReason := getPodErrorReason(&pod); errorReason != "" {
+				failedPods++
+				diagMsg.WriteString(fmt.Sprintf("Pod %s error: %s, ", pod.Name, errorReason))
+			}
+		}
+		
+		if failedPods == 0 && len(podList.Items) > 0 {
+			diagMsg.WriteString("All pods are in progress (Pending or Running)")
+		}
+	}
+	
+	return diagMsg.String()
+}
+
+// getPodErrorReason 提取Pod的错误原因
+// Phase 1: 容器状态检查
+func getPodErrorReason(pod *corev1.Pod) string {
+	if pod == nil {
+		return ""
+	}
+	
+	// 检查Pod阶段
+	if pod.Status.Phase == corev1.PodFailed {
+		return fmt.Sprintf("Pod phase Failed: %s", pod.Status.Reason)
+	}
+	
+	// 检查容器状态
+	for _, containerStatus := range pod.Status.ContainerStatuses {
+		if containerStatus.State.Waiting != nil {
+			reason := containerStatus.State.Waiting.Reason
+			message := containerStatus.State.Waiting.Message
+			
+			// 记录所有的Waiting原因
+			switch reason {
+			case "ImagePullBackOff", "ErrImagePull", "RegistryUnavailable":
+				return fmt.Sprintf("Container %s: %s - %s", containerStatus.Name, reason, message)
+			case "CrashLoopBackOff":
+				return fmt.Sprintf("Container %s: %s (restarted %d times)", containerStatus.Name, reason, containerStatus.RestartCount)
+			case "CreateContainerConfigError":
+				return fmt.Sprintf("Container %s: Config error - %s", containerStatus.Name, message)
+			case "InvalidImageName":
+				return fmt.Sprintf("Container %s: Invalid image name - %s", containerStatus.Name, message)
+			default:
+				// 其他Waiting原因
+				if message != "" {
+					return fmt.Sprintf("Container %s: %s - %s", containerStatus.Name, reason, message)
+				}
+			}
+		}
+		
+		if containerStatus.State.Terminated != nil && containerStatus.State.Terminated.ExitCode != 0 {
+			return fmt.Sprintf("Container %s terminated with exit code %d: %s", 
+				containerStatus.Name, containerStatus.State.Terminated.ExitCode, containerStatus.State.Terminated.Reason)
+		}
+	}
+	
+	return ""
 }

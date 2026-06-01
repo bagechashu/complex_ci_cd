@@ -31,6 +31,7 @@ type ServiceContainer struct {
 	log           *logger.Logger
 	db            *sql.DB
 	encryptionKey string
+	eventBus      EventBus
 }
 
 // Option is a functional option for ServiceContainer
@@ -66,6 +67,9 @@ func NewServiceContainer(
 	// Create DeployerFactory with encryption key
 	c.deployerFact = deployers.NewDeployerFactory(log, c.encryptionKey)
 
+	// Create EventBus for real-time event streaming
+	c.eventBus = NewSimpleEventBus(log)
+
 	// Validate that all required repositories are set
 	if err := c.validate(); err != nil {
 		return nil, err
@@ -86,7 +90,7 @@ func NewServiceContainer(
 	if c.releaseRepo != nil && c.workloadRepo != nil && c.clusterRepo != nil && c.appRepo != nil && c.eventRepo != nil {
 		c.releaseService = NewReleaseService(
 			c.releaseRepo, c.workloadRepo, c.clusterRepo, c.appRepo, c.eventRepo,
-			c.deployerFact, log, db,
+			c.deployerFact, log, db, c.eventBus,
 		)
 	}
 
@@ -245,6 +249,7 @@ func (c *ServiceContainer) Application() *ApplicationService { return c.applicat
 func (c *ServiceContainer) Cluster() *ClusterService { return c.clusterService }
 func (c *ServiceContainer) Release() *ReleaseService { return c.releaseService }  // 新增
 func (c *ServiceContainer) Shell() *ShellService { return c.shellService }
+func (c *ServiceContainer) EventBus() EventBus { return c.eventBus }
 func (c *ServiceContainer) Workload() *WorkloadService { 
 	return NewWorkloadService(c.workloadRepo, c.appRepo, c.envRepo, c.clusterRepo, c.log)
 }

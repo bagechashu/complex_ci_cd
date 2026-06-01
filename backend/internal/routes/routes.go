@@ -40,6 +40,8 @@ func NewRouter(container *services.ServiceContainer, log *logger.Logger) http.Ha
         r.Post("/releases", releases.Create(container.Release(), log))
         r.Get("/releases/{id}", releases.Get(container.Release(), log))
         r.Get("/releases/{id}/events", releases.ListEvents(container.Release(), log))
+        r.Get("/releases/{id}/stream", releases.StreamReleaseEvents(container.Release(), log, container.EventBus()))
+        r.Get("/releases/{id}/status", releases.PollReleaseStatus(container.Release(), log))
         r.Post("/releases/{id}/rollback", releases.Rollback(container.Release(), log))
         
         r.Get("/clusters", clusters.ListClustersHandler(container.Cluster(), log))
